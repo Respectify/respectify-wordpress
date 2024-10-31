@@ -13,11 +13,12 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Deploy to FTP server (test WP site)
-      uses: SamKirkland/FTP-Deploy-Action@4.1.0
+    - name: Deploy to SFTP server
+      uses: appleboy/scp-action@v0.1.0
       with:
-        ftp-server: sftp://opal15.opalstack.com
-        ftp-username: ${{ secrets.FTP_USERNAME }}
-        ftp-password: ${{ secrets.FTP_PASSWORD }}
-        local-dir: ./respectify/
-        server-dir: /home/vintagedave/apps/respectify-test/wp-content/plugins/respectify
+        host: ${{ secrets.SFTP_HOST }}
+        username: ${{ secrets.SFTP_USERNAME }}
+        password: ${{ secrets.SFTP_PASSWORD }}
+        port: ${{ secrets.SFTP_PORT }}
+        source: "./respectify/*"
+        target: "/home/vintagedave/apps/respectify-test/wp-content/plugins/respectify"
