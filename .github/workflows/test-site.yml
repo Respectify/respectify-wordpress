@@ -19,16 +19,30 @@ jobs:
         ssh-keyscan -p ${{ secrets.SFTP_PORT }} ${{ secrets.SFTP_HOST }} >> ~/.ssh/known_hosts
 
     - name: Change to repository directory
-      run: cd ${{ github.workspace }} && cd respectify && echo "Respecitfy directory:" && pwd && ls -la
+      run: cd ${{ github.workspace }} && cd respectify && echo "Respectify directory:" && pwd && ls -la
+
+    # - name: Deploy to SFTP server
+    #   env:
+    #     RSYNC_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
+    #   run: |
+    #     cd respectify
+    #     echo "Current directory:"
+    #     pwd
+    #     echo "Contents of the current directory:"
+    #     ls -la
+    #     rsync -avz --progress -e "ssh -p ${{ secrets.SFTP_PORT }}" . ${{ secrets.SFTP_USERNAME }}@${{ secrets.SFTP_HOST }}:/home/vintagedave/apps/respectify-test/wp-content/plugins/respectify/
 
     - name: Deploy to SFTP server
       env:
-        RSYNC_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
+        SFTP_USERNAME: ${{ secrets.SFTP_USERNAME }}
+        SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
       run: |
+        cd respectify
         echo "Current directory:"
         pwd
-        echo "Contents of the current directory:"
-        ls -la
-        rsync -avz --progress -e "ssh -p ${{ secrets.SFTP_PORT }}" . ${{ secrets.SFTP_USERNAME }}@${{ secrets.SFTP_HOST }}:/home/vintagedave/apps/respectify-test/wp-content/plugins/respectify/
+        lftp -u ${{ secrets.SFTP_USERNAME }},${{ secrets.SFTP_PASSWORD }} -p ${{ secrets.SFTP_PORT }} sftp://${{ secrets.SFTP_HOST }} <<EOF
+        mirror -R . /home/vintagedave/apps/respectify-test/wp-content/plugins/respectify/
+        bye
+        EOF
 
         
