@@ -21,5 +21,9 @@ jobs:
         password: ${{ secrets.SFTP_PASSWORD }}
         port: ${{ secrets.SFTP_PORT }}
         script: |
+          echo "Current directory:"
+          pwd
+          echo "Contents of the current directory:"
+          ls -la
           mkdir -p /home/vintagedave/apps/respectify-test/wp-content/plugins/respectify
           rsync -avz ./respectify/ /home/vintagedave/apps/respectify-test/wp-content/plugins/
