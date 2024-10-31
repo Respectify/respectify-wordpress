@@ -13,6 +13,9 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
+    - name: Change to repository directory
+      run: cd ${{ github.workspace }} &&  echo "Repo directory:" && pwd && ls -la
+
     - name: Deploy to SFTP server
       uses: appleboy/ssh-action@master
       with:
@@ -25,5 +28,5 @@ jobs:
           pwd
           echo "Contents of the current directory:"
           ls -la
-          mkdir -p /home/vintagedave/apps/respectify-test/wp-content/plugins/respectify
-          rsync -avz ./respectify/ /home/vintagedave/apps/respectify-test/wp-content/plugins/
+          #mkdir -p /home/vintagedave/apps/respectify-test/wp-content/plugins/respectify
+          #rsync -avz ./respectify/ /home/vintagedave/apps/respectify-test/wp-content/plugins/
