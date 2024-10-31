@@ -246,8 +246,8 @@ class Respectify {
 	 * Plus the CSS as well.
      */
     public function enqueue_scripts_and_styles() {
-        wp_enqueue_script('respectify-comments', plugin_dir_url(__FILE__) . 'public/js/respectify-comments.js', array('jquery'), null, true);
+        wp_enqueue_script('respectify-comments', plugins_url('public/js/respectify-comments.js', __DIR__), array('jquery'), null, true);
 		
-		wp_enqueue_style('respectify-comments', plugin_dir_url(__FILE__) . 'public/css/respectify-comments.css');
+		wp_enqueue_style('respectify-comments', plugins_url('public/css/respectify-comments.css', __DIR__));
 	}
 }
