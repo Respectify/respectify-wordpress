@@ -13,15 +13,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Set up SSH
-      uses: webfactory/ssh-agent@v0.5.3
+    - name: Deploy to FTP server (test WP site)
+      uses: SamKirkland/FTP-Deploy-Action@4.1.0
       with:
-        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-    - name: Sync files to server
-      run: |
-        rsync -avz --delete \
-          -e "ssh -o StrictHostKeyChecking=no" \
-          ./respectify/ \
-          vintagedave@opal15.opalstack.com/home/vintagedave/apps/respectify-test/wp-content/plugins/respectify
-          
+        ftp-server: sftp://opal15.opalstack.com
+        ftp-username: ${{ secrets.FTP_USERNAME }}
+        ftp-password: ${{ secrets.FTP_PASSWORD }}
+        local-dir: ./respectify/
+        server-dir: /home/vintagedave/apps/respectify-test/wp-content/plugins/respectify
