@@ -13,12 +13,29 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
+    - name: Install lftp
+      run: sudo apt-get update && sudo apt-get install -y lftp
+
+    - name: Add remote host to known hosts
+      run: |
+        mkdir -p ~/.ssh
+        ssh-keyscan -p ${{ secrets.SFTP_PORT }} ${{ secrets.SFTP_HOST }} >> ~/.ssh/known_hosts
+
+    - name: Change to repository directory
+      run: cd ${{ github.workspace }} && cd respectify && echo "Respectify directory:" && pwd && ls -la
+
     - name: Deploy to SFTP server
-      uses: appleboy/scp-action@v0.1.0
-      with:
-        host: ${{ secrets.SFTP_HOST }}
-        username: ${{ secrets.SFTP_USERNAME }}
-        password: ${{ secrets.SFTP_PASSWORD }}
-        port: ${{ secrets.SFTP_PORT }}
-        source: "./respectify/*"
-        target: "/home/vintagedave/apps/respectify-test/wp-content/plugins/respectify"
+      env:
+        SFTP_USERNAME: ${{ secrets.SFTP_USERNAME }}
+        SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
+      run: |
+        cd respectify
+        echo "Current directory:"
+        pwd
+        lftp -u ${{ secrets.SFTP_USERNAME }},${{ secrets.SFTP_PASSWORD }} -p ${{ secrets.SFTP_PORT }} sftp://${{ secrets.SFTP_HOST }} <<EOF
+        # This requires the respectify remote folder to already exist
+        mirror -R . /home/vintagedave/apps/respectify-test/wp-content/plugins/respectify/
+        bye
+        EOF
+
+        
