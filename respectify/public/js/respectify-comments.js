@@ -14,7 +14,8 @@ jQuery(document).ready(function($) {
                     form.unbind('submit').submit();
                 } else {
                     // Display the error message
-                    $('.respectify-error-message').remove(); // Remove any existing error messages
+                    $('#commentform .comment-form-comment .respectify-error-message').remove();
+
                     $('#commentform .comment-form-comment').append('<p class="respectify-error-message">' + response.data + '</p>');
                 }
             },
