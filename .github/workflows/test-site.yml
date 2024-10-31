@@ -21,4 +21,4 @@ jobs:
         password: ${{ secrets.SFTP_PASSWORD }}
         port: ${{ secrets.SFTP_PORT }}
         source: "./respectify/"
-        target: "/home/vintagedave/apps/respectify-test/wp-content/plugins/respectify"
+        target: "/home/vintagedave/apps/respectify-test/wp-content/plugins"
