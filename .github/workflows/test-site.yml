@@ -1,4 +1,4 @@
-yname: Deploy to Test WordPress Site
+name: Deploy to Test WordPress Site
 
 on:
   push:
