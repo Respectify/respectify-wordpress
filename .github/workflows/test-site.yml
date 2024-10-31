@@ -22,4 +22,4 @@ jobs:
         port: ${{ secrets.SFTP_PORT }}
         script: |
           mkdir -p /home/vintagedave/apps/respectify-test/wp-content/plugins/respectify
-          rsync -avz ./respectify/ /home/vintagedave/apps/respectify-test/wp-content/plugins/respectify/
+          rsync -avz ./respectify/ /home/vintagedave/apps/respectify-test/wp-content/plugins/
