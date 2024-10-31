@@ -81,6 +81,8 @@ class Respectify {
 
 		// Intercept comments before they are inserted into the database
 		add_filter('preprocess_comment', array($this, 'intercept_comment'));
+		// JS and CSS must be included too
+		add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts_and_styles'));
 	}
 
 	/**
@@ -224,19 +226,28 @@ class Respectify {
 	* @param array $commentdata The comment data.
 	* @return array Modified comment data.
 	*/
-   public function intercept_comment($commentdata) {
-	   // Example: Add a prefix to the comment content
-	   $commentdata['comment_content'] = '[Intercepted] ' . $commentdata['comment_content'];
+	public function intercept_comment($commentdata) {
+		// Example: Add a prefix to the comment content
+		$commentdata['comment_content'] = '[Intercepted] ' . $commentdata['comment_content'];
 
-	   // Example: Reject comments containing certain words
-	   $forbidden_words = array('hello', 'world');
-	   foreach ($forbidden_words as $word) {
-		   if (stripos($commentdata['comment_content'], $word) !== false) {
-			   wp_die('Your comment contains forbidden words.');
-		   }
-	   }
+		// Example: Reject comments containing certain words
+		$forbidden_words = array('hello', 'world');
+		foreach ($forbidden_words as $word) {
+			if (stripos($commentdata['comment_content'], $word) !== false) {
+				wp_send_json_error('Your comment contains forbidden words.');
+			}
+		}
 
-	   return $commentdata;
-   }
+		return $commentdata;
+	}
 
+	/**
+     * Enqueue the JavaScript file to handle comment feedback
+	 * Plus the CSS as well.
+     */
+    public function enqueue_scripts_and_styles() {
+        wp_enqueue_script('respectify-comments', plugin_dir_url(__FILE__) . 'public/js/respectify-comments.js', array('jquery'), null, true);
+		
+		wp_enqueue_style('respectify-comments', plugin_dir_url(__FILE__) . 'public/css/respectify-comments.css');
+	}
 }
