@@ -79,6 +79,8 @@ class Respectify {
 		$this->define_admin_hooks();
 		$this->define_public_hooks();
 
+		// Intercept comments before they are inserted into the database
+		add_filter('preprocess_comment', array($this, 'intercept_comment'));
 	}
 
 	/**
@@ -214,5 +216,27 @@ class Respectify {
 	public function get_version() {
 		return $this->version;
 	}
+
+
+	/**
+	* Intercept and modify comments before they are inserted into the database.
+	*
+	* @param array $commentdata The comment data.
+	* @return array Modified comment data.
+	*/
+   public function intercept_comment($commentdata) {
+	   // Example: Add a prefix to the comment content
+	   $commentdata['comment_content'] = '[Intercepted] ' . $commentdata['comment_content'];
+
+	   // Example: Reject comments containing certain words
+	   $forbidden_words = array('hello', 'world');
+	   foreach ($forbidden_words as $word) {
+		   if (stripos($commentdata['comment_content'], $word) !== false) {
+			   wp_die('Your comment contains forbidden words.');
+		   }
+	   }
+
+	   return $commentdata;
+   }
 
 }
