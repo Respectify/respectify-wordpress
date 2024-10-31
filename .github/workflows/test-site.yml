@@ -17,22 +17,12 @@ jobs:
       run: cd ${{ github.workspace }} && cd respectify && echo "Respecitfy directory:" && pwd && ls -la
 
     - name: Deploy to SFTP server
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.SFTP_HOST }}
-        username: ${{ secrets.SFTP_USERNAME }}
-        password: ${{ secrets.SFTP_PASSWORD }}
-        port: ${{ secrets.SFTP_PORT }}
-        script: |
-          echo "Current directory:"
-          pwd
-          cd /home/vintagedave/apps/respectify-test/wp-content/plugins
-          echo "Current directory:"
-          pwd
-          echo "Contents of the current directory:"
-          ls -la
-          mkdir -p /home/vintagedave/apps/respectify-test/wp-content/plugins/respectify
-          cd respectify
-          echo "in new folder"
-          pwd
-          #rsync -avz ./ /home/vintagedave/apps/respectify-test/wp-content/plugins/respectify
+      run: |
+        echo "Current directory:"
+        pwd
+        echo "Contents of the current directory:"
+        ls -la
+        rsync -avz --progress -e "ssh -p ${{ secrets.SFTP_PORT }}" ./respectify/ ${{ secrets.SFTP_USERNAME }}@${{ secrets.SFTP_HOST }}:/home/vintagedave/apps/respectify-test/wp-content/plugins/respectify/
+      env:
+        RSYNC_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
+        
