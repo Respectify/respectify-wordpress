@@ -13,6 +13,9 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
+    - name: Install lftp
+      run: sudo apt-get update && sudo apt-get install -y lftp
+
     - name: Add remote host to known hosts
       run: |
         mkdir -p ~/.ssh
