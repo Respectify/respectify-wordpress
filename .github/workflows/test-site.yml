@@ -26,6 +26,9 @@ jobs:
         script: |
           echo "Current directory:"
           pwd
+          cd /home/vintagedave/apps/respectify-test/wp-content/plugins
+          echo "Current directory:"
+          pwd
           echo "Contents of the current directory:"
           ls -la
           #mkdir -p /home/vintagedave/apps/respectify-test/wp-content/plugins/respectify
