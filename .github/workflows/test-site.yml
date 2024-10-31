@@ -1,0 +1,24 @@
+name: Deploy to Test WordPress Site
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Deploy to SFTP server
+      uses: appleboy/scp-action@v0.1.0
+      with:
+        host: ${{ secrets.SFTP_HOST }}
+        username: ${{ secrets.SFTP_USERNAME }}
+        password: ${{ secrets.SFTP_PASSWORD }}
+        port: ${{ secrets.SFTP_PORT }}
+        source: "./respectify/*"
+        target: "/home/vintagedave/apps/respectify-test/wp-content/plugins/respectify"
