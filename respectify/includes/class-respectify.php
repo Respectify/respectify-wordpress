@@ -234,7 +234,7 @@ class Respectify {
 		$forbidden_words = array('hello', 'world');
 		foreach ($forbidden_words as $word) {
 			if (stripos($commentdata['comment_content'], $word) !== false) {
-				wp_send_json_error('Your comment contains forbidden words.');
+				wp_send_json_error('Your comment had an issue.');
 			}
 		}
 
