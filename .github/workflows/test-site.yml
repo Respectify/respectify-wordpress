@@ -31,5 +31,8 @@ jobs:
           pwd
           echo "Contents of the current directory:"
           ls -la
-          #mkdir -p /home/vintagedave/apps/respectify-test/wp-content/plugins/respectify
+          mkdir -p /home/vintagedave/apps/respectify-test/wp-content/plugins/respectify
+          cd respectify
+          echo "in new folder"
+          pwd
           #rsync -avz ./ /home/vintagedave/apps/respectify-test/wp-content/plugins/respectify
