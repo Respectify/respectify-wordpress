@@ -67,7 +67,7 @@ register_deactivation_hook( __FILE__, 'deactivate_respectify' );
  * The core plugin class that is used to define internationalization,
  * admin-specific hooks, and public-facing site hooks.
  */
-require plugin_dir_path( __FILE__ ) . 'includes/class-respectify.php';
+require plugin_dir_path( __FILE__ ) . 'includes/class-respectify-wordpress-plugin.php';
 
 use Respectify\RespectifyWordpressPlugin;
 
