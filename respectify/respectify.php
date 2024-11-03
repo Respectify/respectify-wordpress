@@ -82,7 +82,7 @@ use Respectify\RespectifyWordpressPlugin;
  */
 function run_respectify() {
 
-	$plugin = new RespectifyWordpressPlugin();
+	$plugin = new Respectify\RespectifyWordpressPlugin();
 	$plugin->run();
 
 }
