@@ -1,0 +1,19 @@
+{
+    "name": "respectify/respectify-wordpress",
+    "description": "Wordpress comment evaluation via the Respectify API",
+    "type": "wordpress-plugin",
+    "require": {
+        "respectify/respectify-php": "^0.2"
+    },
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/vintagedave/respectify-wordpress"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "Respectify\\": "includes/"
+        }
+    }
+}

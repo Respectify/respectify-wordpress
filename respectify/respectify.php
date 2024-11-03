@@ -30,6 +30,11 @@ if ( ! defined( 'WPINC' ) ) {
 	die;
 }
 
+// Include the Composer autoloader
+if (file_exists(__DIR__ . '/vendor/autoload.php')) {
+    require __DIR__ . '/vendor/autoload.php';
+}
+
 /**
  * Currently plugin version.
  * Start at version 1.0.0 and use SemVer - https://semver.org
@@ -64,12 +69,7 @@ register_deactivation_hook( __FILE__, 'deactivate_respectify' );
  */
 require plugin_dir_path( __FILE__ ) . 'includes/class-respectify.php';
 
-// Include the Composer autoloader
-if (file_exists(__DIR__ . '/vendor/autoload.php')) {
-    require __DIR__ . '/vendor/autoload.php';
-}
-
-use Respectify\RespectifyPlugin;
+use Respectify\RespectifyWordpressPlugin;
 
 /**
  * Begins execution of the plugin.
