@@ -1,5 +1,7 @@
 <?php
 
+namespace Respectify;
+
 /**
  * The file that defines the core plugin class
  *
@@ -27,7 +29,7 @@
  * @subpackage Respectify/includes
  * @author     David Millington <vintagedave@gmail.com>
  */
-class Respectify {
+class RespectifyWordpressPlugin {
 
 	/**
 	 * The loader that's responsible for maintaining and registering all hooks that power
@@ -221,14 +223,66 @@ class Respectify {
 
 
 	/**
+	 * Generate the Respectify ID for a post or page, given its content.
+	 *
+	 * @return string The custom ID, as string UUID.
+	 */
+	public function generate_respectify_article_id($post_content) {
+		// Generate a custom ID for the post
+		$article_id = md5($post_content);
+
+		return $article_id;
+	}
+
+	/**
+	 * Find or create a Respectify article ID for a post or page.
+	 *
+	 * @return string The custom ID, as string UUID.
+	 */
+	public function get_respectify_article_id($post_id) {
+		// Check if the custom ID exists for the post
+        $article_id = get_post_meta($post_id, '_respectify_article_id', true);
+
+        // If the custom ID does not exist, create it and save it as post meta
+        if (empty($article_id)) {
+			$post_content = get_post_field('post_content', $post_id);
+
+            $article_id = $this->generate_respectify_article_id($post_content);
+            update_post_meta($post_id, '_respectify_article_id', $article_id);
+        }	
+	}
+
+	/**
+	 * Get Wordpress's own ID for a post or page.
+	 *
+	 * @return string Wordpress post ID.
+	 */
+	public function get_post_id_from_comment($commentdata) {
+		// Get the post ID from the comment
+		if (isset($commentdata['comment_post_ID'])) {
+            return $commentdata['comment_post_ID'];
+        }
+
+        return null;
+	}
+
+
+	/**
 	* Intercept and modify comments before they are inserted into the database.
 	*
 	* @param array $commentdata The comment data.
 	* @return array Modified comment data.
 	*/
 	public function intercept_comment($commentdata) {
+		$post_id = get_post_id_from_comment($commentdata);
+		if ($post_id == null) {
+			return; // !!! log an error, but allow the comment to go through
+		}
+		$article_id = get_respectify_article_id($post_id);
+
+
 		// Example: Add a prefix to the comment content
-		$commentdata['comment_content'] = '[Intercepted] ' . $commentdata['comment_content'];
+		//$commentdata['comment_content'] = '[Intercepted] ' . $commentdata['comment_content'];
 
 		// Example: Reject comments containing certain words
 		$forbidden_words = array('hello', 'world');

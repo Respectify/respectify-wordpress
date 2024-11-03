@@ -64,6 +64,13 @@ register_deactivation_hook( __FILE__, 'deactivate_respectify' );
  */
 require plugin_dir_path( __FILE__ ) . 'includes/class-respectify.php';
 
+// Include the Composer autoloader
+if (file_exists(__DIR__ . '/vendor/autoload.php')) {
+    require __DIR__ . '/vendor/autoload.php';
+}
+
+use Respectify\RespectifyPlugin;
+
 /**
  * Begins execution of the plugin.
  *
@@ -75,7 +82,7 @@ require plugin_dir_path( __FILE__ ) . 'includes/class-respectify.php';
  */
 function run_respectify() {
 
-	$plugin = new Respectify();
+	$plugin = new RespectifyWordpressPlugin();
 	$plugin->run();
 
 }
