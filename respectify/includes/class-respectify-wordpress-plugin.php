@@ -247,7 +247,7 @@ class RespectifyWordpressPlugin {
 			$post_content = get_post_field('post_content', $post_id);
 
             $article_id = $this->generate_respectify_article_id($post_content);
-            update_post_meta($post_id, '_respectify_article_id', $article_id);
+            //update_post_meta($post_id, '_respectify_article_id', $article_id);
         }	
 	}
 
@@ -273,12 +273,18 @@ class RespectifyWordpressPlugin {
 	* @return array Modified comment data.
 	*/
 	public function intercept_comment($commentdata) {
-		$post_id = get_post_id_from_comment($commentdata);
+		$post_id = $this->get_post_id_from_comment($commentdata);
 		if ($post_id == null) {
+			error_log('Could not get post_id');
+			wp_send_json_error('Could not get post_id');
 			return; // !!! log an error, but allow the comment to go through
 		}
-		$article_id = get_respectify_article_id($post_id);
-
+		$article_id = $this->get_respectify_article_id($post_id);
+		if ($article_id == null) {
+			error_log('Could not get article_id');
+			wp_send_json_error('Could not get article_id');
+			return; // !!! log an error, but allow the comment to go through
+		}
 
 		// Example: Add a prefix to the comment content
 		//$commentdata['comment_content'] = '[Intercepted] ' . $commentdata['comment_content'];
@@ -287,6 +293,7 @@ class RespectifyWordpressPlugin {
 		$forbidden_words = array('hello', 'world');
 		foreach ($forbidden_words as $word) {
 			if (stripos($commentdata['comment_content'], $word) !== false) {
+				error_log('Comment rejected: ' . $commentdata['comment_content']);
 				wp_send_json_error('Your comment had an issue.');
 			}
 		}
