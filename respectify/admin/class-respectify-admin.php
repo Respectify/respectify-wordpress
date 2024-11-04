@@ -1,4 +1,5 @@
 <?php
+namespace Respectify; 
 
 /**
  * The admin-specific functionality of the plugin.

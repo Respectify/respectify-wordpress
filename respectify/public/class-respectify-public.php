@@ -1,4 +1,5 @@
 <?php
+namespace Respectify;
 
 /**
  * The public-facing functionality of the plugin.

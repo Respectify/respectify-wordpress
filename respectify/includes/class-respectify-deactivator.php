@@ -1,4 +1,5 @@
 <?php
+namespace Respectify;
 
 /**
  * Fired during plugin deactivation

@@ -35,9 +35,9 @@ if ( ! defined( 'WPINC' ) ) {
 }
 
 // Include the Composer autoloader
-// if (file_exists(__DIR__ . '/vendor/autoload.php')) {
-//     require __DIR__ . '/vendor/autoload.php';
-// }
+if (file_exists(__DIR__ . '/vendor/autoload.php')) {
+    require __DIR__ . '/vendor/autoload.php';
+}
 
 /**
  * Currently plugin version.
@@ -45,6 +45,8 @@ if ( ! defined( 'WPINC' ) ) {
  * Rename this for your plugin and update it as you release new versions.
  */
 define( 'RESPECTIFY_VERSION', '1.0.0' );
+
+use Respectify\Respectify_Activator;
 
 /**
  * The code that runs during plugin activation.
@@ -54,6 +56,8 @@ function activate_respectify() {
 	require_once plugin_dir_path( __FILE__ ) . 'includes/class-respectify-activator.php';
 	Respectify_Activator::activate();
 }
+
+use Respectify\Respectify_Deactivator;
 
 /**
  * The code that runs during plugin deactivation.

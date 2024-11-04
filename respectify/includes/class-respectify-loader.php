@@ -1,4 +1,5 @@
 <?php
+namespace Respectify;
 
 /**
  * Register all actions and filters for the plugin
