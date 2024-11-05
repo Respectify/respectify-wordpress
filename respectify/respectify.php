@@ -34,12 +34,13 @@ if ( ! defined( 'WPINC' ) ) {
 	die;
 }
 
-// Include the Composer autoloader
-if (file_exists(__DIR__ . '/vendor/autoload.php')) {
-    require __DIR__ . '/vendor/autoload.php';
-    error_log('Composer autoloader included successfully.');
+
+// Include the prefixed Composer autoloader
+if (file_exists(__DIR__ . '/build/vendor/scoper-autoload.php')) {
+    require __DIR__ . '/build/vendor/scoper-autoload.php';
+	error_log('Scoper: Composer autoloader included successfully.');
 } else {
-    error_log('Composer autoloader not found.');
+    error_log('Scoper: Composer autoloader not found.');
 }
 
 // if (!class_exists('Respectify\RespectifyClientAsync')) {
