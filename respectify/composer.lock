@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "a4a4fb203dd256e00915d63f0d50f21f",
+    "content-hash": "697d7f24916942c51055ba131e0f4edf",
     "packages": [
         {
             "name": "evenement/evenement",
@@ -969,6 +969,53 @@
                 "source": "https://github.com/vintagedave/respectify-php/tree/v0.2.2"
             },
             "time": "2024-11-03T12:47:11+00:00"
+        },
+        {
+            "name": "sniccowp/php-scoper-wordpress-excludes",
+            "version": "6.6.2",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/snicco/php-scoper-wordpress-excludes.git",
+                "reference": "b87d7455bdf05c25f9a688fc3862bb3f2b7c8b15"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/snicco/php-scoper-wordpress-excludes/zipball/b87d7455bdf05c25f9a688fc3862bb3f2b7c8b15",
+                "reference": "b87d7455bdf05c25f9a688fc3862bb3f2b7c8b15",
+                "shasum": ""
+            },
+            "require-dev": {
+                "php": "^7.4",
+                "php-stubs/wordpress-globals": "0.2.0",
+                "php-stubs/wordpress-stubs": "6.6.2",
+                "sniccowp/php-scoper-excludes": "dev-master"
+            },
+            "type": "library",
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Calvin Alkan",
+                    "email": "calvin@snicco.de"
+                },
+                {
+                    "name": "Marlon Alkan",
+                    "email": "marlon@snicco.de"
+                }
+            ],
+            "description": "A list of all WordPress core classes, functions and constants. Meant to be used with the PHP-Scoper exclusion functionality.",
+            "keywords": [
+                "php-scoper",
+                "scoping WordPress",
+                "wordpress"
+            ],
+            "support": {
+                "issues": "https://github.com/snicco/php-scoper-wordpress-excludes/issues",
+                "source": "https://github.com/snicco/php-scoper-wordpress-excludes/tree/6.6.2"
+            },
+            "time": "2024-10-01T00:32:14+00:00"
         },
         {
             "name": "symfony/deprecation-contracts",

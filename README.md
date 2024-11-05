@@ -8,6 +8,6 @@ This uses `composer` for package management, with `php-scoper` for bundling libr
 
 Use:
 ```bash
-$vendor/bin/php-scoper add-prefix
+$ vendor/bin/php-scoper add-prefix
 ```
 to add the scope prefix (RespectifyScoper, see scoper.inc.php.)
