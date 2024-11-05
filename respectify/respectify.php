@@ -37,7 +37,15 @@ if ( ! defined( 'WPINC' ) ) {
 // Include the Composer autoloader
 if (file_exists(__DIR__ . '/vendor/autoload.php')) {
     require __DIR__ . '/vendor/autoload.php';
+    error_log('Composer autoloader included successfully.');
+} else {
+    error_log('Composer autoloader not found.');
 }
+
+// if (!class_exists('Respectify\RespectifyClientAsync')) {
+//     error_log('Class Respectify\RespectifyClientAsync not found');
+//     throw new Exception('Class Respectify\RespectifyClientAsync not found');
+// }
 
 /**
  * Currently plugin version.

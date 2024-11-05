@@ -1,5 +1,7 @@
 <?php
 namespace Respectify;
+use Respectify\RespectifyClient;
+
 
 /**
  * The file that defines the core plugin class
@@ -59,6 +61,15 @@ class RespectifyWordpressPlugin {
 	protected $version;
 
 	/**
+	 * Respectify client: the PHP library instance for accessing the Respectify API.
+	 *
+	 * @since    1.0.0
+	 * @access   protected
+	 * @var      RespectifyClient    $respectify_client    Respectify client.
+	 */
+	protected RespectifyClientAsync $respectify_client;
+
+	/**
 	 * Define the core functionality of the plugin.
 	 *
 	 * Set the plugin name and the plugin version that can be used throughout the plugin.
@@ -79,6 +90,18 @@ class RespectifyWordpressPlugin {
 		$this->set_locale();
 		$this->define_admin_hooks();
 		$this->define_public_hooks();
+
+
+		if (!class_exists('RespectifyClientAsync')) {
+			error_log('Class RespectifyClientAsync not found!!');
+			throw new \Exception('RespectifyClientAsync not found!');
+		} else {
+			error_log('Class RespectifyClientAsync found successfully.');
+		}
+
+		$email = "vintagedave@gmail.com";
+		$api_key = "ksdjlasjk"; // !!! 
+		$this->respectify_client = new RespectifyClientAsync($email, $api_key);
 
 		// Intercept comments before they are inserted into the database
 		add_filter('preprocess_comment', array($this, 'intercept_comment'));
@@ -228,8 +251,23 @@ class RespectifyWordpressPlugin {
 	 */
 	public function generate_respectify_article_id($post_content) {
 		// Generate a custom ID for the post
-		$article_id = md5($post_content);
+		$article_id = null;
 
+		error_log('Creating article ID for content: ' . substr($post_content, 0, 50) . '...');
+
+		$this->respectify_client->initTopicFromText($post_content)
+			->then(function ($articleId) {
+				error_log('Got article ID: ' . $article_id);
+				$article_id = $articleId;
+			})
+			->otherwise(function (BadRequestException $e) {
+				error_log('Exception in initTopicFromText: ' . $e->getMessage());
+				return null;
+			});
+		
+		$this->respectify_client->run(); // async
+
+		error_log('Returning Respectify article ID: ' . $article_id);
 		return $article_id;
 	}
 
