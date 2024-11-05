@@ -15,5 +15,8 @@
         "psr-4": {
             "Respectify\\": "includes/"
         }
+    },
+    "require-dev": {
+        "humbug/php-scoper": "^0.18.15"
     }
 }
