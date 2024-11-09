@@ -65,26 +65,26 @@ if (class_exists('\RespectifyScoper\Respectify\RespectifyClientAsync')) {
  */
 define( 'RESPECTIFY_VERSION', '1.0.0' );
 
-use Respectify\RespectifyActivator;
+use Respectify\Respectify_Activator;
 
 /**
  * The code that runs during plugin activation.
  * This action is documented in includes/class-respectify-activator.php
  */
 function activate_respectify() {
-	require_once plugin_dir_path( __FILE__ ) . 'includes/RespectifyActivator.php';
-	RespectifyActivator::activate();
+	require_once plugin_dir_path( __FILE__ ) . 'includes/class-respectify-activator.php';
+	Respectify_Activator::activate();
 }
 
-use Respectify\RespectifyDeactivator;
+use Respectify\Respectify_Deactivator;
 
 /**
  * The code that runs during plugin deactivation.
  * This action is documented in includes/class-respectify-deactivator.php
  */
 function deactivate_respectify() {
-	require_once plugin_dir_path( __FILE__ ) . 'includes/RespectifyDeactivator.php';
-	RespectifyDeactivator::deactivate();
+	require_once plugin_dir_path( __FILE__ ) . 'includes/class-respectify-deactivator.php';
+	Respectify_Deactivator::deactivate();
 }
 
 register_activation_hook( __FILE__, 'activate_respectify' );
