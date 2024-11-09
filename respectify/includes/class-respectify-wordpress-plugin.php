@@ -193,7 +193,7 @@ class RespectifyWordpressPlugin {
 	 */
 	private function define_admin_hooks() {
 
-		$plugin_admin = new RespectifyAdmin( $this->get_respectify(), $this->get_version() );
+		$plugin_admin = new Respectify_Admin( $this->get_respectify(), $this->get_version() );
 
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_styles' );
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts' );
