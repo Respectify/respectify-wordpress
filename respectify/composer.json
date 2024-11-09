@@ -14,7 +14,8 @@
     ],
     "autoload": {
         "psr-4": {
-            "Respectify\\": "includes/"
+            "Respectify\\": "includes/",
+            "RespectifyScoper\\Respectify\\": "respectify/respectify-php/src/"
         }
     },
     "require-dev": {

@@ -1,6 +1,6 @@
 <?php
 namespace Respectify;
-use Respectify\RespectifyClient;
+use RespectifyScoper\Respectify\RespectifyClientAsync;
 
 
 /**
@@ -15,6 +15,12 @@ use Respectify\RespectifyClient;
  * @package    Respectify
  * @subpackage Respectify/includes
  */
+
+//  require __DIR__ . '/../build/composer/ClassLoader.php';
+//  error_log('Scoper: loaded ClassLoader successfully.');
+
+// require __DIR__ . '/../build/respectify/respectify-php/src/RespectifyClientAsync.php';
+// error_log('Main plugin: loaded RespectifyClientAsync successfully.');
 
 /**
  * The core plugin class.
@@ -92,12 +98,19 @@ class RespectifyWordpressPlugin {
 		$this->define_public_hooks();
 
 
-		if (!class_exists('RespectifyClientAsync')) {
-			error_log('Class RespectifyClientAsync not found!!');
-			throw new \Exception('RespectifyClientAsync not found!');
+		// if (!class_exists('RespectifyClientAsync')) {
+		// 	error_log('Class RespectifyClientAsync not found!!');
+		// 	throw new \Exception('RespectifyClientAsync not found!');
+		// } else {
+		// 	error_log('Class RespectifyClientAsync found successfully.');
+		// }
+
+		if (class_exists('RespectifyScoper\Respectify\RespectifyClientAsync')) {
+			error_log('zzz RespectifyClientAsync class found.');
 		} else {
-			error_log('Class RespectifyClientAsync found successfully.');
+			error_log('zzz RespectifyClientAsync class not found.');
 		}
+		
 
 		$email = "vintagedave@gmail.com";
 		$api_key = "ksdjlasjk"; // !!! 
@@ -116,7 +129,7 @@ class RespectifyWordpressPlugin {
 	 *
 	 * - Respectify_Loader. Orchestrates the hooks of the plugin.
 	 * - Respectify_i18n. Defines internationalization functionality.
-	 * - Respectify_Admin. Defines all hooks for the admin area.
+	 * - RespectifyAdmin. Defines all hooks for the admin area.
 	 * - Respectify_Public. Defines all hooks for the public side of the site.
 	 *
 	 * Create an instance of the loader which will be used to register the hooks
@@ -180,7 +193,7 @@ class RespectifyWordpressPlugin {
 	 */
 	private function define_admin_hooks() {
 
-		$plugin_admin = new Respectify_Admin( $this->get_respectify(), $this->get_version() );
+		$plugin_admin = new RespectifyAdmin( $this->get_respectify(), $this->get_version() );
 
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_styles' );
 		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts' );

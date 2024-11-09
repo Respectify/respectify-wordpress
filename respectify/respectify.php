@@ -34,13 +34,23 @@ if ( ! defined( 'WPINC' ) ) {
 	die;
 }
 
+// Have to load the classloader, it isn't found for some reason otherwise
+// require __DIR__ . '/build/composer/ClassLoader.php';
+// error_log('Scoper: loaded ClassLoader successfully.');
 
-// Include the prefixed Composer autoloader
-if (file_exists(__DIR__ . '/build/vendor/scoper-autoload.php')) {
-    require __DIR__ . '/build/vendor/scoper-autoload.php';
+// Include the prefixed scoped Composer autoloader
+if (file_exists(__DIR__ . '/build/autoload.php')) {
+    require __DIR__ . '/build/autoload.php';
 	error_log('Scoper: Composer autoloader included successfully.');
 } else {
     error_log('Scoper: Composer autoloader not found.');
+}
+
+// require __DIR__ . '/build/respectify/respectify-php/src/RespectifyClientAsync.php';
+if (class_exists('\RespectifyScoper\Respectify\RespectifyClientAsync')) {
+    error_log('RespectifyClientAsync class found.');
+} else {
+    error_log('RespectifyClientAsync class not found.');
 }
 
 // if (!class_exists('Respectify\RespectifyClientAsync')) {
@@ -55,26 +65,26 @@ if (file_exists(__DIR__ . '/build/vendor/scoper-autoload.php')) {
  */
 define( 'RESPECTIFY_VERSION', '1.0.0' );
 
-use Respectify\Respectify_Activator;
+use Respectify\RespectifyActivator;
 
 /**
  * The code that runs during plugin activation.
  * This action is documented in includes/class-respectify-activator.php
  */
 function activate_respectify() {
-	require_once plugin_dir_path( __FILE__ ) . 'includes/class-respectify-activator.php';
-	Respectify_Activator::activate();
+	require_once plugin_dir_path( __FILE__ ) . 'includes/RespectifyActivator.php';
+	RespectifyActivator::activate();
 }
 
-use Respectify\Respectify_Deactivator;
+use Respectify\RespectifyDeactivator;
 
 /**
  * The code that runs during plugin deactivation.
  * This action is documented in includes/class-respectify-deactivator.php
  */
 function deactivate_respectify() {
-	require_once plugin_dir_path( __FILE__ ) . 'includes/class-respectify-deactivator.php';
-	Respectify_Deactivator::deactivate();
+	require_once plugin_dir_path( __FILE__ ) . 'includes/RespectifyDeactivator.php';
+	RespectifyDeactivator::deactivate();
 }
 
 register_activation_hook( __FILE__, 'activate_respectify' );
