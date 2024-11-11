@@ -150,11 +150,25 @@ function respectify_test_credentials() {
 
     // Instantiate your API client and test credentials
     $client = new \RespectifyScoper\Respectify\RespectifyClientAsync($email, $api_key);
-    $response = true;// $client->testCredentials(); // Replace with the actual method to test credentials
+    $promise = $client->checkUserCredentials();
 
-    if ($response === true) {
-        wp_send_json_success(array('message' => 'Credentials are valid.'));
-    } else {
-        wp_send_json_error(array('message' => 'Invalid credentials.'));
-    }
+    $promise->then(
+        function ($result) {
+            list($success, $info) = $result;
+            if ($success) {
+                wp_send_json_success(array('message' => "✅ Authorization successful - you're good to go!"));
+            } else {
+                wp_send_json_error(array('message' => '⚠️ ' . $info));
+            }
+        },
+        function ($error) {
+            $errorMessage = 'Error: ' . $error->getMessage();
+            if ($error->getCode() === 401) {
+                $errorMessage = '⛔️ Unauthorized. This means there was an error with the email and/or API key. Please check them and try again.';
+            }
+            wp_send_json_error(array('message' => $errorMessage));
+        }
+    );
+
+    $client->run();
 }
