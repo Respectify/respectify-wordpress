@@ -6,12 +6,6 @@
         "respectify/respectify-php": "^0.2",
         "sniccowp/php-scoper-wordpress-excludes": "^6.6"
     },
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "https://github.com/vintagedave/respectify-wordpress"
-        }
-    ],
     "autoload": {
         "psr-4": {
             "Respectify\\": "includes/",
