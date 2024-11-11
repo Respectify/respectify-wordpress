@@ -94,13 +94,17 @@ register_deactivation_hook( __FILE__, 'deactivate_respectify' );
  * The core plugin class that is used to define internationalization,
  * admin-specific hooks, and public-facing site hooks.
  */
-require plugin_dir_path( __FILE__ ) . 'includes/class-respectify-wordpress-plugin.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-respectify-wordpress-plugin.php';
 
 
 if (!class_exists('Respectify\RespectifyWordpressPlugin')) {
     error_log('Class Respectify\RespectifyWordpressPlugin not found');
     throw new Exception('Class Respectify\RespectifyWordpressPlugin not found');
 }
+
+// Settings page
+require_once plugin_dir_path( __FILE__ ) . 'admin/settings-page.php';
+
 
 use Respectify\RespectifyWordpressPlugin;
 

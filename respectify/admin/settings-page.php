@@ -1,0 +1,160 @@
+<?php
+use RespectifyScoper\Respectify\RespectifyClientAsync;
+
+// Exit if accessed directly
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
+
+// Add settings page to the admin menu
+add_action('admin_menu', 'respectify_add_settings_page');
+function respectify_add_settings_page() {
+    add_options_page(
+        'Respectify Settings',
+        'Respectify',
+        'manage_options',
+        'respectify',
+        'respectify_render_settings_page'
+    );
+}
+
+// Register settings, sections, and fields
+add_action('admin_init', 'respectify_register_settings');
+function respectify_register_settings() {
+    register_setting('respectify_options_group', 'respectify_email');
+    register_setting('respectify_options_group', 'respectify_api_key_encrypted');
+
+    add_settings_section(
+        'respectify_settings_section',
+        'API Credentials',
+        null,
+        'respectify'
+    );
+
+    add_settings_field(
+        'respectify_email',
+        'Email',
+        'respectify_email_callback',
+        'respectify',
+        'respectify_settings_section'
+    );
+
+    add_settings_field(
+        'respectify_api_key',
+        'API Key',
+        'respectify_api_key_callback',
+        'respectify',
+        'respectify_settings_section'
+    );
+}
+
+// Callback to render email input
+function respectify_email_callback() {
+    $email = get_option('respectify_email', '');
+    echo '<input type="email" name="respectify_email" value="' . esc_attr($email) . '" class="regular-text" required />';
+    echo '<p class="description">Enter the email associated with your Respectify account.</p>';
+}
+
+// Callback to render API key input
+function respectify_api_key_callback() {
+    $encrypted_api_key = get_option('respectify_api_key_encrypted', '');
+    $api_key = '';
+    if ($encrypted_api_key) {
+        $api_key = respectify_decrypt($encrypted_api_key);
+    }
+    echo '<input type="password" name="respectify_api_key" value="' . esc_attr($api_key) . '" class="regular-text" required />';
+    echo '<p class="description">Enter the Respectify API key you wish to use for this site.</p>';
+}
+
+// Encrypt API key before saving
+add_filter('pre_update_option_respectify_api_key_encrypted', 'respectify_encrypt_api_key', 10, 2);
+function respectify_encrypt_api_key($new_value, $old_value) {
+    if (!empty($_POST['respectify_api_key'])) {
+        $api_key = sanitize_text_field($_POST['respectify_api_key']);
+        return respectify_encrypt($api_key);
+    }
+    return $old_value;
+}
+
+// Encryption function
+function respectify_encrypt($data) {
+    $encryption_key = wp_salt('auth');
+    // This prepends random bytes to the encrypted data to create the IV (initialization vector)
+    $iv = openssl_random_pseudo_bytes(openssl_cipher_iv_length('AES-256-CBC'));
+    $encrypted_data = openssl_encrypt($data, 'AES-256-CBC', $encryption_key, 0, $iv);
+    return base64_encode($iv . $encrypted_data);
+}
+
+// Decryption function
+function respectify_decrypt($data) {
+    $encryption_key = wp_salt('auth');
+    $data = base64_decode($data);
+    $iv_length = openssl_cipher_iv_length('AES-256-CBC');
+    $iv = substr($data, 0, $iv_length);
+    // Undo the random bytes that were prepended to the encrypted data
+    $encrypted_data = substr($data, $iv_length);
+    return openssl_decrypt($encrypted_data, 'AES-256-CBC', $encryption_key, 0, $iv);
+}
+
+// Render the settings page
+function respectify_render_settings_page() {
+    ?>
+    <div class="wrap">
+        <h1>Respectify Settings</h1>
+        <form method="post" action="options.php">
+            <?php
+            settings_fields('respectify_options_group');
+            do_settings_sections('respectify');
+            ?>
+            <div class="respectify-test-container">
+                <button type="button" id="respectify-test-button" class="button">Test</button>
+                <span id="respectify-test-result"></span>   
+            </div>
+            <p>Click 'Test' to verify the email and API key are working correctly.</p>
+            <?php
+            submit_button();
+            ?>
+        </form>
+        <div id="respectify-test-result"></div>
+    </div>
+    <?php
+}
+
+// Enqueue admin scripts
+add_action('admin_enqueue_scripts', 'respectify_enqueue_admin_scripts');
+function respectify_enqueue_admin_scripts($hook_suffix) {
+    if ($hook_suffix != 'settings_page_respectify') {
+        return;
+    }
+    wp_enqueue_script('respectify-admin-js', plugin_dir_url(__FILE__) . '../js/respectify-admin.js', array('jquery'), '1.0.0', true);
+    wp_localize_script('respectify-admin-js', 'respectify_ajax_object', array(
+        'ajax_url' => admin_url('admin-ajax.php'),
+        'nonce'    => wp_create_nonce('respectify_test_nonce'),
+    ));
+}
+
+require_once plugin_dir_path( __FILE__ ) . '../includes/class-respectify-wordpress-plugin.php';
+
+// Handle AJAX request for testing credentials
+add_action('wp_ajax_respectify_test_credentials', 'respectify_test_credentials');
+function respectify_test_credentials() {
+    check_ajax_referer('respectify_test_nonce', 'nonce');
+
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('Unauthorized');
+    }
+
+    $email = get_option('respectify_email', '');
+    $encrypted_api_key = get_option('respectify_api_key_encrypted', '');
+    $api_key = respectify_decrypt($encrypted_api_key);
+
+    // Instantiate your API client and test credentials
+    $client = new \RespectifyScoper\Respectify\RespectifyClientAsync($email, $api_key);
+    $response = true;// $client->testCredentials(); // Replace with the actual method to test credentials
+
+    if ($response === true) {
+        wp_send_json_success(array('message' => 'Credentials are valid.'));
+    } else {
+        wp_send_json_error(array('message' => 'Invalid credentials.'));
+    }
+}

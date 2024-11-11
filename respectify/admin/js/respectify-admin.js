@@ -29,4 +29,36 @@
 	 * practising this, we should strive to set a better example in our own work.
 	 */
 
+	// For the admin page, button to test credentials
+    $(document).ready(function() {
+        // For the admin page, button to test credentials
+        $('#respectify-test-button').on('click', function() {
+            $('#respectify-test-result').html('Testing...');
+            $.post(respectify_ajax_object.ajax_url, {
+                action: 'respectify_test_credentials',
+                nonce: respectify_ajax_object.nonce
+            }, function(response) {
+                if (response.success) {
+					// Check that a JSON response with a message param was recieved (see settings-page.php, respectify_test_credentials())
+                    if (response.data && response.data.message) {
+                        $('#respectify-test-result').html('<span style="color:green;">' + response.data.message + '</span>');
+                    } else {
+                        console.log('Success response but no message:', response);
+                        $('#respectify-test-result').html('<span style="color:green;">Success, but no message provided. Try using Respectify but if you get errors, contact Support.</span>');
+                    }
+                } else {
+                    if (response.data && response.data.message) {
+                        $('#respectify-test-result').html('<span style="color:red;">' + response.data.message + '</span>');
+                    } else {
+                        console.log('Error response but no message:', response);
+                        $('#respectify-test-result').html('<span style="color:red;">An error occurred.</span>');
+                    }
+                }
+            }).fail(function(jqXHR, textStatus, errorThrown) {
+                console.log('AJAX request failed:', textStatus, errorThrown); // Debugging: Log the failure
+                $('#respectify-test-result').html('<span style="color:red;">An error occurred.</span>');
+            });
+        });
+    });
+
 })( jQuery );
