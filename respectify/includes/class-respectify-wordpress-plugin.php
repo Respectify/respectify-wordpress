@@ -98,18 +98,11 @@ class RespectifyWordpressPlugin {
 		$this->define_public_hooks();
 
 
-		// if (!class_exists('RespectifyClientAsync')) {
-		// 	error_log('Class RespectifyClientAsync not found!!');
-		// 	throw new \Exception('RespectifyClientAsync not found!');
+		// if (class_exists('RespectifyScoper\Respectify\RespectifyClientAsync')) {
+		// 	error_log('RespectifyClientAsync class found.');
 		// } else {
-		// 	error_log('Class RespectifyClientAsync found successfully.');
+		// 	error_log('RespectifyClientAsync class not found.');
 		// }
-
-		if (class_exists('RespectifyScoper\Respectify\RespectifyClientAsync')) {
-			error_log('zzz RespectifyClientAsync class found.');
-		} else {
-			error_log('zzz RespectifyClientAsync class not found.');
-		}
 		
 
 		$email = "vintagedave@gmail.com";
@@ -266,21 +259,29 @@ class RespectifyWordpressPlugin {
 		// Generate a custom ID for the post
 		$article_id = null;
 
-		error_log('Creating article ID for content: ' . substr($post_content, 0, 50) . '...');
+		//error_log('Creating article ID for content: ' . substr($post_content, 0, 50) . '...');
 
-		$this->respectify_client->initTopicFromText($post_content)
-			->then(function ($articleId) {
-				error_log('Got article ID: ' . $article_id);
-				$article_id = $articleId;
-			})
-			->otherwise(function (BadRequestException $e) {
+        $promise = $this->respectify_client->initTopicFromText(''); // Empty text is invalid
+        $caughtException = null;
+
+        $promise->then(
+            function ($id) {
+                //error_log('Got article ID: ' . $id);
+				$article_id = $id;
+            },
+            function ($e) use (&$caughtException) {
 				error_log('Exception in initTopicFromText: ' . $e->getMessage());
-				return null;
-			});
-		
-		$this->respectify_client->run(); // async
+                $caughtException = $e;
+            }
+        );
 
-		error_log('Returning Respectify article ID: ' . $article_id);
+        $this->respectify_client->run();
+
+        if ($caughtException) {
+            throw $caughtException;
+        }
+
+		//error_log('Returning Respectify article ID: ' . $article_id);
 		return $article_id;
 	}
 
@@ -292,14 +293,21 @@ class RespectifyWordpressPlugin {
 	public function get_respectify_article_id($post_id) {
 		// Check if the custom ID exists for the post
         $article_id = get_post_meta($post_id, '_respectify_article_id', true);
+		// Validate it really is a UUID
+		//error_log('Checking article ID: ' . $article_id);
 
         // If the custom ID does not exist, create it and save it as post meta
         if (empty($article_id)) {
 			$post_content = get_post_field('post_content', $post_id);
 
             $article_id = $this->generate_respectify_article_id($post_content);
-            //update_post_meta($post_id, '_respectify_article_id', $article_id);
+            //!!!update_post_meta($post_id, '_respectify_article_id', $article_id);
+			//error_log('Got article ID: ' . $article_id);
         }	
+		// Checking it's a GUID
+		assert(!empty($article_id) && !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/', $article_id));
+
+		return $article_id;
 	}
 
 	/**
@@ -333,7 +341,7 @@ class RespectifyWordpressPlugin {
 		$article_id = $this->get_respectify_article_id($post_id);
 		if ($article_id == null) {
 			error_log('Could not get article_id');
-			wp_send_json_error('Could not get article_id');
+			//wp_send_json_error('Could not get article_id');
 			return; // !!! log an error, but allow the comment to go through
 		}
 

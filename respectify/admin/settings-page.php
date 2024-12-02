@@ -1,5 +1,7 @@
 <?php
 use RespectifyScoper\Respectify\RespectifyClientAsync;
+use RespectifyScoper\Respectify\Exceptions\RespectifyException;
+use RespectifyScoper\Respectify\Exceptions\UnauthorizedException;
 
 // Exit if accessed directly
 if ( ! defined( 'ABSPATH' ) ) {
@@ -158,14 +160,18 @@ function respectify_test_credentials() {
             if ($success) {
                 wp_send_json_success(array('message' => "✅ Authorization successful - click Save, and then you're good to go!"));
             } else {
-                wp_send_json_error(array('message' => '⚠️ ' . $info));
+                wp_send_json_error(array('message' => '⛔️ ' . $info));
             }
         },
-        function ($error) {
-            $errorMessage = 'Error: ' . $error->getMessage();
-            if ($error->getCode() === 401) {
-                $errorMessage = '⛔️ Unauthorized. This means there was an error with the email and/or API key. Please check them and try again.';
-            }
+        function ($ex) {
+            // This string is also in the PHP library itself, see checkUserCredentials
+            $unauth_message = '⛔️ Unauthorized. This means there was an error with the email and/or API key. Please check them and try again.';
+
+            $errorMessage = 'Error (' . get_class($ex) . '): ' . $ex->getMessage();
+            // $errorMessage = 'Error: ' . $ex->getMessage();
+            // if ($ex instanceof \RespectifyScoper\Respectify\Exceptions\UnauthorizedException) {
+            //     $errorMessage = unauth_message;
+            // }
             wp_send_json_error(array('message' => $errorMessage));
         }
     );
