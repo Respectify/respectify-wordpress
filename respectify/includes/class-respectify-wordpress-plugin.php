@@ -405,10 +405,20 @@ class RespectifyWordpressPlugin {
 			return; // !!! log an error, but allow the comment to go through
 		}
 
-		$comment_score = $this->evaluate_comment($article_id, $commentdata['comment_content']); 
+		$comment_text = sanitize_text_field($commentdata['comment_content']);
+		$comment_score = $this->evaluate_comment($article_id, $comment_text); 
 
 		$comment_score_str = print_r($comment_score, true);
-		wp_send_json_error('Comment score: ' . $comment_score_str);
+		//wp_send_json_error('Comment score: ' . $comment_score_str);
+
+
+		// Check if the comment is spam or should be intercepted
+		if ($comment_score->isSpam) {
+			// Silently stop the comment from being posted
+			error_log('Comment intercepted as spam: ' . $comment_text . '\n' . print_r($comment_score, true));
+			wp_send_json_success('Your comment was marked as spam.');
+			return; // Stop the comment from being posted
+		}
 
 		// Example: Add a prefix to the comment content
 		//$commentdata['comment_content'] = '[Intercepted] ' . $commentdata['comment_content'];
@@ -421,6 +431,8 @@ class RespectifyWordpressPlugin {
 		// 		wp_send_json_error('Your comment had an issue.');
 		// 	}
 		// }
+
+		wp_send_json_success('Posted!');
 
 		return $commentdata;
 	}
