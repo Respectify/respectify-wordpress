@@ -22,6 +22,9 @@ use RespectifyScoper\Respectify\RespectifyClientAsync;
 // require __DIR__ . '/../build/respectify/respectify-php/src/RespectifyClientAsync.php';
 // error_log('Main plugin: loaded RespectifyClientAsync successfully.');
 
+require_once plugin_dir_path(__FILE__) . 'respectify-utils.php';
+
+
 /**
  * The core plugin class.
  *
@@ -105,8 +108,8 @@ class RespectifyWordpressPlugin {
 		// }
 		
 
-		$email = "vintagedave@gmail.com";
-		$api_key = "ksdjlasjk"; // !!! 
+		$email = get_option('respectify_email', '');
+		$api_key = respectify_get_decrypted_api_key();
 		$this->respectify_client = new RespectifyClientAsync($email, $api_key);
 
 		// Intercept comments before they are inserted into the database
