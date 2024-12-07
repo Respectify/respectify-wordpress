@@ -107,6 +107,7 @@ class RespectifyWordpressPlugin {
 		// 	error_log('RespectifyClientAsync class not found.');
 		// }
 		
+		$this->update_respectify_client();
 
 		$email = get_option('respectify_email', '');
 		$api_key = respectify_get_decrypted_api_key();
@@ -116,7 +117,22 @@ class RespectifyWordpressPlugin {
 		add_filter('preprocess_comment', array($this, 'intercept_comment'));
 		// JS and CSS must be included too
 		add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts_and_styles'));
+
+		// Update the Respectify client when the email and API key are changed
+		add_action('update_option_respectify_email', array($this, 'update_respectify_client'));
+        add_action('update_option_respectify_api_key_encrypted', array($this, 'update_respectify_client'));
 	}
+
+    /**
+     * Create or update the Respectify client instance.
+     */
+    public function update_respectify_client() {
+		error_log('Updating Respectify client');
+		
+		$email = get_option('respectify_email', '');
+        $api_key = respectify_get_decrypted_api_key();
+        $this->respectify_client = new RespectifyClientAsync($email, $api_key);
+    }
 
 	/**
 	 * Load the required dependencies for this plugin.
