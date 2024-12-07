@@ -59,13 +59,9 @@ function respectify_email_callback() {
 
 // Callback to render API key input
 function respectify_api_key_callback() {
-    $encrypted_api_key = get_option('respectify_api_key_encrypted', '');
-    $api_key = '';
-    if ($encrypted_api_key) {
-        $api_key = respectify_decrypt($encrypted_api_key);
-    }
+    $api_key = respectify_get_decrypted_api_key();
     echo '<input type="password" name="respectify_api_key" value="' . esc_attr($api_key) . '" class="regular-text" required />';
-    echo '<p class="description">Enter the Respectify API key you wish to use for this site.</p>';
+    echo '<p class="description">Enter the Respectify API key you wish to use for this Wordpress site.</p>';
 }
 
 // Encrypt API key before saving
@@ -143,12 +139,18 @@ function respectify_test_credentials() {
     check_ajax_referer('respectify_test_nonce', 'nonce');
 
     if (!current_user_can('manage_options')) {
-        wp_send_json_error('Unauthorized');
+        wp_send_json_error(array('message' => '❌ Unauthorized. Please check your permissions and try again.'));
     }
 
-    $email = get_option('respectify_email', '');
-    $encrypted_api_key = get_option('respectify_api_key_encrypted', '');
-    $api_key = respectify_decrypt($encrypted_api_key);
+    // Get the email and API key from the AJAX request, if provided
+    // Note this is NOT from the settings, because they may not be saved yet
+    $email = isset($_POST['email']) ? sanitize_email($_POST['email']) : get_option('respectify_email', '');
+    $api_key = isset($_POST['api_key']) ? sanitize_text_field($_POST['api_key']) : respectify_decrypt(get_option('respectify_api_key_encrypted', ''));
+
+    // Ensure the class is loaded correctly
+    if (!class_exists('RespectifyScoper\Respectify\RespectifyClientAsync')) {
+        wp_send_json_error(array('message' => 'Class not found.'));
+    }
 
     // Instantiate your API client and test credentials
     $client = new \RespectifyScoper\Respectify\RespectifyClientAsync($email, $api_key);
@@ -160,18 +162,16 @@ function respectify_test_credentials() {
             if ($success) {
                 wp_send_json_success(array('message' => "✅ Authorization successful - click Save, and then you're good to go!"));
             } else {
-                wp_send_json_error(array('message' => '⛔️ ' . $info));
+                wp_send_json_error(array('message' => '⚠️ ' . $info));
             }
         },
         function ($ex) {
-            // This string is also in the PHP library itself, see checkUserCredentials
             $unauth_message = '⛔️ Unauthorized. This means there was an error with the email and/or API key. Please check them and try again.';
 
             $errorMessage = 'Error (' . get_class($ex) . '): ' . $ex->getMessage();
-            // $errorMessage = 'Error: ' . $ex->getMessage();
-            // if ($ex instanceof \RespectifyScoper\Respectify\Exceptions\UnauthorizedException) {
-            //     $errorMessage = unauth_message;
-            // }
+            if ($ex->getCode() === 401) {
+                $errorMessage = $unauth_message;
+            }
             wp_send_json_error(array('message' => $errorMessage));
         }
     );
