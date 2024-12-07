@@ -1,6 +1,7 @@
 <?php
 namespace Respectify;
 use RespectifyScoper\Respectify\RespectifyClientAsync;
+use RespectifyScoper\Respectify\CommentScore;
 
 
 /**
@@ -280,12 +281,12 @@ class RespectifyWordpressPlugin {
 
 		//error_log('Creating article ID for content: ' . substr($post_content, 0, 50) . '...');
 
-        $promise = $this->respectify_client->initTopicFromText(''); // Empty text is invalid
+        $promise = $this->respectify_client->initTopicFromText($post_content);
         $caughtException = null;
 
         $promise->then(
-            function ($id) {
-                //error_log('Got article ID: ' . $id);
+            function ($id) use (&$article_id) {
+                error_log('In generate_respectify_article_id, got article ID: ' . $id);
 				$article_id = $id;
             },
             function ($e) use (&$caughtException) {
@@ -296,11 +297,11 @@ class RespectifyWordpressPlugin {
 
         $this->respectify_client->run();
 
-        if ($caughtException) {
+        if ($caughtException) { 
             throw $caughtException;
         }
 
-		//error_log('Returning Respectify article ID: ' . $article_id);
+		error_log('In generate_respectify_article_id: Returning Respectify article ID: ' . $article_id);
 		return $article_id;
 	}
 
@@ -312,19 +313,22 @@ class RespectifyWordpressPlugin {
 	public function get_respectify_article_id($post_id) {
 		// Check if the custom ID exists for the post
         $article_id = get_post_meta($post_id, '_respectify_article_id', true);
+		error_log('Got article ID: -' . $article_id . '-');
 		// Validate it really is a UUID
 		//error_log('Checking article ID: ' . $article_id);
 
         // If the custom ID does not exist, create it and save it as post meta
         if (empty($article_id)) {
+			error_log('Creating article ID for post ID: ' . $post_id);
 			$post_content = get_post_field('post_content', $post_id);
 
             $article_id = $this->generate_respectify_article_id($post_content);
             //!!!update_post_meta($post_id, '_respectify_article_id', $article_id);
-			//error_log('Got article ID: ' . $article_id);
+			error_log('Got NEW article ID: ' . $article_id);
         }	
 		// Checking it's a GUID
-		assert(!empty($article_id) && !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/', $article_id));
+		error_log('Returning Respectify article ID: ' . $article_id);
+		assert(!empty($article_id));// && !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/', $article_id));
 
 		return $article_id;
 	}
@@ -341,6 +345,43 @@ class RespectifyWordpressPlugin {
         }
 
         return null;
+	}
+
+
+	/**
+	 * Evaluate a comment made on a Wordpress post or page, given the Respectify article ID
+	 * for that post/page and the comment text.
+	 *
+	 * @return CommentScore The evaluated information for the comment
+	 */
+	public function evaluate_comment($respectify_article_id, $comment_text) {
+		error_log('Evaluating comment: article id: ' . $respectify_article_id . ', comment: ' . substr($comment_text, 0, 50) . '...');
+
+        $promise = $this->respectify_client->evaluateComment($respectify_article_id, $comment_text); 
+        $caughtException = null;
+
+		$res = null;
+
+        $promise->then(
+            function ($commentScore) use(&$res, &$caughtException) {
+				if ($commentScore instanceof CommentScore) {
+					$res = $commentScore;
+				} else {
+					$caughtException = new Exception('Comment score result is not an instance of CommentScore');
+				}
+            },
+            function ($e) use (&$caughtException) {
+                $caughtException = $e;
+            }
+        );
+
+        $this->respectify_client->run();
+
+        if ($caughtException) {
+            throw $caughtException;
+        }
+
+		return $res;
 	}
 
 
@@ -364,17 +405,22 @@ class RespectifyWordpressPlugin {
 			return; // !!! log an error, but allow the comment to go through
 		}
 
+		$comment_score = $this->evaluate_comment($article_id, $commentdata['comment_content']); 
+
+		$comment_score_str = print_r($comment_score, true);
+		wp_send_json_error('Comment score: ' . $comment_score_str);
+
 		// Example: Add a prefix to the comment content
 		//$commentdata['comment_content'] = '[Intercepted] ' . $commentdata['comment_content'];
 
 		// Example: Reject comments containing certain words
-		$forbidden_words = array('hello', 'world');
-		foreach ($forbidden_words as $word) {
-			if (stripos($commentdata['comment_content'], $word) !== false) {
-				error_log('Comment rejected: ' . $commentdata['comment_content']);
-				wp_send_json_error('Your comment had an issue.');
-			}
-		}
+		// $forbidden_words = array('hello', 'world');
+		// foreach ($forbidden_words as $word) {
+		// 	if (stripos($commentdata['comment_content'], $word) !== false) {
+		// 		error_log('Comment rejected: ' . $commentdata['comment_content']);
+		// 		wp_send_json_error('Your comment had an issue.');
+		// 	}
+		// }
 
 		return $commentdata;
 	}
