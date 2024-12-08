@@ -408,6 +408,9 @@ class RespectifyWordpressPlugin {
 		// 3. intercept_comment method:
 		//    Evaluates the comment and decides on an action ('post', 'reject_with_feedback', or 'trash').
 
+		// Returns an array of comment data, or a WP_Error object if the comment should be rejected
+		// (including sending feedback to the user)
+
 		error_log('Intercepting comment: ' . $commentdata['comment_content']);
 
 		// Check if this is an AJAX request from our script
@@ -470,17 +473,19 @@ class RespectifyWordpressPlugin {
             'allow_post_anyway' => true,
         ];
 
-        if ($comment_score->isSpam) {
-            if ($post_anyway && $settings['allow_post_anyway']) {
-                // User chose to post anyway
-                return 'post';
-            }
-            // Depending on settings, reject or trash
-            return $settings['default_action'];
-        }
+		return "reject_with_feedback";
 
-        // Comment is acceptable
-        return 'post';
+        // if ($comment_score->isSpam) {
+        //     if ($post_anyway && $settings['allow_post_anyway']) {
+        //         // User chose to post anyway
+        //         return 'post';
+        //     }
+        //     // Depending on settings, reject or trash
+        //     return $settings['default_action'];
+        // }
+
+        // // Comment is acceptable
+        // return 'post';
     }
 
     /**
@@ -488,41 +493,45 @@ class RespectifyWordpressPlugin {
      */
 	public function ajax_submit_comment() {
 		error_log('ajax_submit_comment called');
-	
-		// Mimic the normal comment handling
-		$comment_data = wp_handle_comment_submission(wp_unslash($_POST));
-	
-		if (is_wp_error($comment_data)) {
-			error_log('Comment submission error: ' . $comment_data->get_error_message());
-			wp_send_json_error(['message' => $comment_data->get_error_message()]);
-		}
+
+		// Manually prepare comment data from $_POST
+		$commentdata = array(
+			'comment_post_ID'      => isset($_POST['comment_post_ID']) ? absint($_POST['comment_post_ID']) : 0,
+			'comment_author'       => isset($_POST['author']) ? sanitize_text_field($_POST['author']) : '',
+			'comment_author_email' => isset($_POST['email']) ? sanitize_email($_POST['email']) : '',
+			'comment_author_url'   => isset($_POST['url']) ? esc_url_raw($_POST['url']) : '',
+			'comment_content'      => isset($_POST['comment']) ? sanitize_textarea_field($_POST['comment']) : '',
+			'comment_type'         => '', // Empty for regular comments
+			'comment_parent'       => isset($_POST['comment_parent']) ? absint($_POST['comment_parent']) : 0,
+			'user_id'              => get_current_user_id(),
+			'comment_author_IP'    => $_SERVER['REMOTE_ADDR'],
+			'comment_agent'        => $_SERVER['HTTP_USER_AGENT'],
+			'comment_date'         => current_time('mysql'),
+			'comment_approved'     => 1, // Adjust approval status as needed
+		);
 	
 		// Intercept and process the comment
-		$result = $this->intercept_comment($comment_data);
+		$result = $this->intercept_comment($commentdata);
 	
 		if (is_wp_error($result)) {
-			error_log('Comment interception error: ' . $result->get_error_message());
-			$data = $result->get_error_data();
-			$response = ['message' => $result->get_error_message()];
-			if (!empty($data)) {
-				$response = array_merge($response, $data);
+			wp_send_json_error([
+				'message' => $result->get_error_message(),
+				'data'    => $result->get_error_data(),
+			]);
+		} else {
+			// Insert the comment into the database
+			$comment_id = wp_new_comment($result, true); // Pass $result which contains the processed comment data
+	
+			if (is_wp_error($comment_id)) {
+				wp_send_json_error(['message' => $comment_id->get_error_message()]);
+			} else {
+				// Comment inserted successfully
+				wp_send_json_success([
+					'message'    => 'Your comment has been posted.',
+					'comment_id' => $comment_id,
+				]);
 			}
-			wp_send_json_error($response);
 		}
-	
-		// Update the comment data with any modifications from intercept_comment
-		$comment_data = $result;
-	
-		// Insert the comment into the database
-		$comment_id = wp_new_comment($comment_data, true);
-	
-		if (is_wp_error($comment_id)) {
-			error_log('Failed to insert comment: ' . $comment_id->get_error_message());
-			wp_send_json_error(['message' => 'Failed to submit comment.']);
-		}
-	
-		error_log('Comment inserted successfully with ID: ' . $comment_id);
-		wp_send_json_success(['message' => 'Your comment has been posted.']);
 	}
 
 	/**

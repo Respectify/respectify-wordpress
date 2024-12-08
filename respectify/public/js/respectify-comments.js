@@ -7,44 +7,61 @@
             var formData = form.serializeArray();
             formData.push({ name: 'action', value: 'respectify_submit_comment' });
 
+            // Remove previous messages and 'Post Anyway' button
+            $('.respectify-message, #respectify-post-anyway').remove();
+
+            // Show a loading message
+            var loadingMessage = $('<p class="respectify-message">Submitting your comment; please wait a moment...</p>');
+            form.before(loadingMessage);
+
             // Check if 'Post Anyway' button was clicked
             var postAnyway = form.data('post-anyway') || false;
             if (postAnyway) {
                 formData.push({ name: 'post_anyway', value: '1' });
+                // Reset the data attribute
+                form.data('post-anyway', false);
             }
-
-            // Remove previous messages
-            $('.respectify-message').remove();
-
-            // Show a loading message
-            form.append('<p class="respectify-message">Submitting your comment; please wait a moment...</p>');
 
             $.ajax({
                 type: 'POST',
                 url: respectify_ajax_object.ajax_url,
-                data: formData,
+                data: $.param(formData),
                 success: function(response) {
-                    $('.respectify-message').remove();
+                    // Remove the loading message
+                    loadingMessage.remove();
 
                     if (response.success) {
                         // Reset the form
                         form[0].reset();
                         // Display success message
-                        form.append('<p class="respectify-message success">' + response.data.message + '</p>');
+                        var successMessage = $('<p class="respectify-message success">' + response.data.message + '</p>');
+                        form.before(successMessage);
+                        // Append the new comment to the comment list
+                        if (response.data.comment_html) {
+                            // Assuming the comments are in a <ol> or <ul> with class 'comment-list'
+                            $('.comment-list').append(response.data.comment_html);
+                        } else {
+                            // If comment HTML is not provided, reload the page
+                            location.reload();
+                        }
                     } else {
                         // Display error message
                         var message = response.data.message || 'An error occurred.';
-                        form.append('<p class="respectify-message error">' + message + '</p>');
+                        var errorMessage = $('<p class="respectify-message error">' + message + '</p>');
+                        form.before(errorMessage);
 
                         // Show 'Post Anyway' button if allowed
                         if (response.data.allow_post_anyway) {
-                            form.append('<button type="button" id="respectify-post-anyway" class="respectify-button">Post Anyway</button>');
+                            var postAnywayButton = $('<button type="button" id="respectify-post-anyway" class="respectify-button">Post Anyway</button>');
+                            form.before(postAnywayButton);
                         }
                     }
                 },
                 error: function() {
-                    $('.respectify-message').remove();
-                    form.append('<p class="respectify-message error">An error occurred. Please try again.</p>');
+                    // Remove the loading message
+                    loadingMessage.remove();
+                    var errorMessage = $('<p class="respectify-message error">An error occurred. Please try again.</p>');
+                    form.before(errorMessage);
                 }
             });
         });
@@ -53,8 +70,9 @@
         $(document).on('click', '#respectify-post-anyway', function() {
             var form = $('#commentform');
             form.data('post-anyway', true);
+            // Remove any existing error messages and the button itself
+            $('.respectify-message, #respectify-post-anyway').remove();
             form.submit();
-            $(this).remove(); // Remove the button to prevent multiple clicks
         });
     });
 })(jQuery);
