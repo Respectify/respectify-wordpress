@@ -114,10 +114,16 @@ class RespectifyWordpressPlugin {
 		$api_key = respectify_get_decrypted_api_key();
 		$this->respectify_client = new RespectifyClientAsync($email, $api_key);
 
+	    // Hook the AJAX handler for logged-in users
+		add_action('wp_ajax_respectify_submit_comment', array($this, 'ajax_submit_comment'));
+		// Hook the AJAX handler for non-logged-in users
+		add_action('wp_ajax_nopriv_respectify_submit_comment', array($this, 'ajax_submit_comment'));
 		// Intercept comments before they are inserted into the database
 		add_filter('preprocess_comment', array($this, 'intercept_comment'));
 		// JS and CSS must be included too
 		add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts_and_styles'));
+
+
 
 		// Update the Respectify client when the email and API key are changed
 		add_action('update_option_respectify_email', array($this, 'update_respectify_client'));
@@ -392,49 +398,110 @@ class RespectifyWordpressPlugin {
 	* @return array Modified comment data.
 	*/
 	public function intercept_comment($commentdata) {
-		$post_id = $this->get_post_id_from_comment($commentdata);
-		if ($post_id == null) {
-			error_log('Could not get post_id');
-			wp_send_json_error('Could not get post_id');
-			return; // !!! log an error, but allow the comment to go through
+		error_log('Intercepting comment: ' . $commentdata['comment_content']);
+
+        // Check if this is an AJAX request from our script
+        if (defined('DOING_AJAX') && DOING_AJAX && isset($_POST['action']) && $_POST['action'] === 'respectify_submit_comment') {
+			error_log('Intercepting AJAX comment submission');
+
+            // Get the 'Post Anyway' flag
+            $post_anyway = isset($_POST['post_anyway']) && $_POST['post_anyway'] == '1';
+
+			error_log('Post anyway: ' . $post_anyway);
+
+            $post_id = $commentdata['comment_post_ID'];
+            $article_id = $this->get_respectify_article_id($post_id);
+
+            if (!$article_id) {
+				error_log('Invalid article ID: ' . $article_id);
+                // Handle the error
+                wp_send_json_error(['message' => 'Invalid article ID.']);
+            }
+
+            $comment_text = sanitize_text_field($commentdata['comment_content']);
+            $comment_score = $this->evaluate_comment($article_id, $comment_text);
+
+            // Your custom logic based on settings
+            $action = $this->get_comment_action($comment_score, $post_anyway);
+
+			error_log('Comment action: ' . $action);
+
+            if ($action === 'post') {
+                // Allow comment to be posted
+                // Proceed without interrupting
+                wp_send_json_success(['message' => 'Your comment has been posted.']);
+            } elseif ($action === 'reject_with_feedback') {
+                // Provide feedback and ask user to edit
+                wp_send_json_error(['message' => 'Please revise your comment.', 'allow_post_anyway' => true]);
+            } elseif ($action === 'trash') {
+                // Reject comment without feedback
+                wp_send_json_error(['message' => 'Your comment was rejected.']);
+            }
+        }
+
+        // For non-AJAX submissions, or if not handled above, return comment data as is
+        return $commentdata; // or return new WP_Error(...)
+    }
+
+	/**
+     * Determine the action to take on the comment based on score and settings.
+     *
+     * @param object $comment_score The comment evaluation result.
+     * @param bool $post_anyway Whether the user chose to 'Post Anyway'.
+     * @return string Action to take ('post', 'reject_with_feedback', 'trash').
+     */
+    private function get_comment_action($comment_score, $post_anyway) {
+        // Example settings - you may load these from your plugin's settings
+        $settings = [
+            'default_action' => 'reject_with_feedback', // Options: 'post', 'reject_with_feedback', 'trash'
+            'allow_post_anyway' => true,
+        ];
+
+        if ($comment_score->isSpam) {
+            if ($post_anyway && $settings['allow_post_anyway']) {
+                // User chose to post anyway
+                return 'post';
+            }
+            // Depending on settings, reject or trash
+            return $settings['default_action'];
+        }
+
+        // Comment is acceptable
+        return 'post';
+    }
+
+    /**
+     * AJAX handler for submitting comments.
+     */
+	public function ajax_submit_comment() {
+		error_log('ajax_submit_comment called');
+	
+		// Mimic the normal comment handling
+		$comment_data = wp_handle_comment_submission(wp_unslash($_POST));
+	
+		if (is_wp_error($comment_data)) {
+			error_log('Comment submission error: ' . $comment_data->get_error_message());
+			wp_send_json_error(['message' => $comment_data->get_error_message()]);
 		}
-		$article_id = $this->get_respectify_article_id($post_id);
-		if ($article_id == null) {
-			error_log('Could not get article_id');
-			//wp_send_json_error('Could not get article_id');
-			return; // !!! log an error, but allow the comment to go through
+	
+		// Intercept and process the comment
+		$result = $this->intercept_comment($comment_data);
+	
+		if (is_wp_error($result)) {
+			error_log('Comment interception error: ' . $result->get_error_message());
+			wp_send_json_error(['message' => $result->get_error_message()]);
 		}
-
-		$comment_text = sanitize_text_field($commentdata['comment_content']);
-		$comment_score = $this->evaluate_comment($article_id, $comment_text); 
-
-		$comment_score_str = print_r($comment_score, true);
-		//wp_send_json_error('Comment score: ' . $comment_score_str);
-
-
-		// Check if the comment is spam or should be intercepted
-		if ($comment_score->isSpam) {
-			// Silently stop the comment from being posted
-			error_log('Comment intercepted as spam: ' . $comment_text . '\n' . print_r($comment_score, true));
-			wp_send_json_success('Your comment was marked as spam.');
-			return; // Stop the comment from being posted
+	
+		// Insert the comment into the database
+		$comment_id = wp_new_comment($comment_data, true);
+	
+		if (is_wp_error($comment_id)) {
+			error_log('Failed to insert comment: ' . $comment_id->get_error_message());
+			wp_send_json_error(['message' => 'Failed to submit comment.']);
 		}
-
-		// Example: Add a prefix to the comment content
-		//$commentdata['comment_content'] = '[Intercepted] ' . $commentdata['comment_content'];
-
-		// Example: Reject comments containing certain words
-		// $forbidden_words = array('hello', 'world');
-		// foreach ($forbidden_words as $word) {
-		// 	if (stripos($commentdata['comment_content'], $word) !== false) {
-		// 		error_log('Comment rejected: ' . $commentdata['comment_content']);
-		// 		wp_send_json_error('Your comment had an issue.');
-		// 	}
-		// }
-
-		wp_send_json_success('Posted!');
-
-		return $commentdata;
+	
+		error_log('Comment inserted successfully with ID: ' . $comment_id);
+		wp_send_json_success(['message' => 'Your comment has been posted.']);
 	}
 
 	/**
@@ -442,8 +509,12 @@ class RespectifyWordpressPlugin {
 	 * Plus the CSS as well.
      */
     public function enqueue_scripts_and_styles() {
-        wp_enqueue_script('respectify-comments', plugins_url('public/js/respectify-comments.js', __DIR__), array('jquery'), null, true);
-		
+		wp_enqueue_script('respectify-comments-js', plugins_url('public/js/respectify-comments.js', __DIR__), array('jquery'), null, true);
+	
+		wp_localize_script('respectify-comments-js', 'respectify_ajax_object', array(
+			'ajax_url' => admin_url('admin-ajax.php'),
+		));
+	
 		wp_enqueue_style('respectify-comments', plugins_url('public/css/respectify-comments.css', __DIR__));
 	}
 }
