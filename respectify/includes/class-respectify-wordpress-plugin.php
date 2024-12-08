@@ -118,8 +118,8 @@ class RespectifyWordpressPlugin {
 		add_action('wp_ajax_respectify_submit_comment', array($this, 'ajax_submit_comment'));
 		// Hook the AJAX handler for non-logged-in users
 		add_action('wp_ajax_nopriv_respectify_submit_comment', array($this, 'ajax_submit_comment'));
-		// Intercept comments before they are inserted into the database
-		add_filter('preprocess_comment', array($this, 'intercept_comment'));
+		// Intercept comments before they are inserted into the database - non-AJAX, eg when Javascript is disabled
+		add_filter('preprocess_comment', array($this, 'respectify_preprocess_comment_no_js'));
 		// JS and CSS must be included too
 		add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts_and_styles'));
 
@@ -532,6 +532,24 @@ class RespectifyWordpressPlugin {
 				]);
 			}
 		}
+	}
+
+	// For when Javascript is turned off
+	public function respectify_preprocess_comment_no_js($commentdata) {
+		// Intercept and evaluate the comment
+		$result = $this->intercept_comment($commentdata);
+
+		if (is_wp_error($result)) {
+			// Handle the error by preventing the comment from being saved
+			wp_die(
+				esc_html($result->get_error_message()),
+				__('Comment Submission Error', 'respectify'),
+				array('back_link' => true)
+			);
+		}
+	
+		// Return processed comment data
+		return $result;
 	}
 
 	/**
