@@ -413,50 +413,39 @@ class RespectifyWordpressPlugin {
 
 		error_log('Intercepting comment: ' . $commentdata['comment_content']);
 
-		// Check if this is an AJAX request from our script
-		if (
-			defined('DOING_AJAX') && DOING_AJAX &&
-			isset($_POST['action']) && $_POST['action'] === 'respectify_submit_comment'
-		) {
-			error_log('Intercepting AJAX comment submission');
+		// Get the 'Post Anyway' flag
+		$post_anyway = isset($_POST['post_anyway']) && $_POST['post_anyway'] == '1';
 
-			// Get the 'Post Anyway' flag
-			$post_anyway = isset($_POST['post_anyway']) && $_POST['post_anyway'] == '1';
+		error_log('Post anyway: ' . $post_anyway);
 
-			error_log('Post anyway: ' . $post_anyway);
+		$post_id = $commentdata['comment_post_ID'];
+		$article_id = $this->get_respectify_article_id($post_id);
 
-			$post_id = $commentdata['comment_post_ID'];
-			$article_id = $this->get_respectify_article_id($post_id);
-
-			if (!$article_id) {
-				error_log('Invalid article ID: ' . $article_id);
-				// Return an error
-				return new \WP_Error('invalid_article_id', 'Invalid article ID.');
-			}
-
-			$comment_text = sanitize_text_field($commentdata['comment_content']);
-			$comment_score = $this->evaluate_comment($article_id, $comment_text);
-
-			// Your custom logic based on settings
-			$action = $this->get_comment_action($comment_score, $post_anyway);
-
-			error_log('Comment action: ' . $action);
-
-			if ($action === 'post') {
-				// Allow comment to be posted
-				// Return the comment data to proceed
-				return $commentdata;
-			} elseif ($action === 'reject_with_feedback') {
-				// Provide feedback and ask user to edit
-				return new \WP_Error('reject_with_feedback', 'Please revise your comment.', ['allow_post_anyway' => true]);
-			} elseif ($action === 'trash') {
-				// Reject comment without feedback
-				return new \WP_Error('trash', 'Your comment was rejected.');
-			}
+		if (!$article_id) {
+			error_log('Invalid article ID: ' . $article_id);
+			// Return an error
+			return new \WP_Error('invalid_article_id', 'Invalid article ID.');
 		}
 
-		// For non-AJAX submissions, or if not handled above, return comment data as is
-		return $commentdata;
+		$comment_text = sanitize_text_field($commentdata['comment_content']);
+		$comment_score = $this->evaluate_comment($article_id, $comment_text);
+
+		// Your custom logic based on settings
+		$action = $this->get_comment_action($comment_score, $post_anyway);
+
+		error_log('Comment action: ' . $action);
+
+		if ($action === 'post') {
+			// Allow comment to be posted
+			// Return the comment data to proceed
+			return $commentdata;
+		} elseif ($action === 'reject_with_feedback') {
+			// Provide feedback and ask user to edit
+			return new \WP_Error('reject_with_feedback', 'Please revise your comment.', ['allow_post_anyway' => true]);
+		} elseif ($action === 'trash') {
+			// Reject comment without feedback
+			return new \WP_Error('trash', 'Your comment was rejected.');
+		}
 	}
 
 	/**
@@ -473,7 +462,12 @@ class RespectifyWordpressPlugin {
             'allow_post_anyway' => true,
         ];
 
+		// if ($comment_score->isSpam) {
+		// 	return "trash";
+		// }
+
 		return "reject_with_feedback";
+
 
         // if ($comment_score->isSpam) {
         //     if ($post_anyway && $settings['allow_post_anyway']) {
@@ -537,9 +531,14 @@ class RespectifyWordpressPlugin {
 	// For when Javascript is turned off
 	public function respectify_preprocess_comment_no_js($commentdata) {
 		// Intercept and evaluate the comment
+		error_log('Intercepting comment with JS turned off: ' . $commentdata['comment_content']);
+
 		$result = $this->intercept_comment($commentdata);
 
+		error_log('Result of the comment interception: ' . print_r($result, true));
+
 		if (is_wp_error($result)) {
+			error_log('Comment rejected: ' . $result->get_error_message());
 			// Handle the error by preventing the comment from being saved
 			wp_die(
 				esc_html($result->get_error_message()),
@@ -548,6 +547,7 @@ class RespectifyWordpressPlugin {
 			);
 		}
 	
+		error_log('Comment allowed: ' . $result['comment_content']);
 		// Return processed comment data
 		return $result;
 	}
