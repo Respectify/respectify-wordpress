@@ -50,6 +50,89 @@ function respectify_register_settings() {
         'respectify',
         'respectify_settings_section'
     );
+
+    // New Settings Section
+    add_settings_section(
+        'respectify_behavior_settings_section',
+        'Comment Handling Settings',
+        'respectify_behavior_section_callback',
+        'respectify'
+    );
+
+    // How to handle spam
+    register_setting('respectify_options_group', 'respectify_spam_handling');
+    add_settings_field(
+        'respectify_spam_handling',
+        'How to Handle Spam',
+        'respectify_spam_handling_callback',
+        'respectify',
+        'respectify_behavior_settings_section'
+    );
+
+    // Revise When Settings
+    register_setting('respectify_options_group', 'respectify_revise_settings');
+    add_settings_field(
+        'respectify_revise_settings',
+        'Revise a Comment When',
+        'respectify_revise_settings_callback',
+        'respectify',
+        'respectify_behavior_settings_section'
+    );
+}
+
+// Callback to render behavior section
+function respectify_behavior_section_callback() {
+    echo '<p>Configure how Respectify handles comments based on various criteria.</p>';
+    echo '<div class="respectify-settings-row">';
+}
+
+// Callback to render spam handling field
+function respectify_spam_handling_callback() {
+    $options = get_option('respectify_spam_handling', 'trash');
+    ?>
+    <select name="respectify_spam_handling" id="respectify_spam_handling">
+        <option value="trash" <?php selected($options, 'trash'); ?>>Delete</option>
+        <option value="reject_with_feedback" <?php selected($options, 'reject_with_feedback'); ?>>Give Opportunity to Revise</option>
+    </select>
+    <p class="description">By default spam is deleted, but you can treat them as normal comments and send them back for revision.</p>
+    <?php
+}
+
+// Callback to render revise settings field
+function respectify_revise_settings_callback() {
+    $options = get_option('respectify_revise_settings', array(
+        'min_score'             => 3,
+        'low_effort'            => false,
+        'logical_fallacies'     => false,
+        'objectionable_phrases' => false,
+        'negative_tone'         => false,
+    ));
+    ?>
+    <div class="respectify-settings-column">
+        <label for="respectify_revise_min_score">Minimum Score: <span id="revise_min_score_value"><?php echo esc_html($options['min_score']); ?></span></label>
+        <input type="range" id="respectify_revise_min_score" name="respectify_revise_settings[min_score]" value="<?php echo esc_attr($options['min_score']); ?>" min="1" max="5" step="1" oninput="document.getElementById('revise_min_score_value').innerText = this.value;">
+        <br/>
+        <div class="respectify-checkbox-group">
+            <label>
+                <input type="checkbox" name="respectify_revise_settings[low_effort]" value="1" <?php checked($options['low_effort'], true); ?> />
+                Seems Low Effort
+            </label>
+            <label>
+                <input type="checkbox" name="respectify_revise_settings[logical_fallacies]" value="1" <?php checked($options['logical_fallacies'], true); ?> />
+                Contains Logical Fallacies
+            </label>
+            <label>
+                <input type="checkbox" name="respectify_revise_settings[objectionable_phrases]" value="1" <?php checked($options['objectionable_phrases'], true); ?> />
+                Contains Objectionable Phrases
+            </label>
+            <label>
+                <input type="checkbox" name="respectify_revise_settings[negative_tone]" value="1" <?php checked($options['negative_tone'], true); ?> />
+                Negative Tone Indications
+            </label>
+        </div>
+    </div>
+    <p class="description">Define the conditions under which a comment should be revised.</p>
+    <?php
 }
 
 // Callback to render email input
@@ -100,7 +183,7 @@ function respectify_render_settings_page() {
     <?php
 }
 
-// Enqueue admin scripts
+// Enqueue admin scripts and styles
 add_action('admin_enqueue_scripts', 'respectify_enqueue_admin_scripts');
 function respectify_enqueue_admin_scripts($hook_suffix) {
     if ($hook_suffix != 'settings_page_respectify') {
@@ -111,6 +194,17 @@ function respectify_enqueue_admin_scripts($hook_suffix) {
         'ajax_url' => admin_url('admin-ajax.php'),
         'nonce'    => wp_create_nonce('respectify_test_nonce'),
     ));
+
+    // Add inline CSS for side-by-side settings and checkbox alignment
+    $custom_css = '
+    .respectify-indented th {
+        padding-left: 20px;
+    }
+    .respectify-indented td {
+        padding-left: 20px;
+    }
+    ';
+    wp_add_inline_style('wp-admin', $custom_css);
 }
 
 require_once plugin_dir_path( __FILE__ ) . '../includes/class-respectify-wordpress-plugin.php';

@@ -462,11 +462,76 @@ class RespectifyWordpressPlugin {
             'allow_post_anyway' => true,
         ];
 
-		// if ($comment_score->isSpam) {
-		// 	return "trash";
-		// }
+		if ($comment_score->isSpam) {
+			$spam_handling = get_option('respectify_spam_handling', 'trash'); // 'trash' or 'reject_with_feedback', matching these actions
+			assert($spam_handling === 'trash' || $spam_handling === 'reject_with_feedback');
+			return $spam_handling;
+		}
 
 		return "reject_with_feedback";
+
+
+        // // Fetch settings
+        // $spam_handling = get_option('respectify_spam_handling', 'revise');
+		// $revise_settings = get_option('respectify_revise_settings', array(
+		// 	'min_score'             => 3,
+		// 	'low_effort'            => false,
+		// 	'logical_fallacies'     => false,
+		// 	'objectionable_phrases' => false,
+		// 	'negative_tone'         => false,
+		// ));
+		// $allow_post_anyway_settings = get_option('respectify_allow_post_anyway_settings', array(
+		// 	'enabled'               => false, // New setting
+		// 	'min_score'             => 3,
+		// 	'low_effort'            => false,
+		// 	'logical_fallacies'     => false,
+		// 	'objectionable_phrases' => false,
+		// 	'negative_tone'         => false,
+		// ));
+
+		// // Check revise conditions
+		// $should_revise = false;
+		// if ($score <= $revise_settings['min_score']) {
+		// 	$should_revise = true;
+		// }
+		// if ($revise_settings['low_effort'] && $this->is_low_effort()) {
+		// 	$should_revise = true;
+		// }
+		// if ($revise_settings['logical_fallacies'] && $this->contains_logical_fallacies()) {
+		// 	$should_revise = true;
+		// }
+		// if ($revise_settings['objectionable_phrases'] && $this->contains_objectionable_phrases()) {
+		// 	$should_revise = true;
+		// }
+		// if ($revise_settings['negative_tone'] && $this->has_negative_tone()) {
+		// 	$should_revise = true;
+		// }
+
+		// if ($should_revise) {
+		// 	return 'revise';
+		// }
+
+		// // Check allow post anyway conditions
+		// $allow_post_anyway = false;
+		// if ($score > $allow_post_anyway_settings['min_score']) {
+		// 	$allow_post_anyway = true;
+		// }
+		// if ($allow_post_anyway_settings['low_effort'] && $this->is_low_effort()) {
+		// 	$allow_post_anyway = true;
+		// }
+		// if ($allow_post_anyway_settings['logical_fallacies'] && $this->contains_logical_fallacies()) {
+		// 	$allow_post_anyway = true;
+		// }
+		// if ($allow_post_anyway_settings['objectionable_phrases'] && $this->contains_objectionable_phrases()) {
+		// 	$allow_post_anyway = true;
+		// }
+		// if ($allow_post_anyway_settings['negative_tone'] && $this->has_negative_tone()) {
+		// 	$allow_post_anyway = true;
+		// }
+
+		// if ($allow_post_anyway) {
+		// 	return 'allow_post_anyway';
+		// }
 
 
         // if ($comment_score->isSpam) {
