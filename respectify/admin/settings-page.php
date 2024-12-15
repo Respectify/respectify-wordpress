@@ -102,10 +102,10 @@ function respectify_spam_handling_callback() {
 function respectify_revise_settings_callback() {
     $options = get_option('respectify_revise_settings', array(
         'min_score'             => 3,
-        'low_effort'            => false,
-        'logical_fallacies'     => false,
-        'objectionable_phrases' => false,
-        'negative_tone'         => false,
+        'low_effort'            => true,
+        'logical_fallacies'     => true,
+        'objectionable_phrases' => true,
+        'negative_tone'         => true,
     ));
     ?>
     <div class="respectify-settings-column">

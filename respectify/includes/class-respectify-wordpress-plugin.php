@@ -411,12 +411,8 @@ class RespectifyWordpressPlugin {
 		// Returns an array of comment data, or a WP_Error object if the comment should be rejected
 		// (including sending feedback to the user)
 
-		error_log('Intercepting comment: ' . $commentdata['comment_content']);
+		error_log('Intercepting comment AJAX: ' . $commentdata['comment_content']);
 
-		// Get the 'Post Anyway' flag
-		$post_anyway = isset($_POST['post_anyway']) && $_POST['post_anyway'] == '1';
-
-		error_log('Post anyway: ' . $post_anyway);
 
 		$post_id = $commentdata['comment_post_ID'];
 		$article_id = $this->get_respectify_article_id($post_id);
@@ -431,7 +427,7 @@ class RespectifyWordpressPlugin {
 		$comment_score = $this->evaluate_comment($article_id, $comment_text);
 
 		// Your custom logic based on settings
-		$action = $this->get_comment_action($comment_score, $post_anyway);
+		$action = $this->get_comment_action($comment_score);
 
 		error_log('Comment action: ' . $action);
 
@@ -452,61 +448,56 @@ class RespectifyWordpressPlugin {
      * Determine the action to take on the comment based on score and settings.
      *
      * @param object $comment_score The comment evaluation result.
-     * @param bool $post_anyway Whether the user chose to 'Post Anyway'.
      * @return string Action to take ('post', 'reject_with_feedback', 'trash').
      */
-    private function get_comment_action($comment_score, $post_anyway) {
+    private function get_comment_action($comment_score) {
         // Example settings - you may load these from your plugin's settings
         $settings = [
             'default_action' => 'reject_with_feedback', // Options: 'post', 'reject_with_feedback', 'trash'
-            'allow_post_anyway' => true,
         ];
 
+		// Spam is an easy early exit
 		if ($comment_score->isSpam) {
 			$spam_handling = get_option('respectify_spam_handling', 'trash'); // 'trash' or 'reject_with_feedback', matching these actions
 			assert($spam_handling === 'trash' || $spam_handling === 'reject_with_feedback');
 			return $spam_handling;
 		}
 
-		return "reject_with_feedback";
+		// These are true when, if any (eg) logical fallacies exist, the comment must be revised
+		// Wordpress seems to only save non-default items in this array? So need to check if the key exists
+		// and use the default if not
+		$revise_settings = get_option('respectify_revise_settings', array(
+				'min_score'             => 3,
+				'low_effort'            => true,
+				'logical_fallacies'     => true,
+				'objectionable_phrases' => true,
+				'negative_tone'         => true,
+			));
 
+		error_log('Revise settings: ' . print_r($revise_settings, true));
 
-        // // Fetch settings
-        // $spam_handling = get_option('respectify_spam_handling', 'revise');
-		// $revise_settings = get_option('respectify_revise_settings', array(
-		// 	'min_score'             => 3,
-		// 	'low_effort'            => false,
-		// 	'logical_fallacies'     => false,
-		// 	'objectionable_phrases' => false,
-		// 	'negative_tone'         => false,
-		// ));
-
-
-		// Check revise conditions
-		$should_revise = false;
-		if ($score <= $revise_settings['min_score']) {
-			$should_revise = true;
-		}
-		if ($revise_settings['low_effort'] && $this->is_low_effort()) {
-			$should_revise = true;
-		}
-		if ($revise_settings['logical_fallacies'] && $this->contains_logical_fallacies()) {
-			$should_revise = true;
-		}
-		if ($revise_settings['objectionable_phrases'] && $this->contains_objectionable_phrases()) {
-			$should_revise = true;
-		}
-		if ($revise_settings['negative_tone'] && $this->has_negative_tone()) {
-			$should_revise = true;
+		if ($comment_score->appearsLowEffort) {
+			// Setting may not be set, default true
+			$revise_on_low_effort_handling = isset($revise_settings['low_effort']) ? $revise_settings['low_effort'] : true;
+			$low_effort_decision = $revise_on_low_effort_handling ? "reject_with_feedback" :  "post";
+			error_log('Low effort - decision: ' . $low_effort_decision);
+			return $low_effort_decision;
 		}
 
-		if ($should_revise) {
-			return 'reject_with_feedback';
+		// Non-empty, and any array items are not empty
+		$hasValidFallacies = !empty(array_filter($comment_score->logical_fallacies, function($element) {
+			return is_string($element) && trim($element) !== '';
+		}));
+		if ($hasValidFallacies) {
+			// Setting may not be set, default true
+			$revise_on_logical_fallacies = isset($revise_settings['logical_fallacies']) ? $revise_settings['logical_fallacies'] : true;
+			$logical_fallacies_decision = $revise_on_logical_fallacies ? "reject_with_feedback" :  "post";
+			error_log('Logical fallacies - decision: ' . $logical_fallacies_decision);
+			return $logical_fallacies_decision;
 		}
 
-
-        // Comment is acceptable
-        return 'post';
+		error_log("Fallback decision: " . $settings['default_action']);
+		return $settings['default_action'];
     }
 
     /**
