@@ -484,7 +484,7 @@ class RespectifyWordpressPlugin {
 			return $low_effort_decision;
 		}
 
-		// Non-empty, and any array items are not empty
+		// Sanitizes: Non-empty array, and any array items are not empty
 		$hasValidFallacies = !empty(array_filter($comment_score->logical_fallacies, function($element) {
 			return is_string($element) && trim($element) !== '';
 		}));
