@@ -49,6 +49,14 @@
     vertical-align: middle; /* Centers emoji vertically */
 }
 
+/* "Out of 5" text styling */
+.respectify-slider-row .out-of {
+    display: inline-block;
+    vertical-align: middle;
+    font-size: 1em;
+    margin-left: 0.5em; /* Space before the text */
+}
+
 /* Slider styling */
 
 .respectify-slider-row input[type="range"] {
