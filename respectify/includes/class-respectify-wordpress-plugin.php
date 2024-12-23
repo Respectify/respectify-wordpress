@@ -476,6 +476,13 @@ class RespectifyWordpressPlugin {
 
 		error_log('Revise settings: ' . print_r($revise_settings, true));
 
+		// First, if the minimum score is too low
+		$minAcceptableScore = isset($revise_settings['min_score']) ? $revise_settings['min_score'] : 3;
+		if ($comment_score->score < $minAcceptableScore) {
+			error_log('Score too low - decision: reject_with_feedback');
+			return 'reject_with_feedback';
+		}
+
 		if ($comment_score->appearsLowEffort) {
 			// Setting may not be set, default true
 			$revise_on_low_effort_handling = isset($revise_settings['low_effort']) ? $revise_settings['low_effort'] : true;
@@ -494,6 +501,30 @@ class RespectifyWordpressPlugin {
 			$logical_fallacies_decision = $revise_on_logical_fallacies ? "reject_with_feedback" :  "post";
 			error_log('Logical fallacies - decision: ' . $logical_fallacies_decision);
 			return $logical_fallacies_decision;
+		}
+
+		// Sanitizes: Non-empty array, and any array items are not empty
+		$hasValidObjectionablePhrases = !empty(array_filter($comment_score->objectionable_phrases, function($element) {
+			return is_string($element) && trim($element) !== '';
+		}));
+		if ($hasValidObjectionablePhrases) {
+			// Setting may not be set, default true
+			$revise_on_phrases = isset($revise_settings['objectionable_phrases']) ? $revise_settings['objectionable_phrases'] : true;
+			$phrases_decision = $revise_on_phrases ? "reject_with_feedback" :  "post";
+			error_log('Objectionable phrases - decision: ' . $phrases_decision);
+			return $phrases_decision;
+		}
+
+		// Sanitizes: Non-empty array, and any array items are not empty
+		$hasValidNegativeTone = !empty(array_filter($comment_score->negative_tone, function($element) {
+			return is_string($element) && trim($element) !== '';
+		}));
+		if ($hasValidNegativeTone) {
+			// Setting may not be set, default true
+			$revise_on_negative_tone = isset($revise_settings['negative_tone']) ? $revise_settings['negative_tone'] : true;
+			$negative_tone_decision = $revise_on_negative_tone ? "reject_with_feedback" :  "post";
+			error_log('Negative tone - decision: ' . $negative_tone_decision);
+			return $negative_tone_decision;
 		}
 
 		error_log("Fallback decision: " . $settings['default_action']);
