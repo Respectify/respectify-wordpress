@@ -111,8 +111,8 @@ function respectify_revise_settings_callback() {
     <div class="respectify-settings-column">
         <div class="respectify-slider-row">
         <label for="respectify_revise_min_score">Minimum Score:</label>
-            <span class="emoji">👎</span>
-            <input type="range" id="respectify_revise_min_score" name="respectify_revise_settings[min_score]" value="<?php echo esc_attr($options['min_score']); ?>" min="1" max="5" step="1" oninput="document.getElementById('revise_min_score_value').innerText = this.value;">
+            <span class="emoji">😧</span>
+            <input type="range" id="respectify_revise_min_score" name="respectify_revise_settings[min_score]" value="<?php echo esc_attr($options['min_score']); ?>" min="1" max="5" step="1">
             <span class="emoji">🤩</span>
             <span class="out-of description"><span id="revise_min_score_value"><?php echo esc_html($options['min_score']); ?></span> out of 5.</span>
         </div>
