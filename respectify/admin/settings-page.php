@@ -54,7 +54,7 @@ function respectify_register_settings() {
     // New Settings Section
     add_settings_section(
         'respectify_behavior_settings_section',
-        'Comment Handling Settings',
+        'Comment Handling',
         'respectify_behavior_section_callback',
         'respectify'
     );
@@ -82,7 +82,7 @@ function respectify_register_settings() {
 
 // Callback to render behavior section
 function respectify_behavior_section_callback() {
-    echo '<p>Configure how Respectify handles comments based on various criteria.</p>';
+    echo '<p>Configure how Respectify handles comments, especially the criteria for requesting a comment be revised before being posted.</p>';
     echo '<div class="respectify-settings-row">';
 }
 
