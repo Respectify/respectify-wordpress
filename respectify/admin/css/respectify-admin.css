@@ -6,11 +6,16 @@
  .respectify-test-container {
     display: flex;
     align-items: center;
-    margin-bottom: 1em;
+    margin-bottom: 0.5em;
+    margin-top: 1em;
 }
 
 .respectify-test-container #respectify-test-result {
     margin-left: 1rem;
+}
+
+.description.description-match-font-size { /* Match the font size of text in the settings tables */
+    font-size: 14px;
 }
 
 .respectify-checkbox-group {

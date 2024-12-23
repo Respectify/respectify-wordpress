@@ -82,7 +82,7 @@ function respectify_register_settings() {
 
 // Callback to render behavior section
 function respectify_behavior_section_callback() {
-    echo '<p>Configure how Respectify handles comments, especially the criteria for requesting a comment be revised before being posted.</p>';
+    echo '<p class="description description-match-font-size">Configure how Respectify handles comments, especially the criteria for requesting a comment be revised before being posted.</p>';
     echo '<div class="respectify-settings-row">';
 }
 
