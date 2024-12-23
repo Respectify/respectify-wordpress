@@ -149,6 +149,14 @@ function respectify_api_key_callback() {
     $api_key = respectify_get_decrypted_api_key();
     echo '<input type="password" name="respectify_api_key" value="' . esc_attr($api_key) . '" class="regular-text" required />';
     echo '<p class="description">Enter the Respectify API key you wish to use for this Wordpress site.</p>';
+
+    ?>
+    <div class="respectify-test-container">
+        <button type="button" id="respectify-test-button" class="button">Test</button>
+        <span id="respectify-test-result"></span>   
+    </div>
+    <p>Click 'Test' to verify the email and API key are working correctly.</p>
+    <?php
 }
 
 // Encrypt API key before saving
@@ -170,13 +178,6 @@ function respectify_render_settings_page() {
             <?php
             settings_fields('respectify_options_group');
             do_settings_sections('respectify');
-            ?>
-            <div class="respectify-test-container">
-                <button type="button" id="respectify-test-button" class="button">Test</button>
-                <span id="respectify-test-result"></span>   
-            </div>
-            <p>Click 'Test' to verify the email and API key are working correctly.</p>
-            <?php
             submit_button();
             ?>
         </form>
