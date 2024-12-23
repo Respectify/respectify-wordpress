@@ -30,3 +30,28 @@
     padding-bottom: 0.5rem; /* Padding here is to the description label */
 }
 
+
+.respectify-slider-row {
+    margin-bottom: 1em; /* Space below the slider row */
+}
+
+.respectify-slider-row label {
+    display: inline-block;
+    vertical-align: middle;
+    margin: 0;
+    margin-right: 0.5em;
+}
+
+.respectify-slider-row .emoji {
+    font-size: 1.5em; /* Increases the size of the emojis */
+    display: inline-block;
+    vertical-align: middle; /* Centers emoji vertically */
+}
+
+/* Slider styling */
+.respectify-slider-row input[type="range"] {
+    display: inline-block;
+    vertical-align: middle;
+    width: 120px; /* Sets a fixed width to prevent it from being too wide */
+    margin: 0;
+}
