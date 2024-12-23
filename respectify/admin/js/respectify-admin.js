@@ -65,6 +65,34 @@
                 $('#respectify-test-result').html('<span style="color:red;">❌ An error occurred.</span>');
             });
         });
+
+
+        /* Settings slider */
+
+        // Select the slider and the element to display its value
+        var $slider = $('#respectify_revise_min_score');
+        var $valueDisplay = $('#revise_min_score_value');
+        var $sliderRow = $slider.closest('.respectify-slider-row');
+
+        // Function to update the slider value display and color
+        function updateSlider() {
+            var value = $slider.val();
+            $valueDisplay.text(value);
+
+            // Remove existing slider-value-* classes
+            $slider.removeClass('slider-value-1 slider-value-2 slider-value-3 slider-value-4 slider-value-5');
+
+            // Add the class corresponding to the current slider value
+            $slider.addClass('slider-value-' + value);
+        }
+
+        // Initialize the slider on page load
+        updateSlider();
+
+        // Update the slider when its value changes
+        $slider.on('input change', function() {
+            updateSlider();
+        });
     });
 
 })( jQuery );
