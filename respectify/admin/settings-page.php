@@ -239,7 +239,7 @@ function respectify_test_credentials() {
         function ($result) {
             list($success, $info) = $result;
             if ($success) {
-                wp_send_json_success(array('message' => "✅ Authorization successful - click Save, and then you're good to go!"));
+                wp_send_json_success(array('message' => "✅ Authorization successful - click Save Changes, and then you're good to go!"));
             } else {
                 wp_send_json_error(array('message' => '⚠️ ' . $info));
             }
