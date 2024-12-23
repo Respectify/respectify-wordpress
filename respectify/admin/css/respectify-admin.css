@@ -55,3 +55,11 @@
     width: 120px; /* Sets a fixed width to prevent it from being too wide */
     margin: 0;
 }
+
+/* "Out of 5" text styling */
+.respectify-slider-row .out-of {
+    display: inline-block;
+    vertical-align: middle;
+    font-size: 1em; /* Adjust as needed */
+    margin-left: 0.5em; /* Space before the text */
+}
