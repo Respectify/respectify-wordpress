@@ -325,7 +325,7 @@ class RespectifyWordpressPlugin {
 			$post_content = get_post_field('post_content', $post_id);
 
             $article_id = $this->generate_respectify_article_id($post_content);
-            //!!!update_post_meta($post_id, '_respectify_article_id', $article_id);
+            update_post_meta($post_id, '_respectify_article_id', $article_id);
 			error_log('Got NEW article ID: ' . $article_id);
         }	
 		// Checking it's a GUID
