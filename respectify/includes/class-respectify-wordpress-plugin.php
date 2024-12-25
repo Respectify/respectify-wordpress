@@ -461,9 +461,11 @@ class RespectifyWordpressPlugin {
 
 		error_log('Revise settings: ' . print_r($revise_settings, true));
 
+		error_log('Comment score object: ' . print_r($comment_score, true));
+
 		// First, if the minimum score is too low
 		$minAcceptableScore = isset($revise_settings['min_score']) ? $revise_settings['min_score'] : 3;
-		if ($comment_score->score < $minAcceptableScore) {
+		if ($comment_score->overallScore < $minAcceptableScore) {
 			error_log('Score too low - decision: ' . \Respectify\ACTION_REVISE);
 			return \Respectify\ACTION_REVISE;
 		}
@@ -477,7 +479,7 @@ class RespectifyWordpressPlugin {
 		}
 
 		// Sanitizes: Non-empty array, and any array items are not empty
-		$hasValidFallacies = !empty(array_filter($comment_score->logical_fallacies, function($element) {
+		$hasValidFallacies = !empty(array_filter($comment_score->logicalFallacies, function($element) {
 			return is_string($element) && trim($element) !== '';
 		}));
 		if ($hasValidFallacies) {
@@ -489,7 +491,7 @@ class RespectifyWordpressPlugin {
 		}
 
 		// Sanitizes: Non-empty array, and any array items are not empty
-		$hasValidObjectionablePhrases = !empty(array_filter($comment_score->objectionable_phrases, function($element) {
+		$hasValidObjectionablePhrases = !empty(array_filter($comment_score->objectionablePhrases, function($element) {
 			return is_string($element) && trim($element) !== '';
 		}));
 		if ($hasValidObjectionablePhrases) {
@@ -501,7 +503,7 @@ class RespectifyWordpressPlugin {
 		}
 
 		// Sanitizes: Non-empty array, and any array items are not empty
-		$hasValidNegativeTone = !empty(array_filter($comment_score->negative_tone, function($element) {
+		$hasValidNegativeTone = !empty(array_filter($comment_score->negativeTonePhrases, function($element) {
 			return is_string($element) && trim($element) !== '';
 		}));
 		if ($hasValidNegativeTone) {
