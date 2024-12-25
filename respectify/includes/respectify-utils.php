@@ -25,7 +25,7 @@ function respectify_decrypt($data) {
 }
 
 function respectify_get_decrypted_api_key() {
-    $encrypted_api_key = get_option('respectify_api_key_encrypted', '');
+    $encrypted_api_key = get_option(\Respectify\OPTION_API_KEY_ENCRYPTED, '');
     if ($encrypted_api_key) {
         return respectify_decrypt($encrypted_api_key);
     }

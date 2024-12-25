@@ -25,8 +25,8 @@ function respectify_add_settings_page() {
 // Register settings, sections, and fields
 add_action('admin_init', 'respectify_register_settings');
 function respectify_register_settings() {
-    register_setting('respectify_options_group', 'respectify_email');
-    register_setting('respectify_options_group', 'respectify_api_key_encrypted');
+    register_setting('respectify_options_group', \Respectify\OPTION_EMAIL);
+    register_setting('respectify_options_group', \Respectify\OPTION_API_KEY_ENCRYPTED);
 
     add_settings_section(
         'respectify_settings_section',
@@ -36,7 +36,7 @@ function respectify_register_settings() {
     );
 
     add_settings_field(
-        'respectify_email',
+        \Respectify\OPTION_EMAIL,
         'Email',
         'respectify_email_callback',
         'respectify',
@@ -60,9 +60,9 @@ function respectify_register_settings() {
     );
 
     // How to handle spam
-    register_setting('respectify_options_group', 'respectify_spam_handling');
+    register_setting('respectify_options_group', \Respectify\OPTION_SPAM_HANDLING);
     add_settings_field(
-        'respectify_spam_handling',
+        \Respectify\OPTION_SPAM_HANDLING,
         'How to Handle Spam',
         'respectify_spam_handling_callback',
         'respectify',
@@ -70,9 +70,9 @@ function respectify_register_settings() {
     );
 
     // Revise When Settings
-    register_setting('respectify_options_group', 'respectify_revise_settings');
+    register_setting('respectify_options_group', \Respectify\OPTION_REVISE_SETTINGS);
     add_settings_field(
-        'respectify_revise_settings',
+        \Respectify\OPTION_REVISE_SETTINGS,
         'Revise a Comment When',
         'respectify_revise_settings_callback',
         'respectify',
@@ -88,11 +88,11 @@ function respectify_behavior_section_callback() {
 
 // Callback to render spam handling field
 function respectify_spam_handling_callback() {
-    $options = get_option('respectify_spam_handling', 'trash');
+    $options = get_option(\Respectify\OPTION_SPAM_HANDLING, \Respectify\ACTION_DELETE);
     ?>
     <select name="respectify_spam_handling" id="respectify_spam_handling">
-        <option value="trash" <?php selected($options, 'trash'); ?>>Delete</option>
-        <option value="reject_with_feedback" <?php selected($options, 'reject_with_feedback'); ?>>Give Opportunity to Revise</option>
+        <option value="trash" <?php selected($options, \Respectify\ACTION_DELETE); ?>>Delete</option>
+        <option value="reject_with_feedback" <?php selected($options, \Respectify\ACTION_REVISE); ?>>Give Opportunity to Revise</option>
     </select>
     <p class="description">By default spam is deleted, but you can treat them as normal comments and send them back for revision.</p>
     <?php
@@ -100,21 +100,16 @@ function respectify_spam_handling_callback() {
 
 // Callback to render revise settings field
 function respectify_revise_settings_callback() {
-    $options = get_option('respectify_revise_settings', array(
-        'min_score'             => 3,
-        'low_effort'            => true,
-        'logical_fallacies'     => true,
-        'objectionable_phrases' => true,
-        'negative_tone'         => true,
-    ));
+    $options = get_option(\Respectify\OPTION_REVISE_SETTINGS, \Respectify\REVISE_DEFAULT_SETTINGS);
     ?>
     <div class="respectify-settings-column">
         <div class="respectify-slider-row">
-        <label for="respectify_revise_min_score">Minimum Score:</label>
+            <label for="respectify_revise_min_score">Minimum Score:</label>
             <span class="emoji">😧</span>
             <input type="range" id="respectify_revise_min_score" name="respectify_revise_settings[min_score]" value="<?php echo esc_attr($options['min_score']); ?>" min="1" max="5" step="1">
             <span class="emoji">🤩</span>
             <span class="out-of description"><span id="revise_min_score_value"><?php echo esc_html($options['min_score']); ?></span> out of 5.</span>
+            <span class="out-of description"><br/>Recommended value: 3 out of 5.<br/>A score of 3 out of 5 is a normal, good quality comment. 4 and 5 are outstanding and unusual.</span>
         </div>
         <div class="respectify-checkbox-group">
             <label>
@@ -141,7 +136,7 @@ function respectify_revise_settings_callback() {
 
 // Callback to render email input
 function respectify_email_callback() {
-    $email = get_option('respectify_email', '');
+    $email = get_option(\Respectify\OPTION_EMAIL, '');
     echo '<input type="email" name="respectify_email" value="' . esc_attr($email) . '" class="regular-text" required />';
     echo '<p class="description">Enter the email associated with your Respectify account.</p>';
 }
@@ -225,8 +220,8 @@ function respectify_test_credentials() {
 
     // Get the email and API key from the AJAX request, if provided
     // Note this is NOT from the settings, because they may not be saved yet
-    $email = isset($_POST['email']) ? sanitize_email($_POST['email']) : get_option('respectify_email', '');
-    $api_key = isset($_POST['api_key']) ? sanitize_text_field($_POST['api_key']) : respectify_decrypt(get_option('respectify_api_key_encrypted', ''));
+    $email = isset($_POST['email']) ? sanitize_email($_POST['email']) : get_option(\Respectify\OPTION_EMAIL, '');
+    $api_key = isset($_POST['api_key']) ? sanitize_text_field($_POST['api_key']) : respectify_decrypt(get_option(\Respectify\OPTION_API_KEY_ENCRYPTED, ''));
 
     // Ensure the class is loaded correctly
     if (!class_exists('RespectifyScoper\Respectify\RespectifyClientAsync')) {

@@ -24,6 +24,7 @@ use RespectifyScoper\Respectify\CommentScore;
 // error_log('Main plugin: loaded RespectifyClientAsync successfully.');
 
 require_once plugin_dir_path(__FILE__) . 'respectify-utils.php';
+require_once plugin_dir_path(__FILE__) . 'respectify-constants.php';
 
 
 /**
@@ -89,12 +90,7 @@ class RespectifyWordpressPlugin {
 	 * @since    1.0.0
 	 */
 	public function __construct() {
-		if ( defined( 'RESPECTIFY_VERSION' ) ) {
-			$this->version = RESPECTIFY_VERSION;
-		} else {
-			$this->version = '1.0.0';
-		}
-		$this->respectify = 'respectify';
+		$this->version = \Respectify\RESPECTIFY_VERSION;
 
 		$this->load_dependencies();
 		$this->set_locale();
@@ -110,7 +106,7 @@ class RespectifyWordpressPlugin {
 		
 		$this->update_respectify_client();
 
-		$email = get_option('respectify_email', '');
+		$email = get_option(\Respectify\OPTION_EMAIL, '');
 		$api_key = respectify_get_decrypted_api_key();
 		$this->respectify_client = new RespectifyClientAsync($email, $api_key);
 
@@ -136,7 +132,7 @@ class RespectifyWordpressPlugin {
     public function update_respectify_client() {
 		error_log('Updating Respectify client');
 		
-		$email = get_option('respectify_email', '');
+		$email = get_option(\Respectify\OPTION_EMAIL, '');
         $api_key = respectify_get_decrypted_api_key();
         $this->respectify_client = new RespectifyClientAsync($email, $api_key);
     }
@@ -252,7 +248,7 @@ class RespectifyWordpressPlugin {
 	 * @return    string    The name of the plugin.
 	 */
 	public function get_respectify() {
-		return $this->respectify;
+		return 'respectify';
 	}
 
 	/**
@@ -406,7 +402,7 @@ class RespectifyWordpressPlugin {
 		//    Processes the comment data using wp_handle_comment_submission.
 		//    Calls the intercept_comment method to determine what to do with the comment.
 		// 3. intercept_comment method:
-		//    Evaluates the comment and decides on an action ('post', 'reject_with_feedback', or 'trash').
+		//    Evaluates the comment and decides on an action: post, reject with feedback, or trash. See ACTION_ constants
 
 		// Returns an array of comment data, or a WP_Error object if the comment should be rejected
 		// (including sending feedback to the user)
@@ -431,16 +427,16 @@ class RespectifyWordpressPlugin {
 
 		error_log('Comment action: ' . $action);
 
-		if ($action === 'post') {
+		if ($action === \Respectify\ACTION_PUBLISH) {
 			// Allow comment to be posted
 			// Return the comment data to proceed
 			return $commentdata;
-		} elseif ($action === 'reject_with_feedback') {
+		} elseif ($action === \Respectify\ACTION_REVISE) {
 			// Provide feedback and ask user to edit
-			return new \WP_Error('reject_with_feedback', 'Please revise your comment.', ['allow_post_anyway' => true]);
-		} elseif ($action === 'trash') {
+			return new \WP_Error(\Respectify\ACTION_REVISE, 'Please revise your comment.', ['allow_post_anyway' => true]);
+		} elseif ($action === \Respectify\ACTION_DELETE) {
 			// Reject comment without feedback
-			return new \WP_Error('trash', 'Your comment was rejected.');
+			return new \WP_Error(\Respectify\ACTION_DELETE, 'Your comment was rejected.');
 		}
 	}
 
@@ -448,45 +444,34 @@ class RespectifyWordpressPlugin {
      * Determine the action to take on the comment based on score and settings.
      *
      * @param object $comment_score The comment evaluation result.
-     * @return string Action to take ('post', 'reject_with_feedback', 'trash').
+     * @return string Action to take -- see ACTION_ constants
      */
     private function get_comment_action($comment_score) {
-        // Example settings - you may load these from your plugin's settings
-        $settings = [
-            'default_action' => 'reject_with_feedback', // Options: 'post', 'reject_with_feedback', 'trash'
-        ];
-
 		// Spam is an easy early exit
 		if ($comment_score->isSpam) {
-			$spam_handling = get_option('respectify_spam_handling', 'trash'); // 'trash' or 'reject_with_feedback', matching these actions
-			assert($spam_handling === 'trash' || $spam_handling === 'reject_with_feedback');
+			$spam_handling = get_option(\Respectify\OPTION_SPAM_HANDLING, \Respectify\DEFAULT_SPAM_HANDLING); // An ACTION_ constant
+			assert($spam_handling === \Respectify\ACTION_DELETE || $spam_handling === \Respectify\ACTION_REVISE);
 			return $spam_handling;
 		}
 
 		// These are true when, if any (eg) logical fallacies exist, the comment must be revised
 		// Wordpress seems to only save non-default items in this array? So need to check if the key exists
 		// and use the default if not
-		$revise_settings = get_option('respectify_revise_settings', array(
-				'min_score'             => 3,
-				'low_effort'            => true,
-				'logical_fallacies'     => true,
-				'objectionable_phrases' => true,
-				'negative_tone'         => true,
-			));
+		$revise_settings = get_option(\Respectify\OPTION_REVISE_SETTINGS, \Respectify\REVISE_DEFAULT_SETTINGS);
 
 		error_log('Revise settings: ' . print_r($revise_settings, true));
 
 		// First, if the minimum score is too low
 		$minAcceptableScore = isset($revise_settings['min_score']) ? $revise_settings['min_score'] : 3;
 		if ($comment_score->score < $minAcceptableScore) {
-			error_log('Score too low - decision: reject_with_feedback');
-			return 'reject_with_feedback';
+			error_log('Score too low - decision: ' . \Respectify\ACTION_REVISE);
+			return \Respectify\ACTION_REVISE;
 		}
 
 		if ($comment_score->appearsLowEffort) {
 			// Setting may not be set, default true
 			$revise_on_low_effort_handling = isset($revise_settings['low_effort']) ? $revise_settings['low_effort'] : true;
-			$low_effort_decision = $revise_on_low_effort_handling ? "reject_with_feedback" :  "post";
+			$low_effort_decision = $revise_on_low_effort_handling ? \Respectify\ACTION_REVISE :  \Respectify\ACTION_PUBLISH;
 			error_log('Low effort - decision: ' . $low_effort_decision);
 			return $low_effort_decision;
 		}
@@ -498,7 +483,7 @@ class RespectifyWordpressPlugin {
 		if ($hasValidFallacies) {
 			// Setting may not be set, default true
 			$revise_on_logical_fallacies = isset($revise_settings['logical_fallacies']) ? $revise_settings['logical_fallacies'] : true;
-			$logical_fallacies_decision = $revise_on_logical_fallacies ? "reject_with_feedback" :  "post";
+			$logical_fallacies_decision = $revise_on_logical_fallacies ? \Respectify\ACTION_REVISE : \Respectify\ACTION_PUBLISH;
 			error_log('Logical fallacies - decision: ' . $logical_fallacies_decision);
 			return $logical_fallacies_decision;
 		}
@@ -510,7 +495,7 @@ class RespectifyWordpressPlugin {
 		if ($hasValidObjectionablePhrases) {
 			// Setting may not be set, default true
 			$revise_on_phrases = isset($revise_settings['objectionable_phrases']) ? $revise_settings['objectionable_phrases'] : true;
-			$phrases_decision = $revise_on_phrases ? "reject_with_feedback" :  "post";
+			$phrases_decision = $revise_on_phrases ? \Respectify\ACTION_REVISE : \Respectify\ACTION_PUBLISH;
 			error_log('Objectionable phrases - decision: ' . $phrases_decision);
 			return $phrases_decision;
 		}
@@ -522,13 +507,13 @@ class RespectifyWordpressPlugin {
 		if ($hasValidNegativeTone) {
 			// Setting may not be set, default true
 			$revise_on_negative_tone = isset($revise_settings['negative_tone']) ? $revise_settings['negative_tone'] : true;
-			$negative_tone_decision = $revise_on_negative_tone ? "reject_with_feedback" :  "post";
+			$negative_tone_decision = $revise_on_negative_tone ? \Respectify\ACTION_REVISE : \Respectify\ACTION_PUBLISH;
 			error_log('Negative tone - decision: ' . $negative_tone_decision);
 			return $negative_tone_decision;
 		}
 
-		error_log("Fallback decision: " . $settings['default_action']);
-		return $settings['default_action'];
+		error_log("Fallback decision: " . \Respectify\ACTION_PUBLISH);
+		return \Respectify\ACTION_PUBLISH;
     }
 
     /**
