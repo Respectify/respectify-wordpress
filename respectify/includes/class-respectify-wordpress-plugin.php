@@ -330,7 +330,7 @@ class RespectifyWordpressPlugin {
         }	
 		// Checking it's a GUID
 		error_log('Returning Respectify article ID: ' . $article_id);
-		assert(!empty($article_id));// && !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/', $article_id));
+		assert(!empty($article_id));
 
 		return $article_id;
 	}
