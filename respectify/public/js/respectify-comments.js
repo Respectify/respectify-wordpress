@@ -34,7 +34,7 @@
                         // Reset the form
                         form[0].reset();
                         // Display success message
-                        var successMessage = $('<p class="respectify-message success">' + response.data.message + '</p>');
+                        var successMessage = $('<p class="respectify-message respectify-success">' + response.data.message + '</p>');
                         form.before(successMessage);
                         // Append the new comment to the comment list
                         if (response.data.comment_html) {
@@ -47,14 +47,8 @@
                     } else {
                         // Display error message
                         var message = response.data.message || 'An error occurred.';
-                        var errorMessage = $('<p class="respectify-message error">' + message + '</p>');
+                        var errorMessage = $('<div class="respectify-message respectify-error">' + message + '</div>');
                         form.before(errorMessage);
-
-                        // Show 'Post Anyway' button if allowed
-                        if (response.data.allow_post_anyway) {
-                            var postAnywayButton = $('<button type="button" id="respectify-post-anyway" class="respectify-button">Post Anyway</button>');
-                            form.before(postAnywayButton);
-                        }
                     }
                 },
                 error: function() {

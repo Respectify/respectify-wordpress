@@ -433,11 +433,112 @@ class RespectifyWordpressPlugin {
 			return $commentdata;
 		} elseif ($action === \Respectify\ACTION_REVISE) {
 			// Provide feedback and ask user to edit
-			return new \WP_Error(\Respectify\ACTION_REVISE, 'Please revise your comment.', ['allow_post_anyway' => true]);
+			$feedback_html = $this->build_feedback_html($comment_score);
+			if (empty($feedback_html)) {
+				// No feedback to show
+				error_log('No feedback to show, sending generic revise message');
+				$feedback_html = '<div class="respectify-feedback">Please revise your comment.</div>';
+			}
+			return new \WP_Error(\Respectify\ACTION_REVISE, '<div class="respectify-feedback">' . $feedback_html . '</div>');
 		} elseif ($action === \Respectify\ACTION_DELETE) {
 			// Reject comment without feedback
 			return new \WP_Error(\Respectify\ACTION_DELETE, 'Your comment was rejected.');
 		}
+	}
+
+	/**
+     * When a comment was sent for revision, we need to show feedback to the user. This
+	 * builds that feedback (as HTML)  
+     *
+     * @param object $comment_score The comment evaluation result.
+     * @return string (HTML) feedback to show to the user.
+     */
+	private function build_feedback_html($comment_score) {
+		if ($comment_score->isSpam) {
+			return "This looks like spam.";
+		}
+
+		$feedback = "";
+
+		// First, if the minimum score is too low
+		$minAcceptableScore = isset($revise_settings['min_score']) ? $revise_settings['min_score'] : 3;
+		if ($comment_score->overallScore < $minAcceptableScore) {
+			$feedback .= "We aim for thoughtful, engaged conversation."; // Don't give a negative 'didn't meet the score' message; give a goal
+		}
+
+		error_log('Building feedback HTML for comment score: '. print_r($comment_score, true));
+
+		$revise_settings = get_option(\Respectify\OPTION_REVISE_SETTINGS, \Respectify\REVISE_DEFAULT_SETTINGS);
+
+		$feedback .= "<ul>"; // Remainder of feedback is a list
+
+		$revise_on_low_effort_handling = isset($revise_settings['low_effort']) ? $revise_settings['low_effort'] : \Respectify\REVISE_DEFAULT_LOW_EFFORT;
+		error_log('Low effort setting: ' . $revise_on_low_effort_handling);
+		error_log('Low effort?: ' . $comment_score->appearsLowEffort);
+		if ($comment_score->appearsLowEffort && $revise_on_low_effort_handling) {
+			$feedback .= "<li>Your comment appears not to contribute to the conversation. Please provide a thoughtful response.</li>";
+		}
+
+		$revise_on_logical_fallacies = isset($revise_settings['logical_fallacies']) ? $revise_settings['logical_fallacies'] : \Respectify\REVISE_DEFAULT_LOGICAL_FALLACIES;	
+		// !!! Should  not reat as strings, just see if the array is empty or not
+		$hasValidFallacies = !empty($comment_score->logicalFallacies);
+		error_log('Logical fallaces setting: ' . $revise_on_logical_fallacies);
+		error_log('Logical fallacies?: ' . $hasValidFallacies);
+		if ($hasValidFallacies && $revise_on_logical_fallacies) {
+			$feedback .= "<li>Your comment contains logic that seems right, but when looked at doesn't hold together, known as a '<a href=\"https://academicguides.waldenu.edu/writingcenter/writingprocess/logicalfallacies \" target=\"_new\">logical fallacy</a>'.</li>";
+			// List each logical fallace in a sublist
+			$feedback .= "<ul>";
+			foreach ($comment_score->logicalFallacies as $fallacy) {
+				$feedback .= "<li><strong>'" . $fallacy->quotedLogicalFallacy . "':</strong> " . $fallacy->explanation;
+				if (!empty($phrase->suggestedRewrite)) {
+					$feedback .= "<br/><em>Try something like:</em> '" . $phrase->suggestedRewrite . "'";
+				}
+				$feedback .= "</li>";
+			}
+			$feedback .= "</ul>";
+		}
+
+		$revise_on_phrases = isset($revise_settings['objectionable_phrases']) ? $revise_settings['objectionable_phrases'] : \Respectify\REVISE_DEFAULT_OBJECTIONABLE_PHRASES;	
+		$hasValidObjectionablePhrases = !empty($comment_score->objectionablePhrases);
+		error_log('Objectionable phrases setting: ' . $revise_on_phrases);
+		error_log('Objectionable phrases?: ' . $hasValidObjectionablePhrases);
+		if ($hasValidObjectionablePhrases && $revise_on_phrases) {
+			$feedback .= "<li>Your comment contains potentially objectionable language or phrases.</li>";
+			// List each phrase in a sublist
+			$feedback .= "<ul>";
+			foreach ($comment_score->objectionablePhrases as $phrase) {
+				$feedback .= "<li><strong>'" . $phrase->quotedObjectionablePhrase . "':</strong> " . $phrase->explanation;
+				if (!empty($phrase->suggestedRewrite)) {
+					$feedback .= "<br/><em>Try something like:</em> '" . $phrase->suggestedRewrite . "'";
+				}
+				$feedback .= "</li>";
+			}
+			$feedback .= "</ul>";
+		}
+
+		$revise_on_negative_tone = isset($revise_settings['negative_tone']) ? $revise_settings['negative_tone'] : \Respectify\REVISE_DEFAULT_NEGATIVE_TONE;
+		$hasValidNegativeTone = !empty($comment_score->negativeTonePhrases);
+		error_log('Negative tone setting: ' . $revise_on_negative_tone);
+		error_log('Negative tone?: ' . $hasValidNegativeTone);
+		if ($hasValidNegativeTone && $revise_on_negative_tone) {
+			$feedback .= "<li>Your comment may not contribute to a healthy conversation.</li>";
+			// List each phrase in a sublist
+			$feedback .= "<ul>";
+			foreach ($comment_score->negativeTonePhrases as $phrase) {
+				$feedback .= "<li><strong>'" . $phrase->quotedNegativeTonePhrase . "':</strong> " . $phrase->explanation;
+				if (!empty($phrase->suggestedRewrite)) {
+					$feedback .= "<br/><em>Try something like:</em> '" . $phrase->suggestedRewrite . "'";
+				}
+				$feedback .= "</li>";
+			}
+			$feedback .= "</ul>";
+		}
+
+		$feedback .= "</ul>";
+
+		$feedback .= "<p>Can you edit your comment to take the above feedback into account?</p>";
+
+		return $feedback;
 	}
 
 	/**
@@ -464,7 +565,7 @@ class RespectifyWordpressPlugin {
 		error_log('Comment score object: ' . print_r($comment_score, true));
 
 		// First, if the minimum score is too low
-		$minAcceptableScore = isset($revise_settings['min_score']) ? $revise_settings['min_score'] : 3;
+		$minAcceptableScore = isset($revise_settings['min_score']) ? $revise_settings['min_score'] : \Respectify\REVISE_DEFAULT_MIN_SCORE;
 		if ($comment_score->overallScore < $minAcceptableScore) {
 			error_log('Score too low - decision: ' . \Respectify\ACTION_REVISE);
 			return \Respectify\ACTION_REVISE;
@@ -472,43 +573,37 @@ class RespectifyWordpressPlugin {
 
 		if ($comment_score->appearsLowEffort) {
 			// Setting may not be set, default true
-			$revise_on_low_effort_handling = isset($revise_settings['low_effort']) ? $revise_settings['low_effort'] : true;
+			$revise_on_low_effort_handling = isset($revise_settings['low_effort']) ? $revise_settings['low_effort'] : \Respectify\REVISE_DEFAULT_LOW_EFFORT;
 			$low_effort_decision = $revise_on_low_effort_handling ? \Respectify\ACTION_REVISE :  \Respectify\ACTION_PUBLISH;
 			error_log('Low effort - decision: ' . $low_effort_decision);
 			return $low_effort_decision;
 		}
 
 		// Sanitizes: Non-empty array, and any array items are not empty
-		$hasValidFallacies = !empty(array_filter($comment_score->logicalFallacies, function($element) {
-			return is_string($element) && trim($element) !== '';
-		}));
+		$hasValidFallacies = !empty($comment_score->logicalFallacies);
 		if ($hasValidFallacies) {
 			// Setting may not be set, default true
-			$revise_on_logical_fallacies = isset($revise_settings['logical_fallacies']) ? $revise_settings['logical_fallacies'] : true;
+			$revise_on_logical_fallacies = isset($revise_settings['logical_fallacies']) ? $revise_settings['logical_fallacies'] : \Respectify\REVISE_DEFAULT_LOGICAL_FALLACIES;
 			$logical_fallacies_decision = $revise_on_logical_fallacies ? \Respectify\ACTION_REVISE : \Respectify\ACTION_PUBLISH;
 			error_log('Logical fallacies - decision: ' . $logical_fallacies_decision);
 			return $logical_fallacies_decision;
 		}
 
 		// Sanitizes: Non-empty array, and any array items are not empty
-		$hasValidObjectionablePhrases = !empty(array_filter($comment_score->objectionablePhrases, function($element) {
-			return is_string($element) && trim($element) !== '';
-		}));
+		$hasValidObjectionablePhrases = !empty($comment_score->objectionablePhrases);
 		if ($hasValidObjectionablePhrases) {
 			// Setting may not be set, default true
-			$revise_on_phrases = isset($revise_settings['objectionable_phrases']) ? $revise_settings['objectionable_phrases'] : true;
+			$revise_on_phrases = isset($revise_settings['objectionable_phrases']) ? $revise_settings['objectionable_phrases'] : \Respectify\REVISE_DEFAULT_OBJECTIONABLE_PHRASES;
 			$phrases_decision = $revise_on_phrases ? \Respectify\ACTION_REVISE : \Respectify\ACTION_PUBLISH;
 			error_log('Objectionable phrases - decision: ' . $phrases_decision);
 			return $phrases_decision;
 		}
 
 		// Sanitizes: Non-empty array, and any array items are not empty
-		$hasValidNegativeTone = !empty(array_filter($comment_score->negativeTonePhrases, function($element) {
-			return is_string($element) && trim($element) !== '';
-		}));
+		$hasValidNegativeTone = !empty($comment_score->negativeTonePhrases);
 		if ($hasValidNegativeTone) {
 			// Setting may not be set, default true
-			$revise_on_negative_tone = isset($revise_settings['negative_tone']) ? $revise_settings['negative_tone'] : true;
+			$revise_on_negative_tone = isset($revise_settings['negative_tone']) ? $revise_settings['negative_tone'] : \Respectify\REVISE_DEFAULT_NEGATIVE_TONE;
 			$negative_tone_decision = $revise_on_negative_tone ? \Respectify\ACTION_REVISE : \Respectify\ACTION_PUBLISH;
 			error_log('Negative tone - decision: ' . $negative_tone_decision);
 			return $negative_tone_decision;

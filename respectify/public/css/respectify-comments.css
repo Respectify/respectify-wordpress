@@ -1,14 +1,27 @@
-.respectify-error-message {
-    color: red;
-    margin-top: 10px;
+.respectify-message {
+    font-size: medium;
 }
 
-.respectify-success-message {
+.respectify-error {
+    margin-top: 10px;
+    border: 1px solid red;
+    border-radius: 0.4rem;
+    background-color: rgba(255, 0, 0, 0.15);
+    padding: 1rem;
+    padding-bottom: 0.1rem;
+}
+
+.respectify-success {
     color: green;
     margin-top: 10px;
 }
 
 .respectify-working-message {
     margin-top: 10px;
+}
+
+/* The div that contains feedback. It's inside a .respectify-message .respectify-error div */
+.respectify-feedback {
+    font-size: medium;
 }
 
