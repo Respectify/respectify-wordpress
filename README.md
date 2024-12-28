@@ -9,7 +9,7 @@ This uses `composer` for package management, with `php-scoper` for bundling libr
 Use:
 ```bash
 $ vendor/bin/php-scoper add-prefix --config=scoper.inc.php
-cd build
+$ cd build
 $ composer dump-autoload -o
 ```
 to add the scope prefix (RespectifyScoper, see scoper.inc.php.)
