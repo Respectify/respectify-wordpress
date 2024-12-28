@@ -489,7 +489,7 @@ class RespectifyWordpressPlugin {
 			// List each logical fallace in a sublist
 			$feedback .= "<ul>";
 			foreach ($comment_score->logicalFallacies as $fallacy) {
-				$feedback .= "<li><strong>'" . $fallacy->quotedLogicalFallacy . "':</strong> " . $fallacy->explanation;
+				$feedback .= "<li><strong>'" . $fallacy->quotedLogicalFallacyExample . "':</strong> " . $fallacy->explanation;
 				if (!empty($phrase->suggestedRewrite)) {
 					$feedback .= "<br/><em>Try something like:</em> '" . $phrase->suggestedRewrite . "'";
 				}
