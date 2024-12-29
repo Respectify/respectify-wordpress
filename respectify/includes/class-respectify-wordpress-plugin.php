@@ -478,7 +478,7 @@ class RespectifyWordpressPlugin {
 		error_log('Low effort setting: ' . $revise_on_low_effort_handling);
 		error_log('Low effort?: ' . $comment_score->appearsLowEffort);
 		if ($comment_score->appearsLowEffort && $revise_on_low_effort_handling) {
-			$feedback .= "<li>Your comment appears not to contribute to the conversation. Please provide a thoughtful response.</li>";
+			$feedback .= "<li>Your comment appears not to contribute new content to the conversation. Please provide a thoughtful response.</li>";
 		}
 
 		$revise_on_logical_fallacies = isset($revise_settings['logical_fallacies']) ? $revise_settings['logical_fallacies'] : \Respectify\REVISE_DEFAULT_LOGICAL_FALLACIES;	
@@ -538,7 +538,10 @@ class RespectifyWordpressPlugin {
 
 		$feedback .= "</ul>";
 
-		$feedback .= "<p>Can you edit your comment to take the above feedback into account?</p>";
+		$feedback .= "<p>Can you edit your comment to take the above feedback into account, please?</p>";
+
+		error_log("Feedback: ");
+		error_log($feedback);
 
 		return $feedback;
 	}
