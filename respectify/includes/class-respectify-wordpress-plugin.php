@@ -484,7 +484,7 @@ class RespectifyWordpressPlugin {
 		$revise_on_logical_fallacies = isset($revise_settings['logical_fallacies']) ? $revise_settings['logical_fallacies'] : \Respectify\REVISE_DEFAULT_LOGICAL_FALLACIES;	
 		// !!! Should  not reat as strings, just see if the array is empty or not
 		$hasValidFallacies = !empty($comment_score->logicalFallacies);
-		error_log('Logical fallaces setting: ' . $revise_on_logical_fallacies);
+		error_log('Logical fallacies setting: ' . $revise_on_logical_fallacies);
 		error_log('Logical fallacies?: ' . $hasValidFallacies);
 		if ($hasValidFallacies && $revise_on_logical_fallacies) {
 			$feedback .= "<li>Your comment contains logic that seems right, but when looked at doesn't hold together, known as a '<a href=\"https://academicguides.waldenu.edu/writingcenter/writingprocess/logicalfallacies \" target=\"_new\">logical fallacy</a>'.</li>";
@@ -493,7 +493,7 @@ class RespectifyWordpressPlugin {
 			foreach ($comment_score->logicalFallacies as $fallacy) {
 				$feedback .= "<li><strong>'" . $fallacy->quotedLogicalFallacyExample . "':</strong> " . $fallacy->explanation;
 				if (!empty($phrase->suggestedRewrite)) {
-					$feedback .= "<br/><em>Try something like:</em> '" . $phrase->suggestedRewrite . "'";
+					$feedback .= "<br/><div class=\"respectify-suggestion\"><em>Try something like:</em> '" . $phrase->suggestedRewrite . "'</div>";
 				}
 				$feedback .= "</li>";
 			}
@@ -530,7 +530,7 @@ class RespectifyWordpressPlugin {
 			foreach ($comment_score->negativeTonePhrases as $phrase) {
 				$feedback .= "<li><strong>'" . $phrase->quotedNegativeTonePhrase . "':</strong> " . $phrase->explanation;
 				if (!empty($phrase->suggestedRewrite)) {
-					$feedback .= "<br/><em>Try something like:</em> '" . $phrase->suggestedRewrite . "'";
+					$feedback .= "<br/><div class=\"respectify-suggestion\"><em>Try something like:</em> '" . $phrase->suggestedRewrite . "'</div>";
 				}
 				$feedback .= "</li>";
 			}

@@ -5,6 +5,7 @@
 
 .respectify-message {
     font-size: medium;
+    font-size: var(--wp--preset--font-size--medium);
 }
 
 .respectify-error {
@@ -29,5 +30,17 @@
 /* The div that contains feedback. It's inside a .respectify-message .respectify-error div */
 .respectify-feedback {
     font-size: medium;
+}
+
+/* This is inside respectify-feedback and is a div that contains a suggestion.
+   It's highlighted separately. */
+.respectify-suggestion {
+    border: 1px solid var(--respectify-message-color);
+    border-radius: 0.7rem;
+    background-color: var(--wp--preset--color--base);
+    color: var(--wp--preset--color--contrast);
+    padding: 0.3rem;
+    padding-left: 0.75rem; 
+    margin-left: -0.75rem; /* Opposite of padding, so text is aligned while its container is outside it */  
 }
 
