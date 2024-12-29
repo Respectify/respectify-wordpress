@@ -13,3 +13,7 @@ $ cd build
 $ composer dump-autoload -o
 ```
 to add the scope prefix (RespectifyScoper, see scoper.inc.php.)
+
+Often I have to do this twice. Why, I don't know. It's easy to test, by running a local WP instance - you will
+get errors about class not found.
+
