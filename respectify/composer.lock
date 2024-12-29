@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "d5611d78a3fe1d1b0c5f4259e7261971",
+    "content-hash": "a803d3041cd6dafa4b9286ea7a66575a",
     "packages": [
         {
             "name": "evenement/evenement",
@@ -921,16 +921,16 @@
         },
         {
             "name": "respectify/respectify-php",
-            "version": "v0.2.6",
+            "version": "v0.2.7",
             "source": {
                 "type": "git",
                 "url": "https://github.com/vintagedave/respectify-php.git",
-                "reference": "a271c2b9b29c65e6bb7161eeff1b5acbb568497f"
+                "reference": "37136f121fdae8e5355772315531d631777eef2d"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/vintagedave/respectify-php/zipball/a271c2b9b29c65e6bb7161eeff1b5acbb568497f",
-                "reference": "a271c2b9b29c65e6bb7161eeff1b5acbb568497f",
+                "url": "https://api.github.com/repos/vintagedave/respectify-php/zipball/37136f121fdae8e5355772315531d631777eef2d",
+                "reference": "37136f121fdae8e5355772315531d631777eef2d",
                 "shasum": ""
             },
             "require": {
@@ -967,9 +967,9 @@
             "description": "PHP library for the Respectify API",
             "support": {
                 "issues": "https://github.com/vintagedave/respectify-php/issues",
-                "source": "https://github.com/vintagedave/respectify-php/tree/v0.2.6"
+                "source": "https://github.com/vintagedave/respectify-php/tree/v0.2.7"
             },
-            "time": "2024-12-28T18:06:33+00:00"
+            "time": "2024-12-28T21:20:18+00:00"
         },
         {
             "name": "sniccowp/php-scoper-wordpress-excludes",
