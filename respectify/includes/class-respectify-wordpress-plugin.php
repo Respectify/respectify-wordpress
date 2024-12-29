@@ -419,7 +419,9 @@ class RespectifyWordpressPlugin {
 			return new \WP_Error('invalid_article_id', 'Invalid article ID.');
 		}
 
-		$comment_text = sanitize_text_field($commentdata['comment_content']);
+		// Wordpress adds slashes, so remove them before sanitising to avoid double slashes
+		// Caught by words like "don't": visible to the user as "don\'t"
+		$comment_text = sanitize_text_field(wp_unslash($commentdata['comment_content']));
 		$comment_score = $this->evaluate_comment($article_id, $comment_text);
 
 		// Your custom logic based on settings
