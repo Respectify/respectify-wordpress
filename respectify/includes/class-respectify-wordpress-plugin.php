@@ -510,9 +510,10 @@ class RespectifyWordpressPlugin {
 			$feedback .= "<ul>";
 			foreach ($comment_score->objectionablePhrases as $phrase) {
 				$feedback .= "<li><strong>'" . $phrase->quotedObjectionablePhrase . "':</strong> " . $phrase->explanation;
-				if (!empty($phrase->suggestedRewrite)) {
-					$feedback .= "<br/><em>Try something like:</em> '" . $phrase->suggestedRewrite . "'";
-				}
+				// Don't suggest something. Just say it's objectionable
+				// if (!empty($phrase->suggestedRewrite)) {
+				// 	$feedback .= "<br/><div class=\"respectify-suggestion\"><em>Try something like:</em> '" . $phrase->suggestedRewrite . "'</div>";
+				// }
 				$feedback .= "</li>";
 			}
 			$feedback .= "</ul>";
