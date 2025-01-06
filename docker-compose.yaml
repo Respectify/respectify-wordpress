@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  db:
+    image: mariadb:latest
+    container_name: wordpress-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wpuser
+      MYSQL_PASSWORD: wppassword
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    networks:
+      - wordpress-network
+    platform: linux/amd64 
+
+  wordpress:
+    image: wordpress:latest
+    container_name: wordpress-site
+    restart: always
+    ports:
+      - "8081:80"  # Host Port: 8081 mapped to Container Port: 80
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: wpuser
+      WORDPRESS_DB_PASSWORD: wppassword
+      WORDPRESS_DB_NAME: wordpress
+    volumes:
+      - wordpress-data:/var/www/html
+      - /Users/work/Documents/Windows Documents/projects/My stuff/github/respectify/respectify-wordpress/build:/var/www/html/wp-content/plugins/respectify  # Custom Plugin Path
+    depends_on:
+      - db
+    networks:
+      - wordpress-network
+    platform: linux/amd64 
+
+volumes:
+  mariadb-data:
+  wordpress-data:
+
+networks:
+  wordpress-network:
