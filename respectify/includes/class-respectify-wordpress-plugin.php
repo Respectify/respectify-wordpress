@@ -679,7 +679,7 @@ class RespectifyWordpressPlugin {
 			// Handle the error by preventing the comment from being saved
 			wp_die(
 				esc_html($result->get_error_message()),
-				__('Comment Submission Error', 'respectify'),
+				esc_html__('Comment Submission Error', 'respectify'),
 				array('back_link' => true)
 			);
 		}
