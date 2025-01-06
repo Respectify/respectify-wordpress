@@ -102,6 +102,46 @@ else
   exit 1
 fi
 
+# Step 4.1: Copy exclude-wordpress-* files to TEMP_BUILD_DIR
+echo "Step 4.1: Copying exclude-wordpress-* files to temporary build directory..."
+
+# Define the array of exclude filenames
+EXCLUDE_FILES=(
+  "exclude-wordpress-classes.json"
+  "exclude-wordpress-functions.json"
+  "exclude-wordpress-constants.json"
+  # Add more exclude files here as needed
+)
+
+# Iterate over each exclude file and copy it
+for exclude_file in "${EXCLUDE_FILES[@]}"; do
+  # Define source and destination paths
+  EXCLUDE_SOURCE="$PLUGIN_DIR/vendor/sniccowp/php-scoper-wordpress-excludes/generated/$exclude_file"
+  EXCLUDE_DEST="$TEMP_BUILD_DIR/vendor/sniccowp/php-scoper-wordpress-excludes/generated/$exclude_file"
+  
+  # Create destination directory if it doesn't exist
+  mkdir -p "$(dirname "$EXCLUDE_DEST")"
+  
+  # Copy the exclude file if it exists
+  if [ -f "$EXCLUDE_SOURCE" ]; then
+    cp "$EXCLUDE_SOURCE" "$EXCLUDE_DEST"
+    echo "Copied $exclude_file to '$EXCLUDE_DEST'."
+  else
+    echo "Error: Exclude file '$EXCLUDE_SOURCE' does not exist."
+    exit 1
+  fi
+done
+
+echo "All exclude-wordpress-* files copied successfully."
+
+# Check if php-scoper exists
+if [ ! -f "$PHPCS_PREFIXER" ]; then
+  echo "Error: php-scoper not found at '$PHPCS_PREFIXER'. Please run 'composer install' in '$PLUGIN_DIR' first."
+  exit 1
+else
+  echo "php-scoper found at '$PHPCS_PREFIXER'."
+fi
+
 # Step 5: Run PHP-Scoper on Temporary Build Directory and Output to Final Build Directory
 echo "Running PHP-Scoper to prefix namespaces..."
 echo "php-scoper path: $PHPCS_PREFIXER"
@@ -112,6 +152,12 @@ echo "Working directory: $TEMP_BUILD_DIR"
   --config="$TEMP_BUILD_DIR/scoper.inc.php" \
   --working-dir="$TEMP_BUILD_DIR" \
   --force
+
+# Delete the copied sniccowp/php-scoper-wordpress-excludes files, because they trigger 
+# the check of php-scoper in the final build directory
+echo "Deleting sniccowp/php-scoper-wordpress-excludes files from TEMP_BUILD_DIR..."
+rm -rf "$TEMP_BUILD_DIR/vendor/sniccowp/php-scoper-wordpress-excludes"
+
 
 # Copy the prefixed files to the final build directory
 # Create Temporary Build Directory

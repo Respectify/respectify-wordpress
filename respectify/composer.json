@@ -3,8 +3,7 @@
     "description": "Wordpress comment evaluation via the Respectify API",
     "type": "wordpress-plugin",
     "require": {
-        "respectify/respectify-php": "^0.2.7",
-        "sniccowp/php-scoper-wordpress-excludes": "^6.6"
+        "respectify/respectify-php": "^0.2.7"
     },
     "autoload": {
         "psr-4": {
@@ -13,6 +12,7 @@
         }
     },
     "require-dev": {
-        "humbug/php-scoper": "^0.18.15"
+        "humbug/php-scoper": "^0.18.15",
+        "sniccowp/php-scoper-wordpress-excludes": "^6.6"
     }
 }
