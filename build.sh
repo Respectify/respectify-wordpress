@@ -45,6 +45,7 @@ ESSENTIAL_FILES=(
   "readme.txt"
   "license.txt"
   "index.php"
+  "respectify.php"
   "uninstall.php"
   "composer.json"
   "composer.lock"
