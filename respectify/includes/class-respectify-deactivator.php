@@ -19,7 +19,7 @@ namespace Respectify;
  * @since      1.0.0
  * @package    Respectify
  * @subpackage Respectify/includes
- * @author     David Millington <vintagedave@gmail.com>
+ * @author     David Millington <dave@respectify.ai>
  */
 class Respectify_Deactivator {
 

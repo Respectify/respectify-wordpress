@@ -19,7 +19,7 @@ namespace Respectify;
  *
  * @package    Respectify
  * @subpackage Respectify/public
- * @author     David Millington <vintagedave@gmail.com>
+ * @author     David Millington <dave@respectify.ai>
  */
 class Respectify_Public {
 

@@ -39,7 +39,7 @@ require_once plugin_dir_path(__FILE__) . 'respectify-constants.php';
  * @since      1.0.0
  * @package    Respectify
  * @subpackage Respectify/includes
- * @author     David Millington <vintagedave@gmail.com>
+ * @author     David Millington <dave@respectify.ai>
  */
 class RespectifyWordpressPlugin {
 

@@ -961,7 +961,7 @@
             "authors": [
                 {
                     "name": "David Millington",
-                    "email": "vintagedave@gmail.com"
+                    "email": "dave@respectify.ai"
                 }
             ],
             "description": "PHP library for the Respectify API",
