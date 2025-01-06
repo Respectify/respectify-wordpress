@@ -35,11 +35,11 @@ class Respectify_i18n {
 	 */
 	public function load_plugin_textdomain() {
 
-		load_plugin_textdomain(
-			'respectify',
-			false,
-			dirname( dirname( plugin_basename( __FILE__ ) ) ) . '/languages/'
-		);
+		// load_plugin_textdomain(
+		// 	'respectify',
+		// 	false,
+		// 	dirname( dirname( plugin_basename( __FILE__ ) ) ) . '/languages/'
+		// );
 
 	}
 
