@@ -1,9 +1,5 @@
 #!/bin/bash
 
-# create these if they don't already exist, so that realpath can use them (they are recreated later)
-mkdir build
-mkdir temp_build
-
 # Exit immediately if a command exits with a non-zero status
 set -e
 
@@ -12,8 +8,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Define directories with absolute paths
 PLUGIN_DIR="$(realpath "$SCRIPT_DIR/respectify")"
-TEMP_BUILD_DIR="$(realpath "$SCRIPT_DIR/temp_build")"
-FINAL_BUILD_DIR="$(realpath "$SCRIPT_DIR/build")"
+TEMP_BUILD_DIR="$SCRIPT_DIR/temp_build"
+FINAL_BUILD_DIR="$SCRIPT_DIR/build"
 
 # Define the absolute path to php-scoper
 PHPCS_PREFIXER="$PLUGIN_DIR/vendor/bin/php-scoper"
@@ -29,9 +25,30 @@ if [ ! -f "$PHPCS_PREFIXER" ]; then
   exit 1
 fi
 
-# Step 1: Clean Previous Build Directories
-echo "Cleaning previous build directories..."
-rm -rf "$TEMP_BUILD_DIR" "$FINAL_BUILD_DIR"
+# Ensure the build directory exists
+if [ ! -d "$FINAL_BUILD_DIR" ]; then
+  echo "Build directory '$FINAL_BUILD_DIR' does not exist. Creating it..."
+  mkdir -p "$FINAL_BUILD_DIR"
+  echo "Build directory created."
+fi
+
+# Delete all contents inside TEMP_BUILD_DIR and FINAL_BUILD_DIR without deleting the directories themselves
+echo "Deleting contents of TEMP_BUILD_DIR: $TEMP_BUILD_DIR"
+if [ -d "$TEMP_BUILD_DIR" ]; then
+  find "$TEMP_BUILD_DIR" -mindepth 1 -delete
+  echo "Contents of '$TEMP_BUILD_DIR' deleted."
+else
+  echo "Temporary build directory '$TEMP_BUILD_DIR' does not exist. Creating it..."
+  mkdir -p "$TEMP_BUILD_DIR"
+  echo "Temporary build directory created."
+fi
+
+echo "Deleting contents of FINAL_BUILD_DIR: $FINAL_BUILD_DIR"
+find "$FINAL_BUILD_DIR" -mindepth 1 -delete
+echo "Contents of '$FINAL_BUILD_DIR' deleted."
+
+echo "Step 1 completed."
+
 
 # Step 2: Create Temporary Build Directory
 echo "Creating temporary build directory..."
