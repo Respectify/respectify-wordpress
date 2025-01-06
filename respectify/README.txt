@@ -1,10 +1,10 @@
-=== Respectify ===
+=== Respectify -- Healthy Internet Comments ===
 Contributors: vintagedave
 Donate link: https://github.com/vintagedave/
 Tags: comments, moderation, community, user engagement, spam
 Requires at least: 6.6.0
 Tested up to: 6.7.1
-Stable tag: 0.2
+Stable tag: 0.2.0
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
