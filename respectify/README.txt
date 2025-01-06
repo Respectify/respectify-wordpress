@@ -1,9 +1,9 @@
-=== Plugin Name ===
+=== Respectify ===
 Contributors: vintagedave
 Donate link: https://github.com/vintagedave/
-Tags: comments, spam, moderation, community, comment moderation, comment filtering, anti-spam, user engagement
-Requires at least: 5.0.0
-Tested up to: 6.5.3
+Tags: comments, moderation, community, user engagement, spam
+Requires at least: 6.6.0
+Tested up to: 6.7.1
 Stable tag: 0.2
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
@@ -28,13 +28,12 @@ please [sign up for an API key](https://respectify.org).
 
 == Installation ==
 
-This section describes how to install the plugin and get it working.
+Respectify is available in the Wordpress plugins directory, so:
 
-e.g.
-
-1. Upload `respectify.php` to the `/wp-content/plugins/` directory
-1. Activate the plugin through the 'Plugins' menu in WordPress
-1. Place `<?php do_action('respectify_hook'); ?>` in your templates
+1. Go to the Plugins menu in the Wordpress admin interface, and select Add New Plugin
+2. Search for Respectify, and install
+3. In Settings > Respectify, add your the email and API key that you get from respectify.ai. (If you don't have one, create an account at https://respectify.ai.)
+4. That's it!
 
 == Changelog ==
 

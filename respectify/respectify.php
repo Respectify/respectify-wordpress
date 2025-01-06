@@ -9,18 +9,18 @@
  * that starts the plugin.
  *
  * @link              https://github.com/vintagedave
- * @since             1.0.0
+ * @since             0.2.0
  * @package           Respectify
  *
  * @wordpress-plugin
- * Plugin Name:       Respectify for Wordpress
+ * Plugin Name:       Respectify -- Healthy Internet Comments
  * Plugin URI:        https://respectify.org
  * Description:       Use Respectify to ensure the comments people write on your site demonstrate healthy online conversation.
- * Version:           1.0.0
+ * Version:           0.2.0
  * Author:            David Millington
  * Author URI:        https://github.com/vintagedave/
- * License:           GPL-2.0+
- * License URI:       http://www.gnu.org/licenses/gpl-2.0.txt
+ * License:           GPL-3.0+
+ * License URI:       http://www.gnu.org/licenses/gpl-3.0.txt
  * Text Domain:       respectify
  * Domain Path:       /languages
  */
