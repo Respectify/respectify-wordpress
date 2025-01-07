@@ -159,6 +159,8 @@ function respectify_api_key_callback() {
 // Encrypt API key before saving
 add_filter('pre_update_option_respectify_api_key_encrypted', 'respectify_encrypt_api_key', 10, 2);
 function respectify_encrypt_api_key($new_value, $old_value) {
+    respectify_verify_nonce(); // wp_die-is if not valid
+
     if (!empty($_POST['respectify_api_key'])) {
         $api_key = sanitize_text_field(wp_unslash($_POST['respectify_api_key']));
         return respectify_encrypt($api_key);
@@ -167,13 +169,33 @@ function respectify_encrypt_api_key($new_value, $old_value) {
 }
 
 // Verify nonce before saving settings
-add_action('admin_post_update', 'respectify_verify_nonce_before_save');
-function respectify_verify_nonce_before_save() {
-    if (!isset($_POST['respectify_settings_nonce']) || !wp_verify_nonce(wp_unslash($_POST['respectify_settings_nonce']), 'respectify_settings')) {
-        wp_die(esc_html__('Invalid nonce specified', 'respectify'), esc_html__('Error', 'respectify'), array(
-            'response' => 403,
-            'back_link' => true,
-        ));
+add_action('admin_post_update', 'respectify_verify_nonce');
+function respectify_verify_nonce() {
+    // Check if the nonce is set
+    if (isset($_POST['respectify_settings_nonce'])) {
+        // Sanitize the nonce value
+        $nonce = sanitize_text_field(wp_unslash($_POST['respectify_settings_nonce']));
+
+        // Verify the nonce
+        if (!wp_verify_nonce($nonce, 'respectify_save_settings')) {
+            wp_die(
+                esc_html__('Invalid nonce specified', 'respectify'),
+                esc_html__('Error', 'respectify'),
+                array(
+                    'response'  => 403,
+                    'back_link' => true,
+                )
+            );
+        }
+    } else {
+        wp_die(
+            esc_html__('No nonce specified', 'respectify'),
+            esc_html__('Error', 'respectify'),
+            array(
+                'response'  => 403,
+                'back_link' => true,
+            )
+        );
     }
 }
 
@@ -184,8 +206,10 @@ function respectify_render_settings_page() {
         <h1>Respectify Settings</h1>
         <form method="post" action="options.php">
             <?php
-            wp_nonce_field('respectify_settings', 'respectify_settings_nonce');
             settings_fields('respectify_options_group');
+
+            wp_nonce_field('respectify_save_settings', 'respectify_settings_nonce');
+            
             do_settings_sections('respectify');
             submit_button();
             ?>
