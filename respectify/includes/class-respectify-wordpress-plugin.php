@@ -723,12 +723,12 @@ class RespectifyWordpressPlugin {
 	 * Plus the CSS as well.
      */
     public function enqueue_scripts_and_styles() {
-		wp_enqueue_script('respectify-comments-js', plugins_url('public/js/respectify-comments.js', __DIR__), array('jquery'), null, true);
+		wp_enqueue_script('respectify-comments-js', plugins_url('public/js/respectify-comments.js', __DIR__), array('jquery'), $this->version, true);
 	
 		wp_localize_script('respectify-comments-js', 'respectify_ajax_object', array(
 			'ajax_url' => admin_url('admin-ajax.php'),
 		));
 	
-		wp_enqueue_style('respectify-comments', plugins_url('public/css/respectify-comments.css', __DIR__));
+		wp_enqueue_style('respectify-comments', plugins_url('public/css/respectify-comments.css', __DIR__), array(), $this->version);
 	}
 }
