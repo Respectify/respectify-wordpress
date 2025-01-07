@@ -170,7 +170,7 @@ function respectify_encrypt_api_key($new_value, $old_value) {
 add_action('admin_post_update', 'respectify_verify_nonce_before_save');
 function respectify_verify_nonce_before_save() {
     if (!isset($_POST['respectify_settings_nonce']) || !wp_verify_nonce(wp_unslash($_POST['respectify_settings_nonce']), 'respectify_settings')) {
-        wp_die(__('Invalid nonce specified', 'respectify'), __('Error', 'respectify'), array(
+        wp_die(esc_html__('Invalid nonce specified', 'respectify'), esc_html__('Error', 'respectify'), array(
             'response' => 403,
             'back_link' => true,
         ));
