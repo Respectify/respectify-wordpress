@@ -24,9 +24,6 @@
  * Text Domain:       respectify
  */
 
- // !!! Should be temporary, while debugging loading only
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
 
 // If this file is called directly, abort.
 if ( ! defined( 'WPINC' ) ) {
