@@ -160,10 +160,21 @@ function respectify_api_key_callback() {
 add_filter('pre_update_option_respectify_api_key_encrypted', 'respectify_encrypt_api_key', 10, 2);
 function respectify_encrypt_api_key($new_value, $old_value) {
     if (!empty($_POST['respectify_api_key'])) {
-        $api_key = sanitize_text_field($_POST['respectify_api_key']);
+        $api_key = sanitize_text_field(wp_unslash($_POST['respectify_api_key']));
         return respectify_encrypt($api_key);
     }
     return $old_value;
+}
+
+// Verify nonce before saving settings
+add_action('admin_post_update', 'respectify_verify_nonce_before_save');
+function respectify_verify_nonce_before_save() {
+    if (!isset($_POST['respectify_settings_nonce']) || !wp_verify_nonce(wp_unslash($_POST['respectify_settings_nonce']), 'respectify_settings')) {
+        wp_die(__('Invalid nonce specified', 'respectify'), __('Error', 'respectify'), array(
+            'response' => 403,
+            'back_link' => true,
+        ));
+    }
 }
 
 // Render the settings page
@@ -173,6 +184,7 @@ function respectify_render_settings_page() {
         <h1>Respectify Settings</h1>
         <form method="post" action="options.php">
             <?php
+            wp_nonce_field('respectify_settings', 'respectify_settings_nonce');
             settings_fields('respectify_options_group');
             do_settings_sections('respectify');
             submit_button();
@@ -220,8 +232,8 @@ function respectify_test_credentials() {
 
     // Get the email and API key from the AJAX request, if provided
     // Note this is NOT from the settings, because they may not be saved yet
-    $email = isset($_POST['email']) ? sanitize_email($_POST['email']) : get_option(\Respectify\OPTION_EMAIL, '');
-    $api_key = isset($_POST['api_key']) ? sanitize_text_field($_POST['api_key']) : respectify_decrypt(get_option(\Respectify\OPTION_API_KEY_ENCRYPTED, ''));
+    $email = isset($_POST['email']) ? sanitize_email(wp_unslash($_POST['email'])) : get_option(\Respectify\OPTION_EMAIL, '');
+    $api_key = isset($_POST['api_key']) ? sanitize_text_field(wp_unslash($_POST['api_key'])) : respectify_decrypt(get_option(\Respectify\OPTION_API_KEY_ENCRYPTED, ''));
 
     // Ensure the class is loaded correctly
     if (!class_exists('RespectifyScoper\Respectify\RespectifyClientAsync')) {
