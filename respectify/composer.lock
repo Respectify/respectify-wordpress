@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "b2ff751b690d38fd5e4d375f29d34024",
+    "content-hash": "f9a638502d9e6ebbc6db0ef68ae4c527",
     "packages": [
         {
             "name": "evenement/evenement",
@@ -921,16 +921,16 @@
         },
         {
             "name": "respectify/respectify-php",
-            "version": "v0.2.7",
+            "version": "v0.2.8",
             "source": {
                 "type": "git",
                 "url": "https://github.com/vintagedave/respectify-php.git",
-                "reference": "37136f121fdae8e5355772315531d631777eef2d"
+                "reference": "8dfc0816335830ee836b3883a1b136cdd0ad58df"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/vintagedave/respectify-php/zipball/37136f121fdae8e5355772315531d631777eef2d",
-                "reference": "37136f121fdae8e5355772315531d631777eef2d",
+                "url": "https://api.github.com/repos/vintagedave/respectify-php/zipball/8dfc0816335830ee836b3883a1b136cdd0ad58df",
+                "reference": "8dfc0816335830ee836b3883a1b136cdd0ad58df",
                 "shasum": ""
             },
             "require": {
@@ -961,15 +961,15 @@
             "authors": [
                 {
                     "name": "David Millington",
-                    "email": "dave@respectify.ai"
+                    "email": "vintagedave@gmail.com"
                 }
             ],
             "description": "PHP library for the Respectify API",
             "support": {
                 "issues": "https://github.com/vintagedave/respectify-php/issues",
-                "source": "https://github.com/vintagedave/respectify-php/tree/v0.2.7"
+                "source": "https://github.com/vintagedave/respectify-php/tree/v0.2.8"
             },
-            "time": "2024-12-28T21:20:18+00:00"
+            "time": "2025-01-06T21:58:42+00:00"
         },
         {
             "name": "symfony/deprecation-contracts",
