@@ -4,7 +4,7 @@
             event.preventDefault();
 
             var form = $(this);
-            var formData = form.serializeArray();
+            var formData = form.serializeArray(); // Should include the nonce
             formData.push({ name: 'action', value: 'respectify_submit_comment' });
 
             // Remove previous messages and 'Post Anyway' button
