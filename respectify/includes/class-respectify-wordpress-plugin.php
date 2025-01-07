@@ -17,11 +17,6 @@ use RespectifyScoper\Respectify\CommentScore;
  * @subpackage Respectify/includes
  */
 
-//  require __DIR__ . '/../build/composer/ClassLoader.php';
-//  error_log('Scoper: loaded ClassLoader successfully.');
-
-// require __DIR__ . '/../build/respectify/respectify-php/src/RespectifyClientAsync.php';
-// error_log('Main plugin: loaded RespectifyClientAsync successfully.');
 
 require_once plugin_dir_path(__FILE__) . 'respectify-utils.php';
 require_once plugin_dir_path(__FILE__) . 'respectify-constants.php';
@@ -97,13 +92,6 @@ class RespectifyWordpressPlugin {
 		$this->define_admin_hooks();
 		$this->define_public_hooks();
 
-
-		// if (class_exists('RespectifyScoper\Respectify\RespectifyClientAsync')) {
-		// 	error_log('RespectifyClientAsync class found.');
-		// } else {
-		// 	error_log('RespectifyClientAsync class not found.');
-		// }
-		
 		$this->update_respectify_client();
 
 		$email = get_option(\Respectify\OPTION_EMAIL, '');
@@ -119,7 +107,9 @@ class RespectifyWordpressPlugin {
 		// JS and CSS must be included too
 		add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts_and_styles'));
 
-
+		// Nonce for the comment form
+		add_action('comment_form_after_fields', [$this, 'add_comment_nonce']);
+        add_action('comment_form_logged_in_after', [$this, 'add_comment_nonce']);
 
 		// Update the Respectify client when the email and API key are changed
 		add_action('update_option_respectify_email', array($this, 'update_respectify_client'));
@@ -130,11 +120,18 @@ class RespectifyWordpressPlugin {
      * Create or update the Respectify client instance.
      */
     public function update_respectify_client() {
-		error_log('Updating Respectify client');
+		respectify_log('Updating Respectify client');
 		
 		$email = get_option(\Respectify\OPTION_EMAIL, '');
         $api_key = respectify_get_decrypted_api_key();
         $this->respectify_client = new RespectifyClientAsync($email, $api_key);
+    }
+
+	/**
+     * Adds a nonce field to the comment form for security.
+     */
+    public function add_comment_nonce() {
+        wp_nonce_field('respectify_submit_comment', 'respectify_nonce');
     }
 
 	/**
@@ -281,18 +278,18 @@ class RespectifyWordpressPlugin {
 		// Generate a custom ID for the post
 		$article_id = null;
 
-		//error_log('Creating article ID for content: ' . substr($post_content, 0, 50) . '...');
+		//respectify_log('Creating article ID for content: ' . substr($post_content, 0, 50) . '...');
 
         $promise = $this->respectify_client->initTopicFromText($post_content);
         $caughtException = null;
 
         $promise->then(
             function ($id) use (&$article_id) {
-                error_log('In generate_respectify_article_id, got article ID: ' . $id);
+                respectify_log('In generate_respectify_article_id, got article ID: ' . $id);
 				$article_id = $id;
             },
             function ($e) use (&$caughtException) {
-				error_log('Exception in initTopicFromText: ' . $e->getMessage());
+				respectify_log('Exception in initTopicFromText: ' . $e->getMessage());
                 $caughtException = $e;
             }
         );
@@ -303,7 +300,7 @@ class RespectifyWordpressPlugin {
             throw $caughtException;
         }
 
-		error_log('In generate_respectify_article_id: Returning Respectify article ID: ' . $article_id);
+		respectify_log('In generate_respectify_article_id: Returning Respectify article ID: ' . $article_id);
 		return $article_id;
 	}
 
@@ -315,21 +312,21 @@ class RespectifyWordpressPlugin {
 	public function get_respectify_article_id($post_id) {
 		// Check if the custom ID exists for the post
         $article_id = get_post_meta($post_id, '_respectify_article_id', true);
-		error_log('Got article ID: -' . $article_id . '-');
+		respectify_log('Got article ID: -' . $article_id . '-');
 		// Validate it really is a UUID
-		//error_log('Checking article ID: ' . $article_id);
+		//respectify_log('Checking article ID: ' . $article_id);
 
         // If the custom ID does not exist, create it and save it as post meta
         if (empty($article_id)) {
-			error_log('Creating article ID for post ID: ' . $post_id);
+			respectify_log('Creating article ID for post ID: ' . $post_id);
 			$post_content = get_post_field('post_content', $post_id);
 
             $article_id = $this->generate_respectify_article_id($post_content);
             update_post_meta($post_id, '_respectify_article_id', $article_id);
-			error_log('Got NEW article ID: ' . $article_id);
+			respectify_log('Got NEW article ID: ' . $article_id);
         }	
 		// Checking it's a GUID
-		error_log('Returning Respectify article ID: ' . $article_id);
+		respectify_log('Returning Respectify article ID: ' . $article_id);
 		assert(!empty($article_id));
 
 		return $article_id;
@@ -357,7 +354,7 @@ class RespectifyWordpressPlugin {
 	 * @return CommentScore The evaluated information for the comment
 	 */
 	public function evaluate_comment($respectify_article_id, $comment_text) {
-		error_log('Evaluating comment: article id: ' . $respectify_article_id . ', comment: ' . substr($comment_text, 0, 50) . '...');
+		respectify_log('Evaluating comment: article id: ' . $respectify_article_id . ', comment: ' . substr($comment_text, 0, 50) . '...');
 
         $promise = $this->respectify_client->evaluateComment($respectify_article_id, $comment_text); 
         $caughtException = null;
@@ -407,14 +404,22 @@ class RespectifyWordpressPlugin {
 		// Returns an array of comment data, or a WP_Error object if the comment should be rejected
 		// (including sending feedback to the user)
 
-		error_log('Intercepting comment AJAX: ' . $commentdata['comment_content']);
+		respectify_log('Intercepting comment AJAX: ' . $commentdata['comment_content']);
 
+		// Verify nonce
+		// This is ALREADY done in ajax_submit_comment, and in respectify_preprocess_comment_no_js
+		// But no harm doing it here as well to be safe.
+		if ( ! isset( $_POST['respectify_nonce'] ) || ! check_ajax_referer( 'respectify_submit_comment', 'respectify_nonce', false ) ) {
+			respectify_log('Invalid nonce.');
+			wp_send_json_error(['message' => 'Invalid nonce.']);
+			wp_die();
+		}
 
 		$post_id = $commentdata['comment_post_ID'];
 		$article_id = $this->get_respectify_article_id($post_id);
 
 		if (!$article_id) {
-			error_log('Invalid article ID: ' . $article_id);
+			respectify_log('Invalid article ID: ' . $article_id);
 			// Return an error
 			return new \WP_Error('invalid_article_id', 'Invalid article ID.');
 		}
@@ -427,7 +432,7 @@ class RespectifyWordpressPlugin {
 		// Your custom logic based on settings
 		$action = $this->get_comment_action($comment_score);
 
-		error_log('Comment action: ' . $action);
+		respectify_log('Comment action: ' . $action);
 
 		if ($action === \Respectify\ACTION_PUBLISH) {
 			// Allow comment to be posted
@@ -438,7 +443,7 @@ class RespectifyWordpressPlugin {
 			$feedback_html = $this->build_feedback_html($comment_score);
 			if (empty($feedback_html)) {
 				// No feedback to show
-				error_log('No feedback to show, sending generic revise message');
+				respectify_log('No feedback to show, sending generic revise message');
 				$feedback_html = '<div class="respectify-feedback">Please revise your comment.</div>';
 			}
 			return new \WP_Error(\Respectify\ACTION_REVISE, '<div class="respectify-feedback">' . $feedback_html . '</div>');
@@ -468,15 +473,15 @@ class RespectifyWordpressPlugin {
 			$feedback .= "We aim for thoughtful, engaged conversation."; // Don't give a negative 'didn't meet the score' message; give a goal
 		}
 
-		error_log('Building feedback HTML for comment score: '. print_r($comment_score, true));
+		respectify_log('Building feedback HTML for comment score: ' . json_encode($comment_score, true));
 
 		$revise_settings = get_option(\Respectify\OPTION_REVISE_SETTINGS, \Respectify\REVISE_DEFAULT_SETTINGS);
 
 		$feedback .= "<ul>"; // Remainder of feedback is a list
 
 		$revise_on_low_effort_handling = isset($revise_settings['low_effort']) ? $revise_settings['low_effort'] : \Respectify\REVISE_DEFAULT_LOW_EFFORT;
-		error_log('Low effort setting: ' . $revise_on_low_effort_handling);
-		error_log('Low effort?: ' . $comment_score->appearsLowEffort);
+		respectify_log('Low effort setting: ' . $revise_on_low_effort_handling);
+		respectify_log('Low effort?: ' . $comment_score->appearsLowEffort);
 		if ($comment_score->appearsLowEffort && $revise_on_low_effort_handling) {
 			$feedback .= "<li>Your comment appears not to contribute new content to the conversation. Please provide a thoughtful response.</li>";
 		}
@@ -484,8 +489,8 @@ class RespectifyWordpressPlugin {
 		$revise_on_logical_fallacies = isset($revise_settings['logical_fallacies']) ? $revise_settings['logical_fallacies'] : \Respectify\REVISE_DEFAULT_LOGICAL_FALLACIES;	
 		// !!! Should  not reat as strings, just see if the array is empty or not
 		$hasValidFallacies = !empty($comment_score->logicalFallacies);
-		error_log('Logical fallacies setting: ' . $revise_on_logical_fallacies);
-		error_log('Logical fallacies?: ' . $hasValidFallacies);
+		respectify_log('Logical fallacies setting: ' . $revise_on_logical_fallacies);
+		respectify_log('Logical fallacies?: ' . $hasValidFallacies);
 		if ($hasValidFallacies && $revise_on_logical_fallacies) {
 			$feedback .= "<li>Your comment contains logic that seems right, but when looked at doesn't hold together, known as a '<a href=\"https://academicguides.waldenu.edu/writingcenter/writingprocess/logicalfallacies \" target=\"_new\">logical fallacy</a>'.</li>";
 			// List each logical fallace in a sublist
@@ -502,8 +507,8 @@ class RespectifyWordpressPlugin {
 
 		$revise_on_phrases = isset($revise_settings['objectionable_phrases']) ? $revise_settings['objectionable_phrases'] : \Respectify\REVISE_DEFAULT_OBJECTIONABLE_PHRASES;	
 		$hasValidObjectionablePhrases = !empty($comment_score->objectionablePhrases);
-		error_log('Objectionable phrases setting: ' . $revise_on_phrases);
-		error_log('Objectionable phrases?: ' . $hasValidObjectionablePhrases);
+		respectify_log('Objectionable phrases setting: ' . $revise_on_phrases);
+		respectify_log('Objectionable phrases?: ' . $hasValidObjectionablePhrases);
 		if ($hasValidObjectionablePhrases && $revise_on_phrases) {
 			$feedback .= "<li>Your comment contains potentially objectionable language or phrases.</li>";
 			// List each phrase in a sublist
@@ -521,8 +526,8 @@ class RespectifyWordpressPlugin {
 
 		$revise_on_negative_tone = isset($revise_settings['negative_tone']) ? $revise_settings['negative_tone'] : \Respectify\REVISE_DEFAULT_NEGATIVE_TONE;
 		$hasValidNegativeTone = !empty($comment_score->negativeTonePhrases);
-		error_log('Negative tone setting: ' . $revise_on_negative_tone);
-		error_log('Negative tone?: ' . $hasValidNegativeTone);
+		respectify_log('Negative tone setting: ' . $revise_on_negative_tone);
+		respectify_log('Negative tone?: ' . $hasValidNegativeTone);
 		if ($hasValidNegativeTone && $revise_on_negative_tone) {
 			$feedback .= "<li>Your comment may not contribute to a healthy conversation.</li>";
 			// List each phrase in a sublist
@@ -541,8 +546,8 @@ class RespectifyWordpressPlugin {
 
 		$feedback .= "<p>Can you edit your comment to take the above feedback into account, please?</p>";
 
-		error_log("Feedback: ");
-		error_log($feedback);
+		respectify_log("Feedback: ");
+		respectify_log($feedback);
 
 		return $feedback;
 	}
@@ -566,14 +571,14 @@ class RespectifyWordpressPlugin {
 		// and use the default if not
 		$revise_settings = get_option(\Respectify\OPTION_REVISE_SETTINGS, \Respectify\REVISE_DEFAULT_SETTINGS);
 
-		error_log('Revise settings: ' . print_r($revise_settings, true));
+		respectify_log('Revise settings: ' . json_encode($revise_settings, true));
 
-		error_log('Comment score object: ' . print_r($comment_score, true));
+		respectify_log('Comment score object: ' . json_encode($comment_score, true));
 
 		// First, if the minimum score is too low
 		$minAcceptableScore = isset($revise_settings['min_score']) ? $revise_settings['min_score'] : \Respectify\REVISE_DEFAULT_MIN_SCORE;
 		if ($comment_score->overallScore < $minAcceptableScore) {
-			error_log('Score too low - decision: ' . \Respectify\ACTION_REVISE);
+			respectify_log('Score too low - decision: ' . \Respectify\ACTION_REVISE);
 			return \Respectify\ACTION_REVISE;
 		}
 
@@ -581,7 +586,7 @@ class RespectifyWordpressPlugin {
 			// Setting may not be set, default true
 			$revise_on_low_effort_handling = isset($revise_settings['low_effort']) ? $revise_settings['low_effort'] : \Respectify\REVISE_DEFAULT_LOW_EFFORT;
 			$low_effort_decision = $revise_on_low_effort_handling ? \Respectify\ACTION_REVISE :  \Respectify\ACTION_PUBLISH;
-			error_log('Low effort - decision: ' . $low_effort_decision);
+			respectify_log('Low effort - decision: ' . $low_effort_decision);
 			return $low_effort_decision;
 		}
 
@@ -591,7 +596,7 @@ class RespectifyWordpressPlugin {
 			// Setting may not be set, default true
 			$revise_on_logical_fallacies = isset($revise_settings['logical_fallacies']) ? $revise_settings['logical_fallacies'] : \Respectify\REVISE_DEFAULT_LOGICAL_FALLACIES;
 			$logical_fallacies_decision = $revise_on_logical_fallacies ? \Respectify\ACTION_REVISE : \Respectify\ACTION_PUBLISH;
-			error_log('Logical fallacies - decision: ' . $logical_fallacies_decision);
+			respectify_log('Logical fallacies - decision: ' . $logical_fallacies_decision);
 			return $logical_fallacies_decision;
 		}
 
@@ -601,7 +606,7 @@ class RespectifyWordpressPlugin {
 			// Setting may not be set, default true
 			$revise_on_phrases = isset($revise_settings['objectionable_phrases']) ? $revise_settings['objectionable_phrases'] : \Respectify\REVISE_DEFAULT_OBJECTIONABLE_PHRASES;
 			$phrases_decision = $revise_on_phrases ? \Respectify\ACTION_REVISE : \Respectify\ACTION_PUBLISH;
-			error_log('Objectionable phrases - decision: ' . $phrases_decision);
+			respectify_log('Objectionable phrases - decision: ' . $phrases_decision);
 			return $phrases_decision;
 		}
 
@@ -611,11 +616,11 @@ class RespectifyWordpressPlugin {
 			// Setting may not be set, default true
 			$revise_on_negative_tone = isset($revise_settings['negative_tone']) ? $revise_settings['negative_tone'] : \Respectify\REVISE_DEFAULT_NEGATIVE_TONE;
 			$negative_tone_decision = $revise_on_negative_tone ? \Respectify\ACTION_REVISE : \Respectify\ACTION_PUBLISH;
-			error_log('Negative tone - decision: ' . $negative_tone_decision);
+			respectify_log('Negative tone - decision: ' . $negative_tone_decision);
 			return $negative_tone_decision;
 		}
 
-		error_log("Fallback decision: " . \Respectify\ACTION_PUBLISH);
+		respectify_log("Fallback decision: " . \Respectify\ACTION_PUBLISH);
 		return \Respectify\ACTION_PUBLISH;
     }
 
@@ -623,7 +628,14 @@ class RespectifyWordpressPlugin {
      * AJAX handler for submitting comments.
      */
 	public function ajax_submit_comment() {
-		error_log('ajax_submit_comment called');
+		respectify_log('ajax_submit_comment called');
+    
+		// Verify nonce
+		if ( ! isset( $_POST['respectify_nonce'] ) || ! check_ajax_referer( 'respectify_submit_comment', 'respectify_nonce', false ) ) {
+			respectify_log('Invalid nonce.');
+			wp_send_json_error(['message' => 'Invalid nonce.']);
+			wp_die();
+		}
 
 		// Manually prepare comment data from $_POST
 		$commentdata = array(
@@ -668,14 +680,20 @@ class RespectifyWordpressPlugin {
 	// For when Javascript is turned off
 	public function respectify_preprocess_comment_no_js($commentdata) {
 		// Intercept and evaluate the comment
-		error_log('Intercepting comment with JS turned off: ' . $commentdata['comment_content']);
+		respectify_log('Intercepting comment with JS turned off: ' . $commentdata['comment_content']);
+
+		// Check if the nonce field is set
+		if ( ! isset($_POST['respectify_nonce']) || ! wp_verify_nonce($_POST['respectify_nonce'], 'respectify_submit_comment') ) {
+			respectify_log('Invalid nonce for non-AJAX comment submission.');
+			wp_die(__('Invalid comment submission.', 'respectify'), 400);
+		}
 
 		$result = $this->intercept_comment($commentdata);
 
-		error_log('Result of the comment interception: ' . print_r($result, true));
+		respectify_log('Result of the comment interception: ' . json_encode($result, true));
 
 		if (is_wp_error($result)) {
-			error_log('Comment rejected: ' . $result->get_error_message());
+			respectify_log('Comment rejected: ' . $result->get_error_message());
 			// Handle the error by preventing the comment from being saved
 			wp_die(
 				esc_html($result->get_error_message()),
@@ -684,7 +702,7 @@ class RespectifyWordpressPlugin {
 			);
 		}
 	
-		error_log('Comment allowed: ' . $result['comment_content']);
+		respectify_log('Comment allowed: ' . $result['comment_content']);
 		// Return processed comment data
 		return $result;
 	}
