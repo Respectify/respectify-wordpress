@@ -33,29 +33,27 @@ if ( ! defined( 'WPINC' ) ) {
 	die;
 }
 
-// Have to load the classloader, it isn't found for some reason otherwise
-// require __DIR__ . '/build/composer/ClassLoader.php';
-// error_log('Scoper: loaded ClassLoader successfully.');
+// If not found this will give errors re respectify_log()
+if (file_exists(__DIR__ . '/includes/respectify-utils.php')) {
+    require __DIR__ . '/includes/respectify-utils.php';
+}
+
 
 // Include the prefixed scoped Composer autoloader
 if (file_exists(__DIR__ . '/build/autoload.php')) {
     require __DIR__ . '/build/autoload.php';
-	error_log('Scoper: Composer autoloader included successfully.');
+    respectify_log('Scoper: Composer autoloader included successfully.');
 } else {
-    error_log('Scoper: Composer autoloader not found.');
+    respectify_log('Scoper: Composer autoloader not found.');
 }
 
 // require __DIR__ . '/build/respectify/respectify-php/src/RespectifyClientAsync.php';
 if (class_exists('\RespectifyScoper\Respectify\RespectifyClientAsync')) {
-    error_log('RespectifyClientAsync class found.');
+    respectify_log('RespectifyClientAsync class found.');
 } else {
-    error_log('RespectifyClientAsync class not found.');
+    respectify_log('RespectifyClientAsync class not found.');
 }
 
-// if (!class_exists('Respectify\RespectifyClientAsync')) {
-//     error_log('Class Respectify\RespectifyClientAsync not found');
-//     throw new Exception('Class Respectify\RespectifyClientAsync not found');
-// }
 
 /**
  * Currently plugin version.
@@ -97,7 +95,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-respectify-wordpress-
 
 
 if (!class_exists('Respectify\RespectifyWordpressPlugin')) {
-    error_log('Class Respectify\RespectifyWordpressPlugin not found');
+    respectify_log('Class Respectify\RespectifyWordpressPlugin not found');
     throw new Exception('Class Respectify\RespectifyWordpressPlugin not found');
 }
 
