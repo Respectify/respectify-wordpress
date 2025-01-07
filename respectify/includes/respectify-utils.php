@@ -32,3 +32,9 @@ function respectify_get_decrypted_api_key() {
     return '';
 }
 
+function respectify_log($message) {
+    if (defined('WP_DEBUG') && WP_DEBUG) {
+        error_log($message);
+    }
+}
+
