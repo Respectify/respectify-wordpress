@@ -180,7 +180,7 @@ rm -rf "$TEMP_BUILD_DIR/vendor/sniccowp/php-scoper-wordpress-excludes"
 # Not required (it's for building doc) and the Wordpress plugin-check plugin flags it
 # because json_encode is discouraged
 echo "Deleting respectify-php/phpdocumentor-markdown-customised files from TEMP_BUILD_DIR..."
-rm -rf "$TEMP_BUILD_DIR/vendor/respectify/respectify-php/phpdocumentor-markdown-customised"
+rm -rf "$TEMP_BUILD_DIR/build/respectify/respectify-php/phpdocumentor-markdown-customised"
 
 
 # Copy the prefixed files to the final build directory
