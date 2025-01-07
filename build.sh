@@ -182,6 +182,10 @@ rm -rf "$TEMP_BUILD_DIR/vendor/sniccowp/php-scoper-wordpress-excludes"
 echo "Deleting respectify-php/phpdocumentor-markdown-customised files from TEMP_BUILD_DIR..."
 rm -rf "$TEMP_BUILD_DIR/build/respectify/respectify-php/phpdocumentor-markdown-customised"
 
+# Only used for php-documentor, and cause warnings for Plugin Check
+echo "Deleting twig files from TEMP_BUILD_DIR..."
+rm -rf "$TEMP_BUILD_DIR/build/twig"
+
 
 # Copy the prefixed files to the final build directory
 # Create Temporary Build Directory
