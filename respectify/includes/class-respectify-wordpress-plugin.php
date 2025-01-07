@@ -149,6 +149,7 @@ class RespectifyWordpressPlugin {
 
 			if ( wp_doing_ajax() ) {
 				wp_send_json_error(['message' => 'Invalid nonce.']);
+				wp_die(); // Terminate execution
 			} else {
 				wp_die(esc_html__('Invalid comment submission.', 'respectify'), 400);
 			}
