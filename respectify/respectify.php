@@ -13,7 +13,7 @@
  * @package           Respectify
  *
  * @wordpress-plugin
- * Plugin Name:       Respectify -- Healthy Internet Comments
+ * Plugin Name:       Respectify
  * Plugin URI:        https://respectify.org
  * Description:       Use Respectify to ensure the comments people write on your site demonstrate healthy online conversation.
  * Version:           0.2.0

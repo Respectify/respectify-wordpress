@@ -1,4 +1,4 @@
-=== Respectify -- Healthy Internet Comments ===
+=== Respectify ===
 Contributors: vintagedave
 Donate link: https://github.com/vintagedave/
 Tags: comments, moderation, community, user engagement, spam
