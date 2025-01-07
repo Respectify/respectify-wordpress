@@ -473,7 +473,7 @@ class RespectifyWordpressPlugin {
 			$feedback .= "We aim for thoughtful, engaged conversation."; // Don't give a negative 'didn't meet the score' message; give a goal
 		}
 
-		respectify_log('Building feedback HTML for comment score: ' . json_encode($comment_score, true));
+		respectify_log('Building feedback HTML for comment score: ' . wp_json_encode($comment_score));
 
 		$revise_settings = get_option(\Respectify\OPTION_REVISE_SETTINGS, \Respectify\REVISE_DEFAULT_SETTINGS);
 
@@ -571,9 +571,9 @@ class RespectifyWordpressPlugin {
 		// and use the default if not
 		$revise_settings = get_option(\Respectify\OPTION_REVISE_SETTINGS, \Respectify\REVISE_DEFAULT_SETTINGS);
 
-		respectify_log('Revise settings: ' . json_encode($revise_settings, true));
+		respectify_log('Revise settings: ' . wp_json_encode($revise_settings));
 
-		respectify_log('Comment score object: ' . json_encode($comment_score, true));
+		respectify_log('Comment score object: ' . wp_json_encode($comment_score));
 
 		// First, if the minimum score is too low
 		$minAcceptableScore = isset($revise_settings['min_score']) ? $revise_settings['min_score'] : \Respectify\REVISE_DEFAULT_MIN_SCORE;
@@ -685,12 +685,12 @@ class RespectifyWordpressPlugin {
 		// Check if the nonce field is set
 		if ( ! isset($_POST['respectify_nonce']) || ! wp_verify_nonce($_POST['respectify_nonce'], 'respectify_submit_comment') ) {
 			respectify_log('Invalid nonce for non-AJAX comment submission.');
-			wp_die(__('Invalid comment submission.', 'respectify'), 400);
+			wp_die(esc_html__('Invalid comment submission.', 'respectify'), 400);
 		}
 
 		$result = $this->intercept_comment($commentdata);
 
-		respectify_log('Result of the comment interception: ' . json_encode($result, true));
+		respectify_log('Result of the comment interception: ' . wp_json_encode($result));
 
 		if (is_wp_error($result)) {
 			respectify_log('Comment rejected: ' . $result->get_error_message());
