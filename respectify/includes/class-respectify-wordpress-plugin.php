@@ -135,6 +135,27 @@ class RespectifyWordpressPlugin {
     }
 
 	/**
+	 * Verifies the comment nonce.
+	 *
+	 * Terminates execution with an error if the nonce is invalid.
+	 */
+	private function verify_comment_nonce() {
+		// Retrieve and sanitize the nonce from POST data
+		$nonce = isset($_POST['respectify_nonce']) ? sanitize_text_field(wp_unslash($_POST['respectify_nonce'])) : '';
+
+		// Verify the nonce
+		if ( ! wp_verify_nonce($nonce, 'respectify_submit_comment') ) {
+			respectify_log('Invalid nonce.');
+
+			if ( wp_doing_ajax() ) {
+				wp_send_json_error(['message' => 'Invalid nonce.']);
+			} else {
+				wp_die(__('Invalid comment submission.', 'respectify'), 400);
+			}
+		}
+	}
+
+	/**
 	 * Load the required dependencies for this plugin.
 	 *
 	 * Include the following files that make up the plugin:
@@ -409,11 +430,7 @@ class RespectifyWordpressPlugin {
 		// Verify nonce
 		// This is ALREADY done in ajax_submit_comment, and in respectify_preprocess_comment_no_js
 		// But no harm doing it here as well to be safe.
-		if ( ! isset( $_POST['respectify_nonce'] ) || ! check_ajax_referer( 'respectify_submit_comment', 'respectify_nonce', false ) ) {
-			respectify_log('Invalid nonce.');
-			wp_send_json_error(['message' => 'Invalid nonce.']);
-			wp_die();
-		}
+		$this->verify_comment_nonce();
 
 		$post_id = $commentdata['comment_post_ID'];
 		$article_id = $this->get_respectify_article_id($post_id);
@@ -631,24 +648,20 @@ class RespectifyWordpressPlugin {
 		respectify_log('ajax_submit_comment called');
     
 		// Verify nonce
-		if ( ! isset( $_POST['respectify_nonce'] ) || ! check_ajax_referer( 'respectify_submit_comment', 'respectify_nonce', false ) ) {
-			respectify_log('Invalid nonce.');
-			wp_send_json_error(['message' => 'Invalid nonce.']);
-			wp_die();
-		}
+		$this->verify_comment_nonce();
 
 		// Manually prepare comment data from $_POST
 		$commentdata = array(
 			'comment_post_ID'      => isset($_POST['comment_post_ID']) ? absint($_POST['comment_post_ID']) : 0,
-			'comment_author'       => isset($_POST['author']) ? sanitize_text_field($_POST['author']) : '',
-			'comment_author_email' => isset($_POST['email']) ? sanitize_email($_POST['email']) : '',
-			'comment_author_url'   => isset($_POST['url']) ? esc_url_raw($_POST['url']) : '',
-			'comment_content'      => isset($_POST['comment']) ? sanitize_textarea_field($_POST['comment']) : '',
+			'comment_author'       => isset($_POST['author']) ? sanitize_text_field(wp_unslash($_POST['author'])) : '',
+			'comment_author_email' => isset($_POST['email']) ? sanitize_email(wp_unslash($_POST['email'])) : '',
+			'comment_author_url'   => isset($_POST['url']) ? esc_url_raw(wp_unslash($_POST['url'])) : '',
+			'comment_content'      => isset($_POST['comment']) ? sanitize_textarea_field(wp_unslash($_POST['comment'])) : '',
 			'comment_type'         => '', // Empty for regular comments
 			'comment_parent'       => isset($_POST['comment_parent']) ? absint($_POST['comment_parent']) : 0,
 			'user_id'              => get_current_user_id(),
-			'comment_author_IP'    => $_SERVER['REMOTE_ADDR'],
-			'comment_agent'        => $_SERVER['HTTP_USER_AGENT'],
+			'comment_author_IP'    => isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'])) : '',
+			'comment_agent'        => isset($_SERVER['HTTP_USER_AGENT']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_USER_AGENT'])) : '',
 			'comment_date'         => current_time('mysql'),
 			'comment_approved'     => 1, // Adjust approval status as needed
 		);
@@ -682,11 +695,8 @@ class RespectifyWordpressPlugin {
 		// Intercept and evaluate the comment
 		respectify_log('Intercepting comment with JS turned off: ' . $commentdata['comment_content']);
 
-		// Check if the nonce field is set
-		if ( ! isset($_POST['respectify_nonce']) || ! wp_verify_nonce($_POST['respectify_nonce'], 'respectify_submit_comment') ) {
-			respectify_log('Invalid nonce for non-AJAX comment submission.');
-			wp_die(esc_html__('Invalid comment submission.', 'respectify'), 400);
-		}
+		// Verify nonce
+		$this->verify_comment_nonce();
 
 		$result = $this->intercept_comment($commentdata);
 
