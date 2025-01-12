@@ -101,6 +101,18 @@ if (!class_exists('Respectify\RespectifyWordpressPlugin')) {
 require_once plugin_dir_path( __FILE__ ) . 'admin/settings-page.php';
 
 
+/*
+    Add a Settings link on the main Plugins page, so you can configure it from the plugin list
+    without hunting through the Settings admin page submenu.
+*/
+add_filter('plugin_action_links_' . plugin_basename(__FILE__), 'respectify_add_plugin_action_links');
+function respectify_add_plugin_action_links($links) {
+    $settings_link = '<a href="options-general.php?page=respectify">' . __('Settings') . '</a>';
+    array_unshift($links, $settings_link);
+    return $links;
+}
+
+
 use Respectify\RespectifyWordpressPlugin;
 
 /**
