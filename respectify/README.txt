@@ -38,3 +38,11 @@ Respectify is available in the Wordpress plugins directory, so:
 
 = 0.2 =
 * Initial version. Visit https://respectify.org for more info!
+
+== Human-readable code ==
+
+The plugin's code can be found here: https://github.com/Respectify/respectify-wordpress
+
+It uses the Respectify PHP SDK: https://github.com/Respectify/respectify-php which is an async API using React.
+
+Full documentation on the API (the PHP library, plus the REST API it wraps) is available here: https://docs.respectify.org/
