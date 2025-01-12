@@ -189,11 +189,14 @@ rm -rf "$TEMP_BUILD_DIR/build/twig"
 # Python file that plugin review flagged as not permitted
 echo "Deleting Python files from TEMP_BUILD_DIR..."
 rm -rf "$TEMP_BUILD_DIR/build/vendor/respectify/respectify-php/build.py"
+rm -rf "$TEMP_BUILD_DIR/vendor/respectify/respectify-php/build.py"
 
 # Unnecessary files, from plugin review
-rm -rf "$TEMP_BUILD_DIR/build/vendor/respectify/respectify-php/.vscode"
+echo "Deleting all .vscode directories from TEMP_BUILD_DIR..."
+find "$TEMP_BUILD_DIR" -type d -name ".vscode" -exec rm -rf {} +
 
 # Other issues flagged scoper.inc.php, which is easiest solved by deleting it
+echo "Deleting scoper.inc.php from TEMP_BUILD_DIR..."
 rm -rf "$TEMP_BUILD_DIR/scoper.inc.php"
 
 # Copy the prefixed files to the final build directory
