@@ -106,8 +106,20 @@ require_once plugin_dir_path( __FILE__ ) . 'admin/settings-page.php';
     without hunting through the Settings admin page submenu.
 */
 add_filter('plugin_action_links_' . plugin_basename(__FILE__), 'respectify_add_plugin_action_links');
+
+function respectify_is_api_key_configured() {
+    $email = get_option(\Respectify\OPTION_EMAIL);
+    $api_key = respectify_decrypt(get_option(\Respectify\OPTION_API_KEY_ENCRYPTED));
+
+    return !empty($email) && !empty($api_key);
+}
+
 function respectify_add_plugin_action_links($links) {
-    $settings_link = '<a href="options-general.php?page=respectify">' . __('Settings') . '</a>';
+    if (respectify_is_api_key_configured()) {
+        $settings_link = '<a href="options-general.php?page=respectify">' . __('Settings') . '</a>';
+    } else {
+        $settings_link = '<a href="options-general.php?page=respectify">' . __('⚠️ Please set up your API Key') . '</a>';
+    }
     array_unshift($links, $settings_link);
     return $links;
 }
