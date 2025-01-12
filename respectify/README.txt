@@ -1,9 +1,8 @@
 === Respectify ===
-Contributors: vintagedave
-Donate link: https://github.com/vintagedave/
+Contributors: vintagedave, respectify
+Donate link: https://github.com/respectify/
 Tags: comments, moderation, community, user engagement, spam
-Requires at least: 6.6.0
-Tested up to: 6.7.1
+Tested up to: 6.7
 Stable tag: 0.2.0
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
@@ -32,7 +31,7 @@ Respectify is available in the Wordpress plugins directory, so:
 
 1. Go to the Plugins menu in the Wordpress admin interface, and select Add New Plugin
 2. Search for Respectify, and install
-3. In Settings > Respectify, add your the email and API key that you get from respectify.ai. (If you don't have one, create an account at https://respectify.ai.)
+3. In Settings > Respectify, add your the email and API key that you get from https://respectify.ai. (If you don't have one, create an account at https://respectify.ai.)
 4. That's it!
 
 == Changelog ==

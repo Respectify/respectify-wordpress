@@ -8,17 +8,18 @@
  * registers the activation and deactivation functions, and defines a function
  * that starts the plugin.
  *
- * @link              https://github.com/vintagedave
+ * @link              https://github.com/Respectify/respectify-wordpress
  * @since             0.2.0
  * @package           Respectify
  *
  * @wordpress-plugin
  * Plugin Name:       Respectify
  * Plugin URI:        https://respectify.org
- * Description:       Use Respectify to ensure the comments people write on your site demonstrate healthy online conversation.
+ * Description:       Healthy internet comments! Use Respectify to help your commenters post in a way that builds community.
  * Version:           0.2.0
+ * Requires at least: 6.6
  * Author:            David Millington
- * Author URI:        https://github.com/vintagedave/
+ * Author URI:        https://github.com/respectify/
  * License:           GPL-3.0+
  * License URI:       http://www.gnu.org/licenses/gpl-3.0.txt
  * Text Domain:       respectify
