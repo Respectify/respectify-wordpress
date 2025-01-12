@@ -25,8 +25,20 @@ function respectify_add_settings_page() {
 // Register settings, sections, and fields
 add_action('admin_init', 'respectify_register_settings');
 function respectify_register_settings() {
-    register_setting('respectify_options_group', \Respectify\OPTION_EMAIL);
-    register_setting('respectify_options_group', \Respectify\OPTION_API_KEY_ENCRYPTED);
+    register_setting(
+        'respectify_options_group',
+        \Respectify\OPTION_EMAIL,
+        array(
+            'sanitize_callback' => 'sanitize_email',
+        )
+    );
+    register_setting(
+        'respectify_options_group',
+        \Respectify\OPTION_API_KEY_ENCRYPTED,
+        array(
+            'sanitize_callback' => 'sanitize_text_field',
+        )
+    );
 
     add_settings_section(
         'respectify_settings_section',
@@ -60,7 +72,13 @@ function respectify_register_settings() {
     );
 
     // How to handle spam
-    register_setting('respectify_options_group', \Respectify\OPTION_SPAM_HANDLING);
+    register_setting(
+        'respectify_options_group',
+        \Respectify\OPTION_SPAM_HANDLING,
+        array(
+            'sanitize_callback' => 'sanitize_text_field',
+        )
+    );
     add_settings_field(
         \Respectify\OPTION_SPAM_HANDLING,
         'How to Handle Spam',
@@ -70,7 +88,13 @@ function respectify_register_settings() {
     );
 
     // Revise When Settings
-    register_setting('respectify_options_group', \Respectify\OPTION_REVISE_SETTINGS);
+    register_setting(
+        'respectify_options_group',
+        \Respectify\OPTION_REVISE_SETTINGS,
+        array(
+            'sanitize_callback' => 'sanitize_text_field',
+        )
+    );
     add_settings_field(
         \Respectify\OPTION_REVISE_SETTINGS,
         'Revise a Comment When',
