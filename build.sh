@@ -186,6 +186,15 @@ rm -rf "$TEMP_BUILD_DIR/build/respectify/respectify-php/phpdocumentor-markdown-c
 echo "Deleting twig files from TEMP_BUILD_DIR..."
 rm -rf "$TEMP_BUILD_DIR/build/twig"
 
+# Python file that plugin review flagged as not permitted
+echo "Deleting Python files from TEMP_BUILD_DIR..."
+rm -rf "$TEMP_BUILD_DIR/build/vendor/respectify/respectify-php/build.py"
+
+# Unnecessary files, from plugin review
+rm -rf "$TEMP_BUILD_DIR/build/vendor/respectify/respectify-php/.vscode"
+
+# Other issues flagged scoper.inc.php, which is easiest solved by deleting it
+rm -rf "$TEMP_BUILD_DIR/scoper.inc.php"
 
 # Copy the prefixed files to the final build directory
 # Create Temporary Build Directory
@@ -204,7 +213,7 @@ rm -rf "$TEMP_BUILD_DIR"
 
 # Step 7: Verify Build Directory for Unwanted Files
 echo "Verifying build directory for unwanted files..."
-UNWANTED_PATTERNS=("jetbrains" "php-scoper")
+UNWANTED_PATTERNS=("jetbrains" "php-scoper" "scoper.inc.php" ".vscode" "build.py")
 
 for pattern in "${UNWANTED_PATTERNS[@]}"; do
   if find "$FINAL_BUILD_DIR" -iname "*$pattern*" | grep .; then
