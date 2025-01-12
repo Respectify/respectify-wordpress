@@ -92,7 +92,7 @@ function respectify_register_settings() {
         'respectify_options_group',
         \Respectify\OPTION_REVISE_SETTINGS,
         array(
-            'sanitize_callback' => 'sanitize_text_field',
+            'sanitize_callback' => 'respectify_sanitize_revise_settings',
         )
     );
     add_settings_field(
@@ -102,6 +102,29 @@ function respectify_register_settings() {
         'respectify',
         'respectify_behavior_settings_section'
     );
+}
+
+// Custom sanitization function for OPTION_REVISE_SETTINGS
+function respectify_sanitize_revise_settings($input) {
+    $sanitized_input = array();
+
+    // Sanitize trackbar value (an integer between 1 and 5)
+    if (isset($input['min_score']) && is_numeric($input['min_score'])) {
+        $min_score_value = intval($input['min_score']);
+        if ($min_score_value >= 1 && $min_score_value <= 5) {
+            $sanitized_input['min_score'] = $min_score_value;
+        } else {
+            $sanitized_input['min_score'] = 3; // Default value
+        }
+    }
+
+    // Sanitize checkboxes (assuming they are boolean values)
+    $checkboxes = array('low_effort', 'logical_fallacies', 'objectionable_phrases', 'negative_tone');
+    foreach ($checkboxes as $checkbox) {
+        $sanitized_input[$checkbox] = isset($input[$checkbox]) && $input[$checkbox] === '1' ? '1' : '0';
+    }
+
+    return $sanitized_input;
 }
 
 // Callback to render behavior section
@@ -125,6 +148,12 @@ function respectify_spam_handling_callback() {
 // Callback to render revise settings field
 function respectify_revise_settings_callback() {
     $options = get_option(\Respectify\OPTION_REVISE_SETTINGS, \Respectify\REVISE_DEFAULT_SETTINGS);
+
+    // Ensure $options is an array
+    if (!is_array($options)) {
+        error_log('Respectify: Invalid revise settings: ' . print_r($options, true));
+        $options = \Respectify\REVISE_DEFAULT_SETTINGS;
+    }
     ?>
     <div class="respectify-settings-column">
         <div class="respectify-slider-row">
