@@ -115,7 +115,7 @@ function respectify_register_settings() {
         'respectify_options_group',
         \Respectify\OPTION_BASE_URL,
         array(
-            'sanitize_callback' => 'sanitize_text_field',
+            'sanitize_callback' => 'respectify_sanitize_base_url',
         )
     );
     add_settings_field(
@@ -131,7 +131,7 @@ function respectify_register_settings() {
         'respectify_options_group',
         \Respectify\OPTION_API_VERSION,
         array(
-            'sanitize_callback' => 'respectify_sanitize_base_url',
+            'sanitize_callback' => 'sanitize_text_field',
         )
     );
     add_settings_field(
