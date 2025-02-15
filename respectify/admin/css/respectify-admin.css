@@ -172,3 +172,46 @@ input[type="range"]::-moz-range-thumb {
 input[type="range"] {
     height: 8px;
 }
+
+/*
+    Accordion to hide advanced settings
+*/
+
+.respectify-accordion {
+    background-color: #f1f1f1;
+    color: #444;
+    cursor: pointer;
+    padding: 10px;
+    padding-left: 2rem;
+    width: 100%;
+    border: none;
+    text-align: left;
+    outline: none;
+    font-size: 16px;
+    transition: 0.4s;
+}
+
+.respectify-accordion:before {
+    content: "➤ ";
+    position: absolute;
+    left: 0.5 rem;
+    margin-left: -1.2rem;
+}
+
+.respectify-accordion.active:before {
+    content: "▼ ";
+}
+
+.respectify-accordion.active, .respectify-accordion:hover {
+    background-color: #ccc;
+}
+
+.respectify-panel {
+    padding: 0 18px;
+    background-color: white;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.2s ease-out;
+    border: 1px solid #ccc;
+    margin-bottom: 10px;
+}

@@ -105,7 +105,7 @@ function respectify_register_settings() {
     // New Settings Section for Advanced Parameters
     add_settings_section(
         'respectify_advanced_settings_section',
-        'Advanced API Settings',
+        'Rarely Used Settings',
         'respectify_advanced_section_callback',
         'respectify'
     );
@@ -262,6 +262,8 @@ function respectify_api_key_callback() {
 
 // Callback to render advanced section
 function respectify_advanced_section_callback() {
+    echo '<button type="button" class="respectify-accordion" id="respectify-advanced-settings-button">Display rarely used settings</button>';
+    echo '<div class="respectify-panel">';
     echo '<p class="description">Configure a custom Respectify server.</p>';
 }
 
@@ -334,6 +336,7 @@ function respectify_render_settings_page() {
             wp_nonce_field('respectify_save_settings', 'respectify_settings_nonce');
             
             do_settings_sections('respectify');
+            echo '</div>'; // end of the advanced settings div
             submit_button();
             ?>
         </form>

@@ -93,6 +93,19 @@
         $slider.on('input change', function() {
             updateSlider();
         });
+
+        // Advanced settings: accordion hiding them
+        $('#respectify-advanced-settings-button').click(function() {
+            var panel = $(this).next('.respectify-panel');
+            panel.toggleClass('active');
+            if (panel.css('max-height') === '0px') {
+                panel.css('max-height', panel.prop('scrollHeight') + 'px');
+            } else {
+                panel.css('max-height', '0px');
+            }
+
+            //$(this).css('display', 'none'); // Hides the button once expanded
+        });
     });
 
 })( jQuery );
