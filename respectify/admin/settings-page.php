@@ -63,7 +63,6 @@ function respectify_register_settings() {
         'respectify_settings_section'
     );
 
-    // New Settings Section
     add_settings_section(
         'respectify_behavior_settings_section',
         'Comment Handling',
@@ -102,6 +101,58 @@ function respectify_register_settings() {
         'respectify',
         'respectify_behavior_settings_section'
     );
+
+    // New Settings Section for Advanced Parameters
+    add_settings_section(
+        'respectify_advanced_settings_section',
+        'Advanced API Settings',
+        'respectify_advanced_section_callback',
+        'respectify'
+    );
+
+    // Base URL
+    register_setting(
+        'respectify_options_group',
+        \Respectify\OPTION_BASE_URL,
+        array(
+            'sanitize_callback' => 'sanitize_text_field',
+        )
+    );
+    add_settings_field(
+        \Respectify\OPTION_BASE_URL,
+        'Base URL',
+        'respectify_base_url_callback',
+        'respectify',
+        'respectify_advanced_settings_section'
+    );
+
+    // API Version
+    register_setting(
+        'respectify_options_group',
+        \Respectify\OPTION_API_VERSION,
+        array(
+            'sanitize_callback' => 'respectify_sanitize_base_url',
+        )
+    );
+    add_settings_field(
+        \Respectify\OPTION_API_VERSION,
+        'API Version',
+        'respectify_api_version_callback',
+        'respectify',
+        'respectify_advanced_settings_section'
+    );
+}
+
+// Custom sanitization function for base URL
+// This uses normal sanitisation, but ensures that either http:// or https:// is added to the URL
+// Local intranet sites may not have SSL, so we need to allow http://. Handle that by warning
+// in the rendered settings page
+function respectify_sanitize_base_url($url) {
+    $url = trim($url);
+    if (!empty($url) && !preg_match('/^https?:\/\//', $url)) { // http and https
+        $url = 'https://' . $url;
+    }
+    return sanitize_text_field($url);
 }
 
 // Custom sanitization function for OPTION_REVISE_SETTINGS
@@ -207,6 +258,25 @@ function respectify_api_key_callback() {
     </div>
     <p>Click 'Test' to verify the email and API key are working correctly.</p>
     <?php
+}
+
+// Callback to render advanced section
+function respectify_advanced_section_callback() {
+    echo '<p class="description">Configure a custom Respectify server.</p>';
+}
+
+// Callback to render base URL input
+function respectify_base_url_callback() {
+    $base_url = get_option(\Respectify\OPTION_BASE_URL, '');
+    echo '<input type="text" name="respectify_base_url" value="' . esc_attr($base_url) . '" class="regular-text" />';
+    echo '<p class="description">Enter the server URL for the Respectify API.<br/>An example is "app.respectify.org". Leave blank for the normal Respectify service.</p>';
+}
+
+// Callback to render API version input
+function respectify_api_version_callback() {
+    $api_version = get_option(\Respectify\OPTION_API_VERSION, '');
+    echo '<input type="text" name="respectify_api_version" value="' . esc_attr($api_version) . '" class="regular-text" />';
+    echo '<p class="description">Enter the API version for the Respectify API.<br/>An example is "1.0". Leave blank for the normal Respectify service.</p>';
 }
 
 // Encrypt API key before saving

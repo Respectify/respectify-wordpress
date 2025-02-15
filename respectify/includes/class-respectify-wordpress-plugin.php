@@ -666,6 +666,15 @@ class RespectifyWordpressPlugin {
 			'comment_date'         => current_time('mysql'),
 			'comment_approved'     => 1, // Adjust approval status as needed
 		);
+
+		$base_url = get_option(\Respectify\OPTION_BASE_URL, '');
+		$api_version = get_option(\Respectify\OPTION_API_VERSION, '');
+
+		if (!empty($base_url)) {
+			$client = new \RespectifyScoper\Respectify\RespectifyClientAsync($email, $api_key, $base_url, floatval($api_version));
+		} else {
+			$client = new \RespectifyScoper\Respectify\RespectifyClientAsync($email, $api_key);
+		}
 	
 		// Intercept and process the comment
 		$result = $this->intercept_comment($commentdata);

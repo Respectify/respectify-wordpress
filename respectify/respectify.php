@@ -60,6 +60,9 @@ if (class_exists('\RespectifyScoper\Respectify\RespectifyClientAsync')) {
  */
 define( 'RESPECTIFY_VERSION', '1.0.0' );
 
+define('Respectify\OPTION_BASE_URL', 'respectify_base_url');
+define('Respectify\OPTION_API_VERSION', 'respectify_api_version');
+
 use Respectify\Respectify_Activator;
 
 /**
