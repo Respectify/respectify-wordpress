@@ -22,12 +22,17 @@ function respectify_create_client() {
     }
 }
 
-function get_friendly_message_which_client() {
-    $email = get_option(\Respectify\OPTION_EMAIL, '');
-    $api_key = \Respectify\respectify_get_decrypted_api_key();
-    $base_url = get_option(\Respectify\OPTION_BASE_URL, '');
-    $api_version = get_option(\Respectify\OPTION_API_VERSION, '');
+function respectify_create_test_client($email, $api_key, $base_url, $api_version) {
+    if (!empty($base_url) && !empty($api_version)) {
+        respectify_log('Creating test client with base URL ' . $base_url . ' and API version ' . $api_version);
+        return new \RespectifyScoper\Respectify\RespectifyClientAsync($email, $api_key, $base_url, floatval($api_version));
+    } else {
+        respectify_log('Creating test client with default base URL and API version');
+        return new \RespectifyScoper\Respectify\RespectifyClientAsync($email, $api_key);
+    }
+}
 
+function get_friendly_message_which_client($base_url, $api_version) {
     if (!empty($base_url) && !empty($api_version)) {
         return 'Connecting to URL ' . $base_url . ' and API version ' . $api_version;
     } else {

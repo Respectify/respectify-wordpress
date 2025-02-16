@@ -37,12 +37,17 @@
             // Get the values from the input fields
             var email = $('input[name="respectify_email"]').val();
             var apiKey = $('input[name="respectify_api_key"]').val();
+            // New: retrieve advanced settings
+            var baseUrl = $('input[name="respectify_base_url"]').val();
+            var apiVersion = $('input[name="respectify_api_version"]').val();
 
             $.post(respectify_ajax_object.ajax_url, {
                 action: 'respectify_test_credentials',
                 nonce: respectify_ajax_object.nonce,
                 email: email,
-                api_key: apiKey
+                api_key: apiKey,
+                base_url: baseUrl,
+                api_version: apiVersion
             }, function(response) {
                 console.log('AJAX response:', response); // Debugging: Log the response
                 if (response.success) {

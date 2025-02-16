@@ -378,25 +378,26 @@ function respectify_test_credentials() {
         wp_send_json_error(array('message' => '❌ Unauthorized. Please check your permissions and try again.'));
     }
 
-    // Get the email and API key from the AJAX request, if provided
-    // Note this is NOT (necessarily) from the settings, because they may not be saved yet
     $email = isset($_POST['email']) ? sanitize_email(wp_unslash($_POST['email'])) : get_option(\Respectify\OPTION_EMAIL, '');
     $api_key = isset($_POST['api_key']) ? sanitize_text_field(wp_unslash($_POST['api_key'])) : \Respectify\respectify_get_decrypted_api_key();
+    // New: retrieve advanced settings
+    $base_url = isset($_POST['base_url']) ? sanitize_text_field(wp_unslash($_POST['base_url'])) : '';
+    $api_version = isset($_POST['api_version']) ? sanitize_text_field(wp_unslash($_POST['api_version'])) : '';
 
-    // Ensure the class is loaded correctly
     if (!class_exists('RespectifyScoper\Respectify\RespectifyClientAsync')) {
         wp_send_json_error(array('message' => 'Class not found.'));
     }
 
-    // Instantiate your API client and test credentials
-    $client = \Respectify\respectify_create_client();
+    // Choose the test client creation method based on advanced settings values
+    $client = \Respectify\respectify_create_test_client($email, $api_key, $base_url, $api_version);
+    
     $promise = $client->checkUserCredentials();
 
     $promise->then(
         function ($result) {
             list($success, $info) = $result;
-            $which_client = \Respectify\get_friendly_message_which_client(); // Info if using a custom URL
-            if (!empty($which_client)) { // default client info is ''
+            $which_client = \Respectify\get_friendly_message_which_client($base_url, $api_version);
+            if (!empty($which_client)) {
                 $which_client = '<br><span style="font-size: smaller;">' . $which_client . "</span>";
             }
             if ($success) {
@@ -407,14 +408,10 @@ function respectify_test_credentials() {
         },
         function ($ex) {
             $unauth_message = '⛔️ Unauthorized. This means there was an error with the email and/or API key. Please check them and try again.';
-
             $errorMessage = $ex->getMessage();
             if ($ex->getCode() === 401) {
                 $errorMessage = $unauth_message;
             }
-            // Example $errorMessage is:
-            // Error: RuntimeException: Connection to tcp://localhost:8080 failed: Last error for IPv4: Connection to tcp://127.0.0.1:8080 failed: Connection refused. Previous error for IPv6: Connection to tcp://[::1]:8080 failed: Connection refused
-            // In this specific case, connection to ... failed, check if there's a custom URL and give a better message
             if (strpos($errorMessage, 'Connection to') !== false && strpos($errorMessage, 'failed:') !== false) {
                 $base_url = get_option(\Respectify\OPTION_BASE_URL, '');
                 $api_version = get_option(\Respectify\OPTION_API_VERSION, '');
