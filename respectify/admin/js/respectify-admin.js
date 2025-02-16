@@ -57,12 +57,12 @@
                         $('#respectify-test-result').html('<span style="color:red;">' + response.data.message + '</span>');
                     } else {
                         console.log('Error response but no message:', response);
-                        $('#respectify-test-result').html('<span style="color:red;">❌ An error occurred.</span>');
+                        $('#respectify-test-result').html('<span style="color:red;">❌ An error occurred: ' + response.data.message + '</span>');
                     }
                 }
             }).fail(function(jqXHR, textStatus, errorThrown) {
                 console.log('AJAX request failed:', textStatus, errorThrown); // Debugging: Log the failure
-                $('#respectify-test-result').html('<span style="color:red;">❌ An error occurred.</span>');
+                $('#respectify-test-result').html('<span style="color:red;">❌ An error occurred: ' + response.data.message + '</span>');
             });
         });
 

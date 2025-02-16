@@ -1,7 +1,38 @@
 <?php
 
+namespace Respectify;
+use RespectifyScoper\Respectify\RespectifyClientAsync;
+
 if (!function_exists('wp_salt')) {
     require_once(ABSPATH . 'wp-includes/pluggable.php');
+}
+
+function respectify_create_client() {
+    $email = get_option(\Respectify\OPTION_EMAIL, '');
+    $api_key = \Respectify\respectify_get_decrypted_api_key();
+    $base_url = get_option(\Respectify\OPTION_BASE_URL, '');
+    $api_version = get_option(\Respectify\OPTION_API_VERSION, '');
+
+    if (!empty($base_url) && !empty($api_version)) {
+        \Respectify\respectify_log('Creating client with base URL ' . $base_url . ' and API version ' . $api_version);
+        return new \RespectifyScoper\Respectify\RespectifyClientAsync($email, $api_key, $base_url, floatval($api_version));
+    } else {
+        \Respectify\respectify_log('Creating client with default base URL and API version');
+        return new \RespectifyScoper\Respectify\RespectifyClientAsync($email, $api_key);
+    }
+}
+
+function get_friendly_message_which_client() {
+    $email = get_option(\Respectify\OPTION_EMAIL, '');
+    $api_key = \Respectify\respectify_get_decrypted_api_key();
+    $base_url = get_option(\Respectify\OPTION_BASE_URL, '');
+    $api_version = get_option(\Respectify\OPTION_API_VERSION, '');
+
+    if (!empty($base_url) && !empty($api_version)) {
+        return 'Connecting to URL ' . $base_url . ' and API version ' . $api_version;
+    } else {
+        return ''; // Default client, say nothing
+    }
 }
 
 // Encryption function
@@ -33,8 +64,8 @@ function respectify_get_decrypted_api_key() {
 }
 
 function respectify_log($message) {
-    if (defined('WP_DEBUG') && WP_DEBUG) {
+    //if (defined('WP_DEBUG') && WP_DEBUG) {
         error_log($message);
-    }
+    //}
 }
 

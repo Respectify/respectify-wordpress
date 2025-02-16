@@ -247,7 +247,7 @@ function respectify_email_callback() {
 
 // Callback to render API key input
 function respectify_api_key_callback() {
-    $api_key = respectify_get_decrypted_api_key();
+    $api_key = \Respectify\respectify_get_decrypted_api_key();
     echo '<input type="password" name="respectify_api_key" value="' . esc_attr($api_key) . '" class="regular-text" required />';
     echo '<p class="description">Enter the Respectify API key you wish to use for this Wordpress site.</p>';
 
@@ -271,7 +271,7 @@ function respectify_advanced_section_callback() {
 function respectify_base_url_callback() {
     $base_url = get_option(\Respectify\OPTION_BASE_URL, '');
     echo '<input type="text" name="respectify_base_url" value="' . esc_attr($base_url) . '" class="regular-text" />';
-    echo '<p class="description">Enter the server URL for the Respectify API.<br/>An example is "app.respectify.org". Leave blank for the normal Respectify service.</p>';
+    echo '<p class="description">Enter the server URL for the Respectify API.<br/>An example is "app.respectify.org". You can include a port, eg, "localhost:8081".</br>Leave blank for the normal Respectify service.</p>';
 }
 
 // Callback to render API version input
@@ -288,7 +288,7 @@ function respectify_encrypt_api_key($new_value, $old_value) {
 
     if (!empty($_POST['respectify_api_key'])) {
         $api_key = sanitize_text_field(wp_unslash($_POST['respectify_api_key']));
-        return respectify_encrypt($api_key);
+        return \Respectify\respectify_encrypt($api_key);
     }
     return $old_value;
 }
@@ -369,8 +369,6 @@ function respectify_enqueue_admin_scripts($hook_suffix) {
     wp_add_inline_style('wp-admin', $custom_css);
 }
 
-require_once plugin_dir_path( __FILE__ ) . '../includes/class-respectify-wordpress-plugin.php';
-
 // Handle AJAX request for testing credentials
 add_action('wp_ajax_respectify_test_credentials', 'respectify_test_credentials');
 function respectify_test_credentials() {
@@ -381,9 +379,9 @@ function respectify_test_credentials() {
     }
 
     // Get the email and API key from the AJAX request, if provided
-    // Note this is NOT from the settings, because they may not be saved yet
+    // Note this is NOT (necessarily) from the settings, because they may not be saved yet
     $email = isset($_POST['email']) ? sanitize_email(wp_unslash($_POST['email'])) : get_option(\Respectify\OPTION_EMAIL, '');
-    $api_key = isset($_POST['api_key']) ? sanitize_text_field(wp_unslash($_POST['api_key'])) : respectify_decrypt(get_option(\Respectify\OPTION_API_KEY_ENCRYPTED, ''));
+    $api_key = isset($_POST['api_key']) ? sanitize_text_field(wp_unslash($_POST['api_key'])) : \Respectify\respectify_get_decrypted_api_key();
 
     // Ensure the class is loaded correctly
     if (!class_exists('RespectifyScoper\Respectify\RespectifyClientAsync')) {
@@ -391,24 +389,38 @@ function respectify_test_credentials() {
     }
 
     // Instantiate your API client and test credentials
-    $client = new \RespectifyScoper\Respectify\RespectifyClientAsync($email, $api_key);
+    $client = \Respectify\respectify_create_client();
     $promise = $client->checkUserCredentials();
 
     $promise->then(
         function ($result) {
             list($success, $info) = $result;
+            $which_client = \Respectify\get_friendly_message_which_client(); // Info if using a custom URL
+            if (!empty($which_client)) { // default client info is ''
+                $which_client = '<br><span style="font-size: smaller;">' . $which_client . "</span>";
+            }
             if ($success) {
-                wp_send_json_success(array('message' => "✅ Authorization successful - click Save Changes, and then you're good to go!"));
+                wp_send_json_success(array('message' => "✅ Authorization successful - click Save Changes, and then you're good to go!" . $which_client));
             } else {
-                wp_send_json_error(array('message' => '⚠️ ' . $info));
+                wp_send_json_error(array('message' => '⚠️ ' . $info . $which_client));
             }
         },
         function ($ex) {
             $unauth_message = '⛔️ Unauthorized. This means there was an error with the email and/or API key. Please check them and try again.';
 
-            $errorMessage = 'Error (' . get_class($ex) . '): ' . $ex->getMessage();
+            $errorMessage = $ex->getMessage();
             if ($ex->getCode() === 401) {
                 $errorMessage = $unauth_message;
+            }
+            // Example $errorMessage is:
+            // Error: RuntimeException: Connection to tcp://localhost:8080 failed: Last error for IPv4: Connection to tcp://127.0.0.1:8080 failed: Connection refused. Previous error for IPv6: Connection to tcp://[::1]:8080 failed: Connection refused
+            // In this specific case, connection to ... failed, check if there's a custom URL and give a better message
+            if (strpos($errorMessage, 'Connection to') !== false && strpos($errorMessage, 'failed:') !== false) {
+                $base_url = get_option(\Respectify\OPTION_BASE_URL, '');
+                $api_version = get_option(\Respectify\OPTION_API_VERSION, '');
+                if (!empty($base_url) || !empty($api_version)) {
+                    $errorMessage = '⛔️ Connection to ' . $base_url . ' version ' . $api_version . ' failed. Please check the URL and try again.<br/><span style="font-size: smaller;">' . $errorMessage . "</span>";
+                }
             }
             wp_send_json_error(array('message' => $errorMessage));
         }

@@ -31,25 +31,24 @@ if ( ! defined( 'WPINC' ) ) {
 	die;
 }
 
-// If not found this will give errors re respectify_log()
+// If not found this will give errors re \Respectify\respectify_log()
 if (file_exists(__DIR__ . '/includes/respectify-utils.php')) {
     require __DIR__ . '/includes/respectify-utils.php';
 }
 
-
 // Include the prefixed scoped Composer autoloader
 if (file_exists(__DIR__ . '/build/autoload.php')) {
     require __DIR__ . '/build/autoload.php';
-    respectify_log('Scoper: Composer autoloader included successfully.');
+    \Respectify\respectify_log('Scoper: Composer autoloader included successfully.');
 } else {
-    respectify_log('Scoper: Composer autoloader not found.');
+    \Respectify\respectify_log('Scoper: Composer autoloader not found.');
 }
 
 // require __DIR__ . '/build/respectify/respectify-php/src/RespectifyClientAsync.php';
 if (class_exists('\RespectifyScoper\Respectify\RespectifyClientAsync')) {
-    respectify_log('RespectifyClientAsync class found.');
+    \Respectify\respectify_log('RespectifyClientAsync class found.');
 } else {
-    respectify_log('RespectifyClientAsync class not found.');
+    \Respectify\respectify_log('RespectifyClientAsync class not found.');
 }
 
 
@@ -96,7 +95,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-respectify-wordpress-
 
 
 if (!class_exists('Respectify\RespectifyWordpressPlugin')) {
-    respectify_log('Class Respectify\RespectifyWordpressPlugin not found');
+    \Respectify\respectify_log('Class Respectify\RespectifyWordpressPlugin not found');
     throw new Exception('Class Respectify\RespectifyWordpressPlugin not found');
 }
 
@@ -112,7 +111,7 @@ add_filter('plugin_action_links_' . plugin_basename(__FILE__), 'respectify_add_p
 
 function respectify_is_api_key_configured() {
     $email = get_option(\Respectify\OPTION_EMAIL);
-    $api_key = respectify_decrypt(get_option(\Respectify\OPTION_API_KEY_ENCRYPTED));
+    $api_key = \Respectify\respectify_get_decrypted_api_key();
 
     return !empty($email) && !empty($api_key);
 }
