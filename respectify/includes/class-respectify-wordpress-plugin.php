@@ -94,10 +94,6 @@ class RespectifyWordpressPlugin {
 
 		$this->update_respectify_client();
 
-		$email = get_option(\Respectify\OPTION_EMAIL, '');
-		$api_key = \Respectify\respectify_get_decrypted_api_key();
-		$this->respectify_client = new RespectifyClientAsync($email, $api_key);
-
 	    // Hook the AJAX handler for logged-in users
 		add_action('wp_ajax_respectify_submit_comment', array($this, 'ajax_submit_comment'));
 		// Hook the AJAX handler for non-logged-in users
