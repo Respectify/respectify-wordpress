@@ -381,22 +381,24 @@ function respectify_test_credentials() {
     $email = isset($_POST['email']) ? sanitize_email(wp_unslash($_POST['email'])) : get_option(\Respectify\OPTION_EMAIL, '');
     $api_key = isset($_POST['api_key']) ? sanitize_text_field(wp_unslash($_POST['api_key'])) : \Respectify\respectify_get_decrypted_api_key();
     // New: retrieve advanced settings
-    $base_url = isset($_POST['base_url']) ? sanitize_text_field(wp_unslash($_POST['base_url'])) : '';
-    $api_version = isset($_POST['api_version']) ? sanitize_text_field(wp_unslash($_POST['api_version'])) : '';
+    $base_url = isset($_POST['base_url']) ? sanitize_text_field(wp_unslash($_POST['base_url'])) : get_option(\Respectify\OPTION_BASE_URL, '');
+    $api_version = isset($_POST['api_version']) ? sanitize_text_field(wp_unslash($_POST['api_version'])) : get_option(\Respectify\OPTION_API_VERSION, '');
 
     if (!class_exists('RespectifyScoper\Respectify\RespectifyClientAsync')) {
         wp_send_json_error(array('message' => 'Class not found.'));
     }
-
+    error_log('Testing credentials with email ' . $email . ' and base URL ' . $base_url . ' and API version ' . $api_version);
+    
     // Choose the test client creation method based on advanced settings values
     $client = \Respectify\respectify_create_test_client($email, $api_key, $base_url, $api_version);
     
     $promise = $client->checkUserCredentials();
 
     $promise->then(
-        function ($result) {
+        function ($result) use ($base_url, $api_version) {
             list($success, $info) = $result;
             $which_client = \Respectify\get_friendly_message_which_client($base_url, $api_version);
+            error_log('Base url ' . $base_url . ' and API version ' . $api_version . ' give: which client ' . $which_client);
             if (!empty($which_client)) {
                 $which_client = '<br><span style="font-size: smaller;">' . $which_client . "</span>";
             }
