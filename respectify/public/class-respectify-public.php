@@ -99,6 +99,13 @@ class Respectify_Public {
 
 		wp_enqueue_script( $this->respectify, plugin_dir_url( __FILE__ ) . 'js/respectify-public.js', array( 'jquery' ), $this->version, false );
 
+		// Add localization data
+		wp_localize_script( $this->respectify, 'respectify_comments_i18n', array(
+			'submitting' => esc_html__('Submitting your comment; please wait a moment...', 'respectify'),
+			'error_occurred' => esc_html__('An error occurred.', 'respectify'),
+			'error_try_again' => esc_html__('An error occurred. Please try again.', 'respectify'),
+		) );
+
 	}
 
 }

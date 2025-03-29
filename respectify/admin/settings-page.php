@@ -14,8 +14,8 @@ require_once plugin_dir_path(__FILE__) . '../includes/respectify-utils.php';
 add_action('admin_menu', 'respectify_add_settings_page');
 function respectify_add_settings_page() {
     add_options_page(
-        'Respectify Settings',
-        'Respectify',
+        esc_html__('Respectify Settings', 'respectify'),
+        esc_html__('Respectify', 'respectify'),
         'manage_options',
         'respectify',
         'respectify_render_settings_page'
@@ -42,14 +42,14 @@ function respectify_register_settings() {
 
     add_settings_section(
         'respectify_settings_section',
-        'API Credentials',
+        esc_html__('API Credentials', 'respectify'),
         null,
         'respectify'
     );
 
     add_settings_field(
         \Respectify\OPTION_EMAIL,
-        'Email',
+        esc_html__('Email', 'respectify'),
         'respectify_email_callback',
         'respectify',
         'respectify_settings_section'
@@ -57,7 +57,7 @@ function respectify_register_settings() {
 
     add_settings_field(
         'respectify_api_key',
-        'API Key',
+        esc_html__('API Key', 'respectify'),
         'respectify_api_key_callback',
         'respectify',
         'respectify_settings_section'
@@ -65,7 +65,7 @@ function respectify_register_settings() {
 
     add_settings_section(
         'respectify_behavior_settings_section',
-        'Comment Handling',
+        esc_html__('Comment Handling', 'respectify'),
         'respectify_behavior_section_callback',
         'respectify'
     );
@@ -80,7 +80,7 @@ function respectify_register_settings() {
     );
     add_settings_field(
         \Respectify\OPTION_SPAM_HANDLING,
-        'How to Handle Spam',
+        esc_html__('How to Handle Spam', 'respectify'),
         'respectify_spam_handling_callback',
         'respectify',
         'respectify_behavior_settings_section'
@@ -96,7 +96,7 @@ function respectify_register_settings() {
     );
     add_settings_field(
         \Respectify\OPTION_REVISE_SETTINGS,
-        'Revise a Comment When',
+        esc_html__('Revise a Comment When', 'respectify'),
         'respectify_revise_settings_callback',
         'respectify',
         'respectify_behavior_settings_section'
@@ -105,7 +105,7 @@ function respectify_register_settings() {
     // New Settings Section for Advanced Parameters
     add_settings_section(
         'respectify_advanced_settings_section',
-        'Rarely Used Settings',
+        esc_html__('Rarely Used Settings', 'respectify'),
         'respectify_advanced_section_callback',
         'respectify'
     );
@@ -120,7 +120,7 @@ function respectify_register_settings() {
     );
     add_settings_field(
         \Respectify\OPTION_BASE_URL,
-        'Base URL',
+        esc_html__('Base URL', 'respectify'),
         'respectify_base_url_callback',
         'respectify',
         'respectify_advanced_settings_section'
@@ -136,7 +136,7 @@ function respectify_register_settings() {
     );
     add_settings_field(
         \Respectify\OPTION_API_VERSION,
-        'API Version',
+        esc_html__('API Version', 'respectify'),
         'respectify_api_version_callback',
         'respectify',
         'respectify_advanced_settings_section'
@@ -180,7 +180,7 @@ function respectify_sanitize_revise_settings($input) {
 
 // Callback to render behavior section
 function respectify_behavior_section_callback() {
-    echo '<p class="description description-match-font-size">Configure how Respectify handles comments, especially the criteria for requesting a comment be revised before being posted.</p>';
+    echo '<p class="description description-match-font-size">' . esc_html__('Configure how Respectify handles comments, especially the criteria for requesting a comment be revised before being posted.', 'respectify') . '</p>';
     echo '<div class="respectify-settings-row">';
 }
 
@@ -189,10 +189,10 @@ function respectify_spam_handling_callback() {
     $options = get_option(\Respectify\OPTION_SPAM_HANDLING, \Respectify\ACTION_DELETE);
     ?>
     <select name="respectify_spam_handling" id="respectify_spam_handling">
-        <option value="trash" <?php selected($options, \Respectify\ACTION_DELETE); ?>>Delete</option>
-        <option value="reject_with_feedback" <?php selected($options, \Respectify\ACTION_REVISE); ?>>Give Opportunity to Revise</option>
+        <option value="<?php echo \Respectify\ACTION_DELETE; ?>" <?php selected($options, \Respectify\ACTION_DELETE); ?>><?php esc_html_e('Delete', 'respectify'); ?></option>
+        <option value="<?php echo \Respectify\ACTION_REVISE; ?>" <?php selected($options, \Respectify\ACTION_REVISE); ?>><?php esc_html_e('Give Opportunity to Revise', 'respectify'); ?></option>
     </select>
-    <p class="description">By default spam is deleted, but you can treat them as normal comments and send them back for revision.</p>
+    <p class="description"><?php esc_html_e('By default spam is deleted, but you can treat them as normal comments and send them back for revision.', 'respectify'); ?></p>
     <?php
 }
 
@@ -208,33 +208,41 @@ function respectify_revise_settings_callback() {
     ?>
     <div class="respectify-settings-column">
         <div class="respectify-slider-row">
-            <label for="respectify_revise_min_score">Minimum Score:</label>
+            <label for="respectify_revise_min_score"><?php esc_html_e('Minimum Score:', 'respectify'); ?></label>
             <span class="emoji">😧</span>
             <input type="range" id="respectify_revise_min_score" name="respectify_revise_settings[min_score]" value="<?php echo esc_attr($options['min_score']); ?>" min="1" max="5" step="1">
             <span class="emoji">🤩</span>
-            <span class="out-of description"><span id="revise_min_score_value"><?php echo esc_html($options['min_score']); ?></span> out of 5.</span>
-            <span class="out-of description"><br/>Recommended value: 3 out of 5.<br/>A score of 3 out of 5 is a normal, good quality comment. 4 and 5 are outstanding and unusual.</span>
+            <span class="out-of description">
+                <span id="revise_min_score_value"><?php echo esc_html($options['min_score']); ?></span> 
+                <?php esc_html_e('out of 5.', 'respectify'); ?>
+            </span>
+            <span class="out-of description">
+                <br/>
+                <?php esc_html_e('Recommended value: 3 out of 5.', 'respectify'); ?>
+                <br/>
+                <?php esc_html_e('A score of 3 out of 5 is a normal, good quality comment. 4 and 5 are outstanding and unusual.', 'respectify'); ?>
+            </span>
         </div>
         <div class="respectify-checkbox-group">
             <label>
                 <input type="checkbox" name="respectify_revise_settings[low_effort]" value="1" <?php checked($options['low_effort'], true); ?> />
-                Seems Low Effort
+                <?php esc_html_e('Seems Low Effort', 'respectify'); ?>
             </label>
             <label>
                 <input type="checkbox" name="respectify_revise_settings[logical_fallacies]" value="1" <?php checked($options['logical_fallacies'], true); ?> />
-                Contains Logical Fallacies
+                <?php esc_html_e('Contains Logical Fallacies', 'respectify'); ?>
             </label>
             <label>
                 <input type="checkbox" name="respectify_revise_settings[objectionable_phrases]" value="1" <?php checked($options['objectionable_phrases'], true); ?> />
-                Contains Objectionable Phrases
+                <?php esc_html_e('Contains Objectionable Phrases', 'respectify'); ?>
             </label>
             <label>
                 <input type="checkbox" name="respectify_revise_settings[negative_tone]" value="1" <?php checked($options['negative_tone'], true); ?> />
-                Negative Tone Indications
+                <?php esc_html_e('Negative Tone Indications', 'respectify'); ?>
             </label>
         </div>
     </div>
-    <p class="description">Define the conditions under which a comment should be revised.</p>
+    <p class="description"><?php esc_html_e('Define the conditions under which a comment should be revised.', 'respectify'); ?></p>
     <?php
 }
 
@@ -242,43 +250,43 @@ function respectify_revise_settings_callback() {
 function respectify_email_callback() {
     $email = get_option(\Respectify\OPTION_EMAIL, '');
     echo '<input type="email" name="respectify_email" value="' . esc_attr($email) . '" class="regular-text" required />';
-    echo '<p class="description">Enter the email associated with your Respectify account.</p>';
+    echo '<p class="description">' . esc_html__('Enter the email associated with your Respectify account.', 'respectify') . '</p>';
 }
 
 // Callback to render API key input
 function respectify_api_key_callback() {
     $api_key = \Respectify\respectify_get_decrypted_api_key();
     echo '<input type="password" name="respectify_api_key" value="' . esc_attr($api_key) . '" class="regular-text" required />';
-    echo '<p class="description">Enter the Respectify API key you wish to use for this Wordpress site.</p>';
+    echo '<p class="description">' . esc_html__('Enter the Respectify API key you wish to use for this Wordpress site.', 'respectify') . '</p>';
 
     ?>
     <div class="respectify-test-container">
-        <button type="button" id="respectify-test-button" class="button">Test</button>
+        <button type="button" id="respectify-test-button" class="button"><?php esc_html_e('Test', 'respectify'); ?></button>
         <span id="respectify-test-result"></span>   
     </div>
-    <p>Click 'Test' to verify the email and API key are working correctly.</p>
+    <p><?php esc_html_e('Click "Test" to verify the email and API key are working correctly.', 'respectify'); ?></p>
     <?php
 }
 
 // Callback to render advanced section
 function respectify_advanced_section_callback() {
-    echo '<button type="button" class="respectify-accordion" id="respectify-advanced-settings-button">Display rarely used settings</button>';
+    echo '<button type="button" class="respectify-accordion" id="respectify-advanced-settings-button">' . esc_html__('Display rarely used settings', 'respectify') . '</button>';
     echo '<div class="respectify-panel">';
-    echo '<p class="description">Configure a custom Respectify server.</p>';
+    echo '<p class="description">' . esc_html__('Configure a custom Respectify server.', 'respectify') . '</p>';
 }
 
 // Callback to render base URL input
 function respectify_base_url_callback() {
     $base_url = get_option(\Respectify\OPTION_BASE_URL, '');
     echo '<input type="text" name="respectify_base_url" value="' . esc_attr($base_url) . '" class="regular-text" />';
-    echo '<p class="description">Enter the server URL for the Respectify API.<br/>An example is "app.respectify.org". You can include a port, eg, "localhost:8081".</br>Leave blank for the normal Respectify service.</p>';
+    echo '<p class="description">' . esc_html__('Enter the server URL for the Respectify API. An example is "app.respectify.org". You can include a port, eg, "localhost:8081". Leave blank for the normal Respectify service.', 'respectify') . '</p>';
 }
 
 // Callback to render API version input
 function respectify_api_version_callback() {
     $api_version = get_option(\Respectify\OPTION_API_VERSION, '');
     echo '<input type="text" name="respectify_api_version" value="' . esc_attr($api_version) . '" class="regular-text" />';
-    echo '<p class="description">Enter the API version for the Respectify API.<br/>An example is "1.0". Leave blank for the normal Respectify service.</p>';
+    echo '<p class="description">' . esc_html__('Enter the API version for the Respectify API. An example is "1.0". Leave blank for the normal Respectify service.', 'respectify') . '</p>';
 }
 
 // Encrypt API key before saving
@@ -328,7 +336,7 @@ function respectify_verify_nonce() {
 function respectify_render_settings_page() {
     ?>
     <div class="wrap">
-        <h1>Respectify Settings</h1>
+        <h1><?php esc_html_e('Respectify Settings', 'respectify'); ?></h1>
         <form method="post" action="options.php">
             <?php
             settings_fields('respectify_options_group');
@@ -352,6 +360,14 @@ function respectify_enqueue_admin_scripts($hook_suffix) {
         return;
     }
     wp_enqueue_script('respectify-admin-js', plugin_dir_url(__FILE__) . '../js/respectify-admin.js', array('jquery'), '1.0.0', true);
+    
+    // Add localization data
+    wp_localize_script('respectify-admin-js', 'respectify_admin_i18n', array(
+        'testing' => esc_html__('Testing...', 'respectify'),
+        'success_no_message' => '✅ ' . esc_html__('Success, but no message provided. Try using Respectify but if you get errors, contact Support.', 'respectify'),
+        'error_prefix' => '❌ ' . esc_html__('An error occurred: ', 'respectify'),
+    ));
+
     wp_localize_script('respectify-admin-js', 'respectify_ajax_object', array(
         'ajax_url' => admin_url('admin-ajax.php'),
         'nonce'    => wp_create_nonce('respectify_test_nonce'),
@@ -375,17 +391,18 @@ function respectify_test_credentials() {
     check_ajax_referer('respectify_test_nonce', 'nonce');
 
     if (!current_user_can('manage_options')) {
-        wp_send_json_error(array('message' => '❌ Unauthorized. Please check your permissions and try again.'));
+        wp_send_json_error(array('message' => '❌ ' . esc_html__('Unauthorized. Please check your permissions and try again.', 'respectify')));
     }
 
     $email = isset($_POST['email']) ? sanitize_email(wp_unslash($_POST['email'])) : get_option(\Respectify\OPTION_EMAIL, '');
     $api_key = isset($_POST['api_key']) ? sanitize_text_field(wp_unslash($_POST['api_key'])) : \Respectify\respectify_get_decrypted_api_key();
-    // New: retrieve advanced settings
+    
+    // advanced settings
     $base_url = isset($_POST['base_url']) ? sanitize_text_field(wp_unslash($_POST['base_url'])) : get_option(\Respectify\OPTION_BASE_URL, '');
     $api_version = isset($_POST['api_version']) ? sanitize_text_field(wp_unslash($_POST['api_version'])) : get_option(\Respectify\OPTION_API_VERSION, '');
 
     if (!class_exists('RespectifyScoper\Respectify\RespectifyClientAsync')) {
-        wp_send_json_error(array('message' => 'Class not found.'));
+        wp_send_json_error(array('message' => esc_html__('Class not found.', 'respectify')));
     }
     error_log('Testing credentials with email ' . $email . ' and base URL ' . $base_url . ' and API version ' . $api_version);
     
@@ -400,16 +417,16 @@ function respectify_test_credentials() {
             $which_client = \Respectify\get_friendly_message_which_client($base_url, $api_version);
             error_log('Base url ' . $base_url . ' and API version ' . $api_version . ' give: which client ' . $which_client);
             if (!empty($which_client)) {
-                $which_client = '<br><span style="font-size: smaller;">' . $which_client . "</span>";
+                $which_client = '<br><span style="font-size: smaller;">' . esc_html($which_client) . "</span>";
             }
             if ($success) {
-                wp_send_json_success(array('message' => "✅ Authorization successful - click Save Changes, and then you're good to go!" . $which_client));
+                wp_send_json_success(array('message' => '✅ ' . esc_html__('Authorization successful - click Save Changes, and then you\'re good to go!', 'respectify') . $which_client));
             } else {
-                wp_send_json_error(array('message' => '⚠️ ' . $info . $which_client));
+                wp_send_json_error(array('message' => '⚠️ ' . esc_html($info) . $which_client));
             }
         },
         function ($ex) {
-            $unauth_message = '⛔️ Unauthorized. This means there was an error with the email and/or API key. Please check them and try again.';
+            $unauth_message = '⛔️ ' . esc_html__('Unauthorized. This means there was an error with the email and/or API key. Please check them and try again.', 'respectify');
             $errorMessage = $ex->getMessage();
             if ($ex->getCode() === 401) {
                 $errorMessage = $unauth_message;
@@ -418,7 +435,12 @@ function respectify_test_credentials() {
                 $base_url = get_option(\Respectify\OPTION_BASE_URL, '');
                 $api_version = get_option(\Respectify\OPTION_API_VERSION, '');
                 if (!empty($base_url) || !empty($api_version)) {
-                    $errorMessage = '⛔️ Connection to ' . $base_url . ' version ' . $api_version . ' failed. Please check the URL and try again.<br/><span style="font-size: smaller;">' . $errorMessage . "</span>";
+                    $errorMessage = sprintf(
+                        /* translators: %1$s: Base URL, %2$s: API Version */
+                        '⛔️ ' . esc_html__('Connection to %1$s version %2$s failed. Please check the URL and try again.', 'respectify'),
+                        esc_html($base_url),
+                        esc_html($api_version)
+                    ) . '<br/><span style="font-size: smaller;">' . esc_html($errorMessage) . "</span>";
                 }
             }
             wp_send_json_error(array('message' => $errorMessage));

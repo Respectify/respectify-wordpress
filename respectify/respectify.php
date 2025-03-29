@@ -118,9 +118,9 @@ function respectify_is_api_key_configured() {
 
 function respectify_add_plugin_action_links($links) {
     if (respectify_is_api_key_configured()) {
-        $settings_link = '<a href="options-general.php?page=respectify">' . __('Settings') . '</a>';
+        $settings_link = '<a href="options-general.php?page=respectify">' . esc_html__('Settings', 'respectify') . '</a>';
     } else {
-        $settings_link = '<a href="options-general.php?page=respectify">' . __('⚠️ Please set up your API Key') . '</a>';
+        $settings_link = '<a href="options-general.php?page=respectify">⚠️ ' . esc_html__('Please set up your API Key', 'respectify') . '</a>';
     }
     array_unshift($links, $settings_link);
     return $links;

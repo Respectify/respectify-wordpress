@@ -55,19 +55,19 @@
                         $('#respectify-test-result').html('<span style="color:green;">' + response.data.message + '</span>');
                     } else {
                         console.log('Success response but no message:', response);
-                        $('#respectify-test-result').html('<span style="color:green;">✅ Success, but no message provided. Try using Respectify but if you get errors, contact Support.</span>');
+                        $('#respectify-test-result').html('<span style="color:green;">' + respectify_admin_i18n.success_no_message + '</span>');
                     }
                 } else {
                     if (response.data && response.data.message) {
                         $('#respectify-test-result').html('<span style="color:red;">' + response.data.message + '</span>');
                     } else {
                         console.log('Error response but no message:', response);
-                        $('#respectify-test-result').html('<span style="color:red;">❌ An error occurred: ' + response.data.message + '</span>');
+                        $('#respectify-test-result').html('<span style="color:red;">' + respectify_admin_i18n.error_prefix + response.data.message + '</span>');
                     }
                 }
             }).fail(function(jqXHR, textStatus, errorThrown) {
                 console.log('AJAX request failed:', textStatus, errorThrown); // Debugging: Log the failure
-                $('#respectify-test-result').html('<span style="color:red;">❌ An error occurred: ' + response.data.message + '</span>');
+                $('#respectify-test-result').html('<span style="color:red;">' + respectify_admin_i18n.error_prefix + response.data.message + '</span>');
             });
         });
 

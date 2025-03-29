@@ -11,7 +11,7 @@
             $('.respectify-message, #respectify-post-anyway').remove();
 
             // Show a loading message
-            var loadingMessage = $('<p class="respectify-message">Submitting your comment; please wait a moment...</p>');
+            var loadingMessage = $('<p class="respectify-message">' + respectify_comments_i18n.submitting + '</p>');
             form.before(loadingMessage);
 
             // Check if 'Post Anyway' button was clicked
@@ -46,7 +46,7 @@
                         }
                     } else {
                         // Display error message
-                        var message = response.data.message || 'An error occurred.';
+                        var message = response.data.message || respectify_comments_i18n.error_occurred;
                         var errorMessage = $('<div class="respectify-message respectify-error">' + message + '</div>');
                         form.before(errorMessage);
                     }
@@ -54,7 +54,7 @@
                 error: function() {
                     // Remove the loading message
                     loadingMessage.remove();
-                    var errorMessage = $('<p class="respectify-message error">An error occurred. Please try again.</p>');
+                    var errorMessage = $('<p class="respectify-message error">' + respectify_comments_i18n.error_try_again + '</p>');
                     form.before(errorMessage);
                 }
             });
