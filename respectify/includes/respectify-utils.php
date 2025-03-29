@@ -13,31 +13,36 @@ function respectify_create_client() {
     $base_url = get_option(\Respectify\OPTION_BASE_URL, '');
     $api_version = get_option(\Respectify\OPTION_API_VERSION, '');
 
-    if (!empty($base_url) && !empty($api_version)) {
-        \Respectify\respectify_log('Creating client with base URL ' . $base_url . ' and API version ' . $api_version);
-        return new \RespectifyScoper\Respectify\RespectifyClientAsync($email, $api_key, $base_url, floatval($api_version));
-    } else {
-        \Respectify\respectify_log('Creating client with default base URL and API version');
-        return new \RespectifyScoper\Respectify\RespectifyClientAsync($email, $api_key);
-    }
+    $params = [
+        'email' => $email,
+        'apiKey' => $api_key,
+        'baseUrl' => !empty($base_url) ? $base_url : null,
+        'version' => !empty($api_version) ? floatval($api_version) : null
+    ];
+
+    \Respectify\respectify_log('Parameters being passed to constructor: ' . print_r($params, true));
+    return new \RespectifyScoper\Respectify\RespectifyClientAsync(...array_values($params));
 }
 
 function respectify_create_test_client($email, $api_key, $base_url, $api_version) {
-    if (!empty($base_url) && !empty($api_version)) {
-        respectify_log('Creating test client with base URL ' . $base_url . ' and API version ' . $api_version);
-        return new \RespectifyScoper\Respectify\RespectifyClientAsync($email, $api_key, $base_url, floatval($api_version));
-    } else {
-        respectify_log('Creating test client with default base URL and API version');
-        return new \RespectifyScoper\Respectify\RespectifyClientAsync($email, $api_key);
-    }
+    $params = [
+        'email' => $email,
+        'apiKey' => $api_key,
+        'baseUrl' => !empty($base_url) ? $base_url : null,
+        'version' => !empty($api_version) ? floatval($api_version) : null
+    ];
+
+    respectify_log('Parameters being passed to test constructor: ' . print_r($params, true));
+    return new \RespectifyScoper\Respectify\RespectifyClientAsync(...array_values($params));
 }
 
 function get_friendly_message_which_client($base_url, $api_version) {
-    if (!empty($base_url) && !empty($api_version)) {
-        return 'Connecting to URL ' . $base_url . ' and API version ' . $api_version;
-    } else {
-        return ''; // Default client, say nothing
+    if (!empty($base_url)) {
+        return 'Connecting to URL ' . $base_url . (!empty($api_version) ? ' and API version ' . $api_version : ' (using default API version)');
+    } else if (!empty($api_version)) {
+        return 'Using default URL with API version ' . $api_version;
     }
+    return '';
 }
 
 // Encryption function

@@ -404,7 +404,8 @@ function respectify_test_credentials() {
     if (!class_exists('RespectifyScoper\Respectify\RespectifyClientAsync')) {
         wp_send_json_error(array('message' => esc_html__('Class not found.', 'respectify')));
     }
-    error_log('Testing credentials with email ' . $email . ' and base URL ' . $base_url . ' and API version ' . $api_version);
+    $which_client = \Respectify\get_friendly_message_which_client($base_url, $api_version);
+    error_log('Testing credentials with email ' . $email . ' - ' . $which_client);
     
     // Choose the test client creation method based on advanced settings values
     $client = \Respectify\respectify_create_test_client($email, $api_key, $base_url, $api_version);
@@ -415,7 +416,7 @@ function respectify_test_credentials() {
         function ($result) use ($base_url, $api_version) {
             list($success, $info) = $result;
             $which_client = \Respectify\get_friendly_message_which_client($base_url, $api_version);
-            error_log('Base url ' . $base_url . ' and API version ' . $api_version . ' give: which client ' . $which_client);
+            error_log('Base url ' . $base_url . ' and API version ' . (!empty($api_version) ? $api_version : 'default') . ' give: which client ' . $which_client);
             if (!empty($which_client)) {
                 $which_client = '<br><span style="font-size: smaller;">' . esc_html($which_client) . "</span>";
             }
