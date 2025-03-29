@@ -2,6 +2,7 @@
 namespace Respectify;
 use RespectifyScoper\Respectify\RespectifyClientAsync;
 use RespectifyScoper\Respectify\CommentScore;
+use RespectifyScoper\Respectify\MegaCallResult;
 
 
 /**
@@ -374,18 +375,23 @@ class RespectifyWordpressPlugin {
 	public function evaluate_comment($respectify_article_id, $comment_text) {
 		\Respectify\respectify_log('Evaluating comment: article id: ' . $respectify_article_id . ', comment: ' . substr($comment_text, 0, 50) . '...');
 
-        $promise = $this->respectify_client->evaluateComment($respectify_article_id, $comment_text); 
+        $promise = $this->respectify_client->megacall(
+            $comment_text,
+            $respectify_article_id,
+            ['spam', 'commentscore']  // We only need spam and comment score for now
+        ); 
         $caughtException = null;
 
 		$res = null;
 
         $promise->then(
-            function ($commentScore) use(&$res, &$caughtException) {
-				if ($commentScore instanceof CommentScore) {
-					$res = $commentScore;
-				} else {
-					$caughtException = new Exception('Comment score result is not an instance of CommentScore');
-				}
+            function ($megaResult) use(&$res, &$caughtException) {
+                if ($megaResult instanceof MegaCallResult) {
+                    // Extract just the comment score part since that's what the rest of the code expects
+                    $res = $megaResult->commentScore;
+                } else {
+                    $caughtException = new Exception('Mega call result is not an instance of MegaCallResult');
+                }
             },
             function ($e) use (&$caughtException) {
                 $caughtException = $e;
