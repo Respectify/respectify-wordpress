@@ -49,7 +49,6 @@ echo "Contents of '$FINAL_BUILD_DIR' deleted."
 
 echo "Step 1 completed."
 
-
 # Step 2: Create Temporary Build Directory
 echo "Creating temporary build directory..."
 mkdir -p "$TEMP_BUILD_DIR"
@@ -171,38 +170,26 @@ echo "Working directory: $TEMP_BUILD_DIR"
   --working-dir="$TEMP_BUILD_DIR" \
   --force
 
-# Delete the copied sniccowp/php-scoper-wordpress-excludes files, because they trigger 
-# the check of php-scoper in the final build directory
-echo "Deleting sniccowp/php-scoper-wordpress-excludes files from TEMP_BUILD_DIR..."
+# Delete only development-related files and directories
+echo "Cleaning up development files..."
+
+# Remove development tools and documentation
 rm -rf "$TEMP_BUILD_DIR/vendor/sniccowp/php-scoper-wordpress-excludes"
-
-# Delete the respectify-php/phpdocumentor-markdown-customised files
-# Not required (it's for building doc) and the Wordpress plugin-check plugin flags it
-# because json_encode is discouraged
-echo "Deleting respectify-php/phpdocumentor-markdown-customised files from TEMP_BUILD_DIR..."
 rm -rf "$TEMP_BUILD_DIR/build/respectify/respectify-php/phpdocumentor-markdown-customised"
-
-# Only used for php-documentor, and cause warnings for Plugin Check
-echo "Deleting twig files from TEMP_BUILD_DIR..."
 rm -rf "$TEMP_BUILD_DIR/build/twig"
-
-# Python file that plugin review flagged as not permitted
-echo "Deleting Python files from TEMP_BUILD_DIR..."
 rm -rf "$TEMP_BUILD_DIR/build/vendor/respectify/respectify-php/build.py"
 rm -rf "$TEMP_BUILD_DIR/vendor/respectify/respectify-php/build.py"
 
-# Unnecessary files, from plugin review
-echo "Deleting all .vscode directories from TEMP_BUILD_DIR..."
+# Remove IDE and editor files
 find "$TEMP_BUILD_DIR" -type d -name ".vscode" -exec rm -rf {} +
+find "$TEMP_BUILD_DIR" -type f -name ".DS_Store" -delete
 
-# Other issues flagged scoper.inc.php, which is easiest solved by deleting it
-echo "Deleting scoper.inc.php from TEMP_BUILD_DIR..."
+# Remove build configuration files
 rm -rf "$TEMP_BUILD_DIR/scoper.inc.php"
+rm -rf "$TEMP_BUILD_DIR/composer.json"
+rm -rf "$TEMP_BUILD_DIR/composer.lock"
 
 # Copy the prefixed files to the final build directory
-# Create Temporary Build Directory
-echo "Creating final build directory..."
-mkdir -p "$FINAL_BUILD_DIR"
 echo "Copying prefixed files to final build directory..."
 cp -r "$TEMP_BUILD_DIR/"* "$FINAL_BUILD_DIR/"
 
@@ -216,16 +203,16 @@ rm -rf "$TEMP_BUILD_DIR"
 
 # Step 7: Verify Build Directory for Unwanted Files
 echo "Verifying build directory for unwanted files..."
-UNWANTED_PATTERNS=("jetbrains" "php-scoper" "scoper.inc.php" ".vscode" "build.py")
+UNWANTED_PATTERNS=("jetbrains" "php-scoper" "scoper.inc.php" ".vscode" "build.py" ".DS_Store")
 
 for pattern in "${UNWANTED_PATTERNS[@]}"; do
   if find "$FINAL_BUILD_DIR" -iname "*$pattern*" | grep .; then
-    echo "Error: '$pattern' tools found in the build directory."
+    echo "Error: '$pattern' found in the build directory."
     exit 1
   fi
 done
 
-echo "No unwanted tools found. Build is clean."
+echo "No unwanted files found. Build is clean."
 
 echo "Build completed successfully. Check the '$FINAL_BUILD_DIR' directory." 
 
