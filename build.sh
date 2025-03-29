@@ -227,4 +227,12 @@ done
 
 echo "No unwanted tools found. Build is clean."
 
-echo "Build completed successfully. Check the '$FINAL_BUILD_DIR' directory."
+echo "Build completed successfully. Check the '$FINAL_BUILD_DIR' directory." 
+
+echo "Copying files to WordPress SVN trunk directory..."
+
+cp -r "$FINAL_BUILD_DIR"/* "../respectify-wordpress-svn/trunk/"
+
+echo "Done."
+
+
