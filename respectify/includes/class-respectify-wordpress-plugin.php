@@ -370,15 +370,19 @@ class RespectifyWordpressPlugin {
 	 * Evaluate a comment made on a Wordpress post or page, given the Respectify article ID
 	 * for that post/page and the comment text.
 	 *
+	 * @param string $respectify_article_id The Respectify article ID
+	 * @param string $comment_text The comment text to evaluate
+	 * @param string|null $reply_to_comment_text The text of the comment being replied to
 	 * @return MegaCallResult The evaluated information for the comment
 	 */
-	public function evaluate_comment($respectify_article_id, $comment_text) {
+	public function evaluate_comment($respectify_article_id, $comment_text, $reply_to_comment_text = null) {
 		\Respectify\respectify_log('Evaluating comment: article id: ' . $respectify_article_id . ', comment: ' . substr($comment_text, 0, 50) . '...');
 
         $promise = $this->respectify_client->megacall(
             $comment_text,
             $respectify_article_id,
-            ['spam', 'commentscore']  // We only need spam and comment score for now
+            ['spam', 'commentscore'],  // We only need spam and comment score for now
+            $reply_to_comment_text  // Pass the comment being replied to if this is a reply
         ); 
         $caughtException = null;
 
@@ -424,9 +428,6 @@ class RespectifyWordpressPlugin {
 		// 3. intercept_comment method:
 		//    Evaluates the comment and decides on an action: post, reject with feedback, or trash. See ACTION_ constants
 
-		// Returns an array of comment data, or a WP_Error object if the comment should be rejected
-		// (including sending feedback to the user)
-
 		\Respectify\respectify_log('Intercepting comment AJAX: ' . $commentdata['comment_content']);
 
 		// Verify nonce
@@ -446,7 +447,18 @@ class RespectifyWordpressPlugin {
 		// Wordpress adds slashes, so remove them before sanitising to avoid double slashes
 		// Caught by words like "don't": visible to the user as "don\'t"
 		$comment_text = sanitize_text_field(wp_unslash($commentdata['comment_content']));
-		$comment_score = $this->evaluate_comment($article_id, $comment_text);
+
+		// Get the comment being replied to if this is a reply
+		$reply_to_comment_text = null;
+		if (!empty($commentdata['comment_parent'])) {
+			$parent_comment = get_comment($commentdata['comment_parent']);
+			if ($parent_comment) {
+				$reply_to_comment_text = sanitize_text_field(wp_unslash($parent_comment->comment_content));
+				\Respectify\respectify_log('Found comment being replied to: ' . substr($reply_to_comment_text, 0, 50) . '...');
+			}
+		}
+
+		$comment_score = $this->evaluate_comment($article_id, $comment_text, reply_to_comment_text: $reply_to_comment_text);
 
 		$action = $this->get_comment_action($comment_score);
 
