@@ -8,13 +8,17 @@
     font-size: var(--wp--preset--font-size--medium);
 }
 
+.respectify-message p {
+    margin: 0;
+    margin-top: 0.8rem;
+}
+
 .respectify-error {
     margin-top: 10px;
     border: 1px solid var(--respectify-message-color);
     border-radius: 0.4rem;
     background-color: var(--respectify-message-background-color);
     padding: 1rem;
-    padding-bottom: 0.1rem;
 }
 
 .respectify-success {

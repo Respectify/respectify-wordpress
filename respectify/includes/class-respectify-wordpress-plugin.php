@@ -370,7 +370,7 @@ class RespectifyWordpressPlugin {
 	 * Evaluate a comment made on a Wordpress post or page, given the Respectify article ID
 	 * for that post/page and the comment text.
 	 *
-	 * @return CommentScore The evaluated information for the comment
+	 * @return MegaCallResult The evaluated information for the comment
 	 */
 	public function evaluate_comment($respectify_article_id, $comment_text) {
 		\Respectify\respectify_log('Evaluating comment: article id: ' . $respectify_article_id . ', comment: ' . substr($comment_text, 0, 50) . '...');
@@ -387,8 +387,7 @@ class RespectifyWordpressPlugin {
         $promise->then(
             function ($megaResult) use(&$res, &$caughtException) {
                 if ($megaResult instanceof MegaCallResult) {
-                    // Extract just the comment score part since that's what the rest of the code expects
-                    $res = $megaResult->commentScore;
+                    $res = $megaResult;
                 } else {
                     $caughtException = new Exception('Mega call result is not an instance of MegaCallResult');
                 }
@@ -449,7 +448,6 @@ class RespectifyWordpressPlugin {
 		$comment_text = sanitize_text_field(wp_unslash($commentdata['comment_content']));
 		$comment_score = $this->evaluate_comment($article_id, $comment_text);
 
-		// Your custom logic based on settings
 		$action = $this->get_comment_action($comment_score);
 
 		\Respectify\respectify_log('Comment action: ' . $action);
@@ -468,8 +466,14 @@ class RespectifyWordpressPlugin {
 			}
 			return new \WP_Error(\Respectify\ACTION_REVISE, '<div class="respectify-feedback">' . $feedback_html . '</div>');
 		} elseif ($action === \Respectify\ACTION_DELETE) {
-			// Reject comment without feedback
-			return new \WP_Error(\Respectify\ACTION_DELETE, 'Your comment was rejected.');
+			// Reject comment but say why
+			$feedback_html = $this->build_feedback_html($comment_score);
+			if (empty($feedback_html)) {
+				// No feedback to show
+				\Respectify\respectify_log('No feedback to show, sending generic revise message');
+				$feedback_html = '<div class="respectify-feedback">Your comment was rejected.</div>';
+			}
+			return new \WP_Error(\Respectify\ACTION_DELETE, '<div class="respectify-feedback">' . $feedback_html . '</div>');
 		}
 	}
 
@@ -477,15 +481,25 @@ class RespectifyWordpressPlugin {
      * When a comment was sent for revision, we need to show feedback to the user. This
 	 * builds that feedback (as HTML)  
      *
-     * @param object $comment_score The comment evaluation result.
+     * @param \RespectifyScoper\Respectify\MegaCallResult $megaResult The comment evaluation result.
      * @return string (HTML) feedback to show to the user.
      */
-	private function build_feedback_html($comment_score) {
-		if ($comment_score->isSpam) {
+	private function build_feedback_html(\RespectifyScoper\Respectify\MegaCallResult $megaResult) {
+		// First check for spam if available
+		if ($megaResult->spam !== null && $megaResult->spam->isSpam) {
 			return "This looks like spam.";
 		}
 
+		// If no comment score available, we can't provide detailed feedback
+		if ($megaResult->commentScore === null) {
+			return "Please revise your comment.";
+		}
+
+		$comment_score = $megaResult->commentScore;
 		$feedback = "";
+
+		// Get settings first since we need them for the minimum score check
+		$revise_settings = get_option(\Respectify\OPTION_REVISE_SETTINGS, \Respectify\REVISE_DEFAULT_SETTINGS);
 
 		// First, if the minimum score is too low
 		$minAcceptableScore = isset($revise_settings['min_score']) ? $revise_settings['min_score'] : 3;
@@ -494,8 +508,6 @@ class RespectifyWordpressPlugin {
 		}
 
 		\Respectify\respectify_log('Building feedback HTML for comment score: ' . wp_json_encode($comment_score));
-
-		$revise_settings = get_option(\Respectify\OPTION_REVISE_SETTINGS, \Respectify\REVISE_DEFAULT_SETTINGS);
 
 		$feedback .= "<ul>"; // Remainder of feedback is a list
 
@@ -517,8 +529,8 @@ class RespectifyWordpressPlugin {
 			$feedback .= "<ul>";
 			foreach ($comment_score->logicalFallacies as $fallacy) {
 				$feedback .= "<li><strong>'" . $fallacy->quotedLogicalFallacyExample . "':</strong> " . $fallacy->explanation;
-				if (!empty($phrase->suggestedRewrite)) {
-					$feedback .= "<br/><div class=\"respectify-suggestion\"><em>Try something like:</em> '" . $phrase->suggestedRewrite . "'</div>";
+				if (!empty($fallacy->suggestedRewrite)) {
+					$feedback .= "<br/><div class=\"respectify-suggestion\"><em>Try something like:</em> '" . $fallacy->suggestedRewrite . "'</div>";
 				}
 				$feedback .= "</li>";
 			}
@@ -575,16 +587,24 @@ class RespectifyWordpressPlugin {
 	/**
      * Determine the action to take on the comment based on score and settings.
      *
-     * @param object $comment_score The comment evaluation result.
+     * @param MegaCallResult $megaResult The comment evaluation result.
      * @return string Action to take -- see ACTION_ constants
      */
-    private function get_comment_action($comment_score) {
-		// Spam is an easy early exit
-		if ($comment_score->isSpam) {
-			$spam_handling = get_option(\Respectify\OPTION_SPAM_HANDLING, \Respectify\DEFAULT_SPAM_HANDLING); // An ACTION_ constant
+    private function get_comment_action($megaResult) {
+		// First check for spam if available
+		if ($megaResult->spam !== null && $megaResult->spam->isSpam) {
+			$spam_handling = get_option(\Respectify\OPTION_SPAM_HANDLING, \Respectify\ACTION_DELETE); // An ACTION_ constant
 			assert($spam_handling === \Respectify\ACTION_DELETE || $spam_handling === \Respectify\ACTION_REVISE);
 			return $spam_handling;
 		}
+
+		// If no comment score available, we can't evaluate further
+		if ($megaResult->commentScore === null) {
+			\Respectify\respectify_log('No comment score available in mega call result');
+			return \Respectify\ACTION_PUBLISH; // Default to publishing if we can't evaluate
+		}
+
+		$comment_score = $megaResult->commentScore;
 
 		// These are true when, if any (eg) logical fallacies exist, the comment must be revised
 		// Wordpress seems to only save non-default items in this array? So need to check if the key exists
