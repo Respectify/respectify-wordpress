@@ -373,13 +373,28 @@ class RespectifyWordpressPlugin {
 	 * @param string $respectify_article_id The Respectify article ID
 	 * @param string $comment_text The comment text to evaluate
 	 * @param string|null $reply_to_comment_text The text of the comment being replied to
+	 * @param string|null $author_name The name of the comment author
+	 * @param string|null $author_email The email of the comment author
 	 * @return MegaCallResult The evaluated information for the comment
 	 */
-	public function evaluate_comment($respectify_article_id, $comment_text, $reply_to_comment_text = null) {
+	public function evaluate_comment($respectify_article_id, $comment_text, $reply_to_comment_text = null, $author_name = null, $author_email = null) {
 		\Respectify\respectify_log('Evaluating comment: article id: ' . $respectify_article_id . ', comment: ' . substr($comment_text, 0, 50) . '...');
 
+        // Prepend author information to the comment text - email addresses can be used for spam, for example
+        $full_comment_text = $comment_text;
+        if (!empty($author_name) || !empty($author_email)) {
+            $full_comment_text = '';
+            if (!empty($author_name)) {
+                $full_comment_text .= "Author: " . $author_name . "\n";
+            }
+            if (!empty($author_email)) {
+                $full_comment_text .= "Author email: " . $author_email . "\n";
+            }
+            $full_comment_text .= "\n" . $comment_text;
+        }
+
         $promise = $this->respectify_client->megacall(
-            $comment_text,
+            $full_comment_text,
             $respectify_article_id,
             ['spam', 'commentscore'],  // We only need spam and comment score for now
             $reply_to_comment_text  // Pass the comment being replied to if this is a reply
@@ -488,11 +503,15 @@ class RespectifyWordpressPlugin {
 			}
 		}
 
+		// Get author information if available
+		$author_name = isset($commentdata['comment_author']) ? sanitize_text_field(wp_unslash($commentdata['comment_author'])) : null;
+		$author_email = isset($commentdata['comment_author_email']) ? sanitize_email(wp_unslash($commentdata['comment_author_email'])) : null;
+
 		// Log evaluation attempt
 		\Respectify\respectify_log('Evaluating comment with Respectify API...');
 
 		// Evaluate the comment
-		$evaluation = $this->evaluate_comment($article_id, $comment_text, $reply_to_comment_text);
+		$evaluation = $this->evaluate_comment($article_id, $comment_text, $reply_to_comment_text, $author_name, $author_email);
 		
 		if (is_wp_error($evaluation)) {
 			\Respectify\respectify_log('Error evaluating comment: ' . $evaluation->get_error_message());
