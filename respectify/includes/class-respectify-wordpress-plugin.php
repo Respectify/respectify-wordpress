@@ -401,10 +401,11 @@ class RespectifyWordpressPlugin {
         }
 
         $promise = $this->respectify_client->megacall(
-            $full_comment_text,
-            $respectify_article_id,
-            ['spam', 'commentscore'],  // We only need spam and comment score for now
-            $reply_to_comment_text  // Pass the comment being replied to if this is a reply
+            comment: $full_comment_text,
+            articleContextId:$respectify_article_id,
+            services:['spam', 'commentscore', 'relevance'],
+			bannedTopics: null,
+			replyToComment: $reply_to_comment_text
         ); 
         $caughtException = null;
 
@@ -537,7 +538,7 @@ class RespectifyWordpressPlugin {
 			
 			\Respectify\respectify_log('Comment evaluation result: ' . $action);
 			if ($feedback_html) {
-				\Respectify\respectify_log('Feedback: ' . substr($feedback_html, 0, 50) . '...');
+				\Respectify\respectify_log('Feedback: ' . substr($feedback_html, 0, 150) . '...');
 			}
 
 			// Log the final decision
@@ -615,6 +616,24 @@ class RespectifyWordpressPlugin {
 		// First check for spam if available
 		if ($megaResult->spam !== null && $megaResult->spam->isSpam) {
 			return "This looks like spam.";
+		}
+
+		// Check relevance if available
+		if ($megaResult->relevance !== null) {
+			// If not on topic, provide feedback
+			if (!$megaResult->relevance->onTopic->onTopic) {
+				return "Your comment appears to be off-topic. " . $megaResult->relevance->onTopic->reasoning;
+			}
+
+			// If contains banned topics, provide feedback
+			if (!empty($megaResult->relevance->bannedTopics->bannedTopics)) {
+				$feedback = "Your comment contains topics that the site owner does not want discussed. ";
+				$feedback .= $megaResult->relevance->bannedTopics->reasoning;
+				if (!empty($megaResult->relevance->bannedTopics->bannedTopics)) {
+					$feedback .= "<br/>Topics detected: " . implode(", ", $megaResult->relevance->bannedTopics->bannedTopics);
+				}
+				return $feedback;
+			}
 		}
 
 		// If no comment score available, we can't provide detailed feedback
@@ -723,6 +742,21 @@ class RespectifyWordpressPlugin {
 			$spam_handling = get_option(\Respectify\OPTION_SPAM_HANDLING, \Respectify\ACTION_DELETE); // An ACTION_ constant
 			assert($spam_handling === \Respectify\ACTION_DELETE || $spam_handling === \Respectify\ACTION_REVISE);
 			return $spam_handling;
+		}
+
+		// Check relevance if available
+		if ($megaResult->relevance !== null) {
+			// If not on topic, reject the comment
+			if (!$megaResult->relevance->onTopic->onTopic) {
+				\Respectify\respectify_log('Comment not on topic - decision: ' . \Respectify\ACTION_DELETE);
+				return \Respectify\ACTION_DELETE;
+			}
+
+			// If contains banned topics, reject the comment
+			if (!empty($megaResult->relevance->bannedTopics->bannedTopics)) {
+				\Respectify\respectify_log('Comment contains banned topics - decision: ' . \Respectify\ACTION_DELETE);
+				return \Respectify\ACTION_DELETE;
+			}
 		}
 
 		// If no comment score available, we can't evaluate further
