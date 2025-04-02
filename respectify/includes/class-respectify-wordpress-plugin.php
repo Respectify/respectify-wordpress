@@ -381,6 +381,13 @@ class RespectifyWordpressPlugin {
 		\Respectify\respectify_log('Evaluating comment: article id: ' . $respectify_article_id . ', comment: ' . substr($comment_text, 0, 50) . '...');
 
         // Prepend author information to the comment text - email addresses can be used for spam, for example
+		// Should look like this:
+		// Author: John Doe
+		// Author email: john.doe@example.com
+		// 
+		// This is a test comment.
+		// More comment text here... 
+		
         $full_comment_text = $comment_text;
         if (!empty($author_name) || !empty($author_email)) {
             $full_comment_text = '';
