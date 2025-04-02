@@ -428,12 +428,35 @@ class RespectifyWordpressPlugin {
 		// 3. intercept_comment method:
 		//    Evaluates the comment and decides on an action: post, reject with feedback, or trash. See ACTION_ constants
 
-		\Respectify\respectify_log('Intercepting comment AJAX: ' . $commentdata['comment_content']);
+		// Log the incoming comment data, but be careful not to log sensitive info
+		$log_data = array(
+			'post_id' => isset($commentdata['comment_post_ID']) ? $commentdata['comment_post_ID'] : 'missing',
+			'parent_id' => isset($commentdata['comment_parent']) ? $commentdata['comment_parent'] : 'none',
+			'content_length' => isset($commentdata['comment_content']) ? strlen($commentdata['comment_content']) : 0,
+			'has_author' => isset($commentdata['comment_author']) && !empty($commentdata['comment_author']),
+			'has_email' => isset($commentdata['comment_author_email']) && !empty($commentdata['comment_author_email']),
+			'is_ajax' => wp_doing_ajax(),
+			'timestamp' => current_time('mysql')
+		);
+		\Respectify\respectify_log('Processing comment: ' . wp_json_encode($log_data));
 
 		// Verify nonce
 		// This is ALREADY done in ajax_submit_comment, and in respectify_preprocess_comment_no_js
 		// But no harm doing it here as well to be safe.
 		$this->verify_comment_nonce();
+
+		// Validate required fields - be flexible but log issues
+		$missing_fields = array();
+		if (empty($commentdata['comment_post_ID'])) {
+			$missing_fields[] = 'post_ID';
+		}
+		if (empty($commentdata['comment_content'])) {
+			$missing_fields[] = 'content';
+		}
+		if (!empty($missing_fields)) {
+			\Respectify\respectify_log('Missing required fields: ' . implode(', ', $missing_fields));
+			// Don't fail, just log - WordPress will handle missing fields
+		}
 
 		$post_id = $commentdata['comment_post_ID'];
 		$article_id = $this->get_respectify_article_id($post_id);
@@ -453,39 +476,105 @@ class RespectifyWordpressPlugin {
 		if (!empty($commentdata['comment_parent'])) {
 			$parent_comment = get_comment($commentdata['comment_parent']);
 			if ($parent_comment) {
-				$reply_to_comment_text = sanitize_text_field(wp_unslash($parent_comment->comment_content));
-				\Respectify\respectify_log('Found comment being replied to: ' . substr($reply_to_comment_text, 0, 50) . '...');
+				// Verify parent comment belongs to the same post
+				if ($parent_comment->comment_post_ID != $commentdata['comment_post_ID']) {
+					\Respectify\respectify_log('Parent comment belongs to different post - ignoring parent context');
+				} else {
+					$reply_to_comment_text = sanitize_text_field(wp_unslash($parent_comment->comment_content));
+					\Respectify\respectify_log('Found comment being replied to: ' . substr($reply_to_comment_text, 0, 50) . '...');
+				}
+			} else {
+				\Respectify\respectify_log('Parent comment not found - ignoring parent context');
 			}
 		}
 
-		$comment_score = $this->evaluate_comment($article_id, $comment_text, reply_to_comment_text: $reply_to_comment_text);
+		// Log evaluation attempt
+		\Respectify\respectify_log('Evaluating comment with Respectify API...');
 
-		$action = $this->get_comment_action($comment_score);
-
-		\Respectify\respectify_log('Comment action: ' . $action);
-
-		if ($action === \Respectify\ACTION_PUBLISH) {
-			// Allow comment to be posted
-			// Return the comment data to proceed
-			return $commentdata;
-		} elseif ($action === \Respectify\ACTION_REVISE) {
-			// Provide feedback and ask user to edit
-			$feedback_html = $this->build_feedback_html($comment_score);
-			if (empty($feedback_html)) {
-				// No feedback to show
-				\Respectify\respectify_log('No feedback to show, sending generic revise message');
-				$feedback_html = '<div class="respectify-feedback">Please revise your comment.</div>';
+		// Evaluate the comment
+		$evaluation = $this->evaluate_comment($article_id, $comment_text, $reply_to_comment_text);
+		
+		if (is_wp_error($evaluation)) {
+			\Respectify\respectify_log('Error evaluating comment: ' . $evaluation->get_error_message());
+			$commentdata['comment_approved'] = 0; // Set to pending rather than spam
+			$commentdata['comment_type'] = 'respectify_error';
+			$commentdata['comment_meta'] = array(
+				'respectify_error' => $evaluation->get_error_message(),
+				'respectify_evaluated_at' => current_time('mysql')
+			);
+			// Return error to prevent comment from being posted
+			return new \WP_Error('evaluation_error', 'There was an error handling your comment. Please try again later.');
+		} else {
+			// Handle the evaluation result
+			$action = $this->get_comment_action($evaluation);
+			$feedback_html = $this->build_feedback_html($evaluation);
+			
+			\Respectify\respectify_log('Comment evaluation result: ' . $action);
+			if ($feedback_html) {
+				\Respectify\respectify_log('Feedback: ' . substr($feedback_html, 0, 50) . '...');
 			}
-			return new \WP_Error(\Respectify\ACTION_REVISE, '<div class="respectify-feedback">' . $feedback_html . '</div>');
-		} elseif ($action === \Respectify\ACTION_DELETE) {
-			// Reject comment but say why
-			$feedback_html = $this->build_feedback_html($comment_score);
-			if (empty($feedback_html)) {
-				// No feedback to show
-				\Respectify\respectify_log('No feedback to show, sending generic revise message');
-				$feedback_html = '<div class="respectify-feedback">Your comment was rejected.</div>';
+
+			// Log the final decision
+			$decision_log = array(
+				'action' => $action,
+				'has_feedback' => !empty($feedback_html),
+				'comment_length' => strlen($comment_text),
+				'has_parent' => !empty($reply_to_comment_text),
+				'timestamp' => current_time('mysql')
+			);
+			\Respectify\respectify_log('Final decision: ' . wp_json_encode($decision_log));
+
+			if ($action === \Respectify\ACTION_PUBLISH) {
+				// Comment is good to go - will be stored in database and displayed
+				$commentdata['comment_approved'] = 1;
+				$commentdata['comment_type'] = 'respectify_approved';
+				$commentdata['comment_meta'] = array(
+					'respectify_evaluation' => $evaluation,
+					'respectify_action' => $action,
+					'respectify_evaluated_at' => current_time('mysql')
+				);
+			} elseif ($action === \Respectify\ACTION_REVISE) {
+				// Comment needs revision - we will NOT store it in the database
+				// Instead, we return a WP_Error which will be caught by the AJAX handler
+				// The error message (feedback_html) will be shown to the user
+				// The user can then revise their comment and try again
+				$feedback_html = $this->build_feedback_html($evaluation);
+				if (empty($feedback_html)) {
+					// No feedback to show
+					$feedback_html = 'Please revise your comment to be more respectful.';
+				}
+				// Note: setting comment_approved = 0 is not used since we return WP_Error
+				// before wp_new_comment() is called
+				$commentdata['comment_approved'] = 0;
+				$commentdata['comment_type'] = 'respectify_revision';
+				$commentdata['comment_meta'] = array(
+					'respectify_evaluation' => $evaluation,
+					'respectify_action' => $action,
+					'respectify_feedback' => $feedback_html,
+					'respectify_evaluated_at' => current_time('mysql')
+				);
+				return new \WP_Error(\Respectify\ACTION_REVISE, '<div class="respectify-feedback">' . $feedback_html . '</div>');
+			} elseif ($action === \Respectify\ACTION_DELETE) {
+				// Comment is rejected - we will NOT store it in the database
+				// Instead, we return a WP_Error which will be caught by the AJAX handler
+				// The error message (feedback_html) will be shown to the user
+				$feedback_html = $this->build_feedback_html($evaluation);
+				if (empty($feedback_html)) {
+					// No feedback to show
+					$feedback_html = 'Your comment was rejected for violating our community guidelines.';
+				}
+				// Note: setting comment_approved = 'spam' is not used since we return WP_Error
+				// before wp_new_comment() is called
+				$commentdata['comment_approved'] = 'spam';
+				$commentdata['comment_type'] = 'respectify_rejected';
+				$commentdata['comment_meta'] = array(
+					'respectify_evaluation' => $evaluation,
+					'respectify_action' => $action,
+					'respectify_feedback' => $feedback_html,
+					'respectify_evaluated_at' => current_time('mysql')
+				);
+				return new \WP_Error(\Respectify\ACTION_DELETE, '<div class="respectify-feedback">' . $feedback_html . '</div>');
 			}
-			return new \WP_Error(\Respectify\ACTION_DELETE, '<div class="respectify-feedback">' . $feedback_html . '</div>');
 		}
 	}
 
@@ -527,7 +616,7 @@ class RespectifyWordpressPlugin {
 		\Respectify\respectify_log('Low effort setting: ' . $revise_on_low_effort_handling);
 		\Respectify\respectify_log('Low effort?: ' . $comment_score->appearsLowEffort);
 		if ($comment_score->appearsLowEffort && $revise_on_low_effort_handling) {
-			$feedback .= "<li>Your comment appears not to contribute new content to the conversation. Please provide a thoughtful response.</li>";
+			$feedback .= "<li>Your comment appears not to contribute to the conversation. Please provide a thoughtful response.</li>";
 		}
 
 		$revise_on_logical_fallacies = isset($revise_settings['logical_fallacies']) ? $revise_settings['logical_fallacies'] : \Respectify\REVISE_DEFAULT_LOGICAL_FALLACIES;	
