@@ -12,6 +12,8 @@ const OPTION_EMAIL = 'respectify_email';
 const OPTION_API_KEY_ENCRYPTED = 'respectify_api_key_encrypted';
 const OPTION_SPAM_HANDLING = 'respectify_spam_handling';
 const OPTION_REVISE_SETTINGS = 'respectify_revise_settings';
+const OPTION_RELEVANCE_SETTINGS = 'respectify_relevance_settings';
+const OPTION_BANNED_TOPICS = 'respectify_banned_topics';
 
 // Action Constants
 const ACTION_DELETE = 'trash';
@@ -25,6 +27,19 @@ const REVISE_DEFAULT_LOW_EFFORT = true; // Revise if low effort
 const REVISE_DEFAULT_LOGICAL_FALLACIES = true; // Revise if any number of logical fallacies
 const REVISE_DEFAULT_OBJECTIONABLE_PHRASES = true; // Revise if any number of objectionable phrases
 const REVISE_DEFAULT_NEGATIVE_TONE = true; // Revise if any number of negative tone phrases
+
+// Relevance Settings
+const RELEVANCE_DEFAULT_OFF_TOPIC_HANDLING = ACTION_REVISE; // Default to revise for off-topic comments
+const RELEVANCE_DEFAULT_BANNED_TOPICS_HANDLING = ACTION_REVISE; // Default to revise for banned topics
+const RELEVANCE_DEFAULT_BANNED_TOPICS_THRESHOLD = 0.1; // Default 10% threshold for banned topics
+const RELEVANCE_DEFAULT_BANNED_TOPICS_MODE = 'any'; // Default to 'any' (any mention triggers action)
+
+const RELEVANCE_DEFAULT_SETTINGS = array(
+    'off_topic_handling' => RELEVANCE_DEFAULT_OFF_TOPIC_HANDLING,
+    'banned_topics_handling' => RELEVANCE_DEFAULT_BANNED_TOPICS_HANDLING,
+    'banned_topics_threshold' => RELEVANCE_DEFAULT_BANNED_TOPICS_THRESHOLD,
+    'banned_topics_mode' => RELEVANCE_DEFAULT_BANNED_TOPICS_MODE,
+);
 
 const REVISE_DEFAULT_SETTINGS = array (
     'min_score'             => REVISE_DEFAULT_MIN_SCORE,

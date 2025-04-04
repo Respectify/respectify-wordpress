@@ -102,6 +102,40 @@ function respectify_register_settings() {
         'respectify_behavior_settings_section'
     );
 
+    // Relevance Settings
+    register_setting(
+        'respectify_options_group',
+        \Respectify\OPTION_RELEVANCE_SETTINGS,
+        array(
+            'sanitize_callback' => 'respectify_sanitize_relevance_settings',
+        )
+    );
+
+    register_setting(
+        'respectify_options_group',
+        \Respectify\OPTION_BANNED_TOPICS,
+        array(
+            'sanitize_callback' => 'respectify_sanitize_banned_topics',
+        )
+    );
+
+    add_settings_field(
+        \Respectify\OPTION_RELEVANCE_SETTINGS,
+        esc_html__('Irrelevant Comments', 'respectify'),
+        'respectify_relevance_settings_callback',
+        'respectify',
+        'respectify_behavior_settings_section'
+    );
+
+    // Add a new settings field for Undesired Topics
+    add_settings_field(
+        \Respectify\OPTION_BANNED_TOPICS,
+        esc_html__('Undesired Topics', 'respectify'),
+        'respectify_banned_topics_settings_callback',
+        'respectify',
+        'respectify_behavior_settings_section'
+    );
+
     // New Settings Section for Advanced Parameters
     add_settings_section(
         'respectify_advanced_settings_section',
@@ -449,4 +483,118 @@ function respectify_test_credentials() {
     );
 
     $client->run();
+}
+
+// Add the sanitization function for relevance settings
+function respectify_sanitize_relevance_settings($input) {
+    $sanitized_input = array();
+
+    // Sanitize off-topic handling
+    if (isset($input['off_topic_handling'])) {
+        $sanitized_input['off_topic_handling'] = sanitize_text_field($input['off_topic_handling']);
+    }
+
+    // Sanitize banned topics handling
+    if (isset($input['banned_topics_handling'])) {
+        $sanitized_input['banned_topics_handling'] = sanitize_text_field($input['banned_topics_handling']);
+    }
+
+    // Sanitize banned topics threshold (float between 0 and 1)
+    if (isset($input['banned_topics_threshold'])) {
+        $threshold = floatval($input['banned_topics_threshold']);
+        $sanitized_input['banned_topics_threshold'] = max(0, min(1, $threshold));
+    }
+
+    return $sanitized_input;
+}
+
+// Add the sanitization function for banned topics
+function respectify_sanitize_banned_topics($input) {
+    // Split input into lines and sanitize each line
+    $topics = explode("\n", $input);
+    $sanitized_topics = array();
+    
+    foreach ($topics as $topic) {
+        $topic = trim($topic);
+        if (!empty($topic)) {
+            $sanitized_topics[] = sanitize_text_field($topic);
+        }
+    }
+    
+    return implode("\n", $sanitized_topics);
+}
+
+// Add the callback for relevance settings
+function respectify_relevance_settings_callback() {
+    $relevance_settings = get_option(\Respectify\OPTION_RELEVANCE_SETTINGS, \Respectify\RELEVANCE_DEFAULT_SETTINGS);
+    ?>
+    <div class="respectify-settings-column">
+        <div class="respectify-settings-row">
+            <div class="respectify-settings-label">
+                <p class="description"><?php esc_html_e('How to handle comments that are off-topic.', 'respectify'); ?></p>
+            </div>
+            <div class="respectify-settings-control">
+                <select name="respectify_relevance_settings[off_topic_handling]" id="respectify_off_topic_handling">
+                    <option value="<?php echo \Respectify\ACTION_DELETE; ?>" <?php selected($relevance_settings['off_topic_handling'], \Respectify\ACTION_DELETE); ?>><?php esc_html_e('Delete', 'respectify'); ?></option>
+                    <option value="<?php echo \Respectify\ACTION_REVISE; ?>" <?php selected($relevance_settings['off_topic_handling'], \Respectify\ACTION_REVISE); ?>><?php esc_html_e('Give Opportunity to Revise', 'respectify'); ?></option>
+                </select>
+            </div>
+        </div>
+    </div>
+    <?php
+}
+
+// Add a new callback for banned topics settings
+function respectify_banned_topics_settings_callback() {
+    $relevance_settings = get_option(\Respectify\OPTION_RELEVANCE_SETTINGS, \Respectify\RELEVANCE_DEFAULT_SETTINGS);
+    $banned_topics = get_option(\Respectify\OPTION_BANNED_TOPICS, '');
+    ?>
+    <div class="respectify-settings-column">
+        <div class="respectify-settings-row">
+            <div class="respectify-settings-label">
+                <p class="description"><?php esc_html_e('What topics do you just not want to see in your comments? Enter one per line.', 'respectify'); ?></p>
+                <p class="description"><?php esc_html_e('Be descriptive: instead of "politics", try "US politics after 1970". This avoids over-blocking.', 'respectify'); ?></p>
+            
+            </div>
+            <div class="respectify-settings-control">
+                <textarea name="respectify_banned_topics" id="respectify_banned_topics" rows="5" class="large-text"><?php echo esc_textarea($banned_topics); ?></textarea>
+                
+                <p class="description" style="margin-bottom: 10px;"><?php esc_html_e('When a comment mentions something you don\'t want discussed:', 'respectify'); ?></p>
+                
+                
+                <div class="respectify-radio-group" style="display: flex; flex-direction: column; gap: 10px;">
+                    <label>
+                        <input type="radio" name="respectify_relevance_settings[banned_topics_mode]" 
+                               value="any" <?php checked($relevance_settings['banned_topics_mode'], 'any'); ?> />
+                        <?php esc_html_e('Any mention at all', 'respectify'); ?>
+                    </label>
+                    <label>
+                        <input type="radio" name="respectify_relevance_settings[banned_topics_mode]" 
+                               value="threshold" <?php checked($relevance_settings['banned_topics_mode'], 'threshold'); ?> />
+                        <?php esc_html_e('The comment can mention something, but only only a little bit', 'respectify'); ?>
+                    </label>
+                </div>
+                
+                <div id="banned-topics-threshold-slider" class="respectify-slider-row" style="margin-top: 10px; <?php echo $relevance_settings['banned_topics_mode'] === 'threshold' ? '' : 'opacity: 0.5;'; ?>">
+                    <span class="emoji">0%</span>
+                    <input type="range" id="respectify_banned_topics_threshold" 
+                           name="respectify_relevance_settings[banned_topics_threshold]" 
+                           value="<?php echo esc_attr($relevance_settings['banned_topics_threshold']); ?>" 
+                           min="0" max="1" step="0.1" class="regular-text"
+                           <?php echo $relevance_settings['banned_topics_mode'] === 'threshold' ? '' : 'disabled'; ?>>
+                    <span class="emoji">100%</span>
+                    <span class="out-of description">
+                        <span id="banned_topics_threshold_value"><?php echo esc_html(round($relevance_settings['banned_topics_threshold'] * 100)); ?></span>% 
+                        <?php esc_html_e('of the comment must be about banned topics to trigger the action above.', 'respectify'); ?>
+                    </span>
+                </div>
+
+                <select name="respectify_relevance_settings[banned_topics_handling]" id="respectify_banned_topics_handling">
+                    <option value="<?php echo \Respectify\ACTION_DELETE; ?>" <?php selected($relevance_settings['banned_topics_handling'], \Respectify\ACTION_DELETE); ?>><?php esc_html_e('Delete', 'respectify'); ?></option>
+                    <option value="<?php echo \Respectify\ACTION_REVISE; ?>" <?php selected($relevance_settings['banned_topics_handling'], \Respectify\ACTION_REVISE); ?>><?php esc_html_e('Give Opportunity to Revise', 'respectify'); ?></option>
+                </select>
+            </div>
+        </div>
+    </div>
+    <?php
 }

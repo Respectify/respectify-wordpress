@@ -99,6 +99,31 @@
             updateSlider();
         });
 
+        // Update the minimum score value display when the slider changes
+        $('#respectify_revise_min_score').on('input', function() {
+            $('#revise_min_score_value').text($(this).val());
+        });
+
+        // Update the banned topics threshold value display
+        $('#respectify_banned_topics_threshold').on('input', function() {
+            $('#banned_topics_threshold_value').text(Math.round($(this).val() * 100));
+        });
+
+        // Handle the banned topics mode radio buttons
+        $('input[name="respectify_relevance_settings[banned_topics_mode]"]').on('change', function() {
+            var isThreshold = $(this).val() === 'threshold';
+            var $slider = $('#banned-topics-threshold-slider');
+            var $sliderInput = $('#respectify_banned_topics_threshold');
+            
+            if (isThreshold) {
+                $slider.css('opacity', '1');
+                $sliderInput.prop('disabled', false);
+            } else {
+                $slider.css('opacity', '0.5');
+                $sliderInput.prop('disabled', true);
+            }
+        });
+
         // Advanced settings: accordion hiding them
         $('#respectify-advanced-settings-button').click(function() {
             var panel = $(this).next('.respectify-panel');

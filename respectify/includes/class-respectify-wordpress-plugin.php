@@ -612,120 +612,83 @@ class RespectifyWordpressPlugin {
      * @param \RespectifyScoper\Respectify\MegaCallResult $megaResult The comment evaluation result.
      * @return string (HTML) feedback to show to the user.
      */
-	private function build_feedback_html(\RespectifyScoper\Respectify\MegaCallResult $megaResult) {
-		// First check for spam if available
-		if ($megaResult->spam !== null && $megaResult->spam->isSpam) {
+	private function build_feedback_html($megaResult) {
+		// Check for spam first
+		if (isset($megaResult->spam) && $megaResult->spam->isSpam) {
 			return "This looks like spam.";
 		}
 
-		// Check relevance if available
-		if ($megaResult->relevance !== null) {
-			// If not on topic, provide feedback
-			if (!$megaResult->relevance->onTopic->onTopic) {
-				return "Your comment appears to be off-topic. " . $megaResult->relevance->onTopic->reasoning;
-			}
-
-			// If contains banned topics, provide feedback
-			if (!empty($megaResult->relevance->bannedTopics->bannedTopics)) {
-				$feedback = "Your comment contains topics that the site owner does not want discussed. ";
-				$feedback .= $megaResult->relevance->bannedTopics->reasoning;
-				if (!empty($megaResult->relevance->bannedTopics->bannedTopics)) {
-					$feedback .= "<br/>Topics detected: " . implode(", ", $megaResult->relevance->bannedTopics->bannedTopics);
-				}
+		// Check for relevance issues
+		if (isset($megaResult->relevance)) {
+			// Check if comment is off-topic
+			if (!$megaResult->relevance->onTopic->isOnTopic) {
+				$feedback = "Your comment appears to be off-topic. ";
+				$feedback .= $megaResult->relevance->onTopic->reasoning;
 				return $feedback;
+			}
+			
+			// Check for banned topics
+			if (!empty($megaResult->relevance->bannedTopics->bannedTopics)) {
+				$relevance_settings = get_option(\Respectify\OPTION_RELEVANCE_SETTINGS, \Respectify\RELEVANCE_DEFAULT_SETTINGS);
+				$banned_topics_percentage = $megaResult->relevance->bannedTopics->percentage ?? 0;
+				
+				// Only show feedback if the percentage exceeds the threshold
+				if ($banned_topics_percentage >= $relevance_settings['banned_topics_threshold']) {
+					$feedback = "Your comment contains topics that the site owner does not want discussed. ";
+					$feedback .= $megaResult->relevance->bannedTopics->reasoning;
+					
+					// Add the list of banned topics if available
+					if (!empty($megaResult->relevance->bannedTopics->bannedTopics)) {
+						$feedback .= "\n\nDetected banned topics:\n";
+						foreach ($megaResult->relevance->bannedTopics->bannedTopics as $topic) {
+							$feedback .= "- " . esc_html($topic) . "\n";
+						}
+					}
+					
+					return $feedback;
+				}
 			}
 		}
 
-		// If no comment score available, we can't provide detailed feedback
-		if ($megaResult->commentScore === null) {
+		// If no comment score is available, we can't provide specific feedback
+		if (!isset($megaResult->commentScore)) {
 			return "Please revise your comment.";
 		}
 
+		$feedback = "Please revise your comment.\n\n";
 		$comment_score = $megaResult->commentScore;
-		$feedback = "";
 
-		// Get settings first since we need them for the minimum score check
-		$revise_settings = get_option(\Respectify\OPTION_REVISE_SETTINGS, \Respectify\REVISE_DEFAULT_SETTINGS);
+		// Add score feedback
+		$feedback .= "Score: " . $comment_score->score . "/5\n";
 
-		// First, if the minimum score is too low
-		$minAcceptableScore = isset($revise_settings['min_score']) ? $revise_settings['min_score'] : 3;
-		if ($comment_score->overallScore < $minAcceptableScore) {
-			$feedback .= "We aim for thoughtful, engaged conversation."; // Don't give a negative 'didn't meet the score' message; give a goal
+		// Add low effort feedback
+		if ($comment_score->isLowEffort) {
+			$feedback .= "Your comment appears to be low effort. Please provide more substance.\n";
 		}
 
-		\Respectify\respectify_log('Building feedback HTML for comment score: ' . wp_json_encode($comment_score));
-
-		$feedback .= "<ul>"; // Remainder of feedback is a list
-
-		$revise_on_low_effort_handling = isset($revise_settings['low_effort']) ? $revise_settings['low_effort'] : \Respectify\REVISE_DEFAULT_LOW_EFFORT;
-		\Respectify\respectify_log('Low effort setting: ' . $revise_on_low_effort_handling);
-		\Respectify\respectify_log('Low effort?: ' . $comment_score->appearsLowEffort);
-		if ($comment_score->appearsLowEffort && $revise_on_low_effort_handling) {
-			$feedback .= "<li>Your comment appears not to contribute to the conversation. Please provide a thoughtful response.</li>";
-		}
-
-		$revise_on_logical_fallacies = isset($revise_settings['logical_fallacies']) ? $revise_settings['logical_fallacies'] : \Respectify\REVISE_DEFAULT_LOGICAL_FALLACIES;	
-		// !!! Should  not reat as strings, just see if the array is empty or not
-		$hasValidFallacies = !empty($comment_score->logicalFallacies);
-		\Respectify\respectify_log('Logical fallacies setting: ' . $revise_on_logical_fallacies);
-		\Respectify\respectify_log('Logical fallacies?: ' . $hasValidFallacies);
-		if ($hasValidFallacies && $revise_on_logical_fallacies) {
-			$feedback .= "<li>Your comment contains logic that seems right, but when looked at doesn't hold together, known as a '<a href=\"https://academicguides.waldenu.edu/writingcenter/writingprocess/logicalfallacies \" target=\"_new\">logical fallacy</a>'.</li>";
-			// List each logical fallace in a sublist
-			$feedback .= "<ul>";
+		// Add logical fallacies feedback
+		if (!empty($comment_score->logicalFallacies)) {
+			$feedback .= "Your comment contains logical fallacies:\n";
 			foreach ($comment_score->logicalFallacies as $fallacy) {
-				$feedback .= "<li><strong>'" . $fallacy->quotedLogicalFallacyExample . "':</strong> " . $fallacy->explanation;
-				if (!empty($fallacy->suggestedRewrite)) {
-					$feedback .= "<br/><div class=\"respectify-suggestion\"><em>Try something like:</em> '" . $fallacy->suggestedRewrite . "'</div>";
-				}
-				$feedback .= "</li>";
+				$feedback .= "- " . esc_html($fallacy) . "\n";
 			}
-			$feedback .= "</ul>";
 		}
 
-		$revise_on_phrases = isset($revise_settings['objectionable_phrases']) ? $revise_settings['objectionable_phrases'] : \Respectify\REVISE_DEFAULT_OBJECTIONABLE_PHRASES;	
-		$hasValidObjectionablePhrases = !empty($comment_score->objectionablePhrases);
-		\Respectify\respectify_log('Objectionable phrases setting: ' . $revise_on_phrases);
-		\Respectify\respectify_log('Objectionable phrases?: ' . $hasValidObjectionablePhrases);
-		if ($hasValidObjectionablePhrases && $revise_on_phrases) {
-			$feedback .= "<li>Your comment contains potentially objectionable language or phrases.</li>";
-			// List each phrase in a sublist
-			$feedback .= "<ul>";
+		// Add objectionable phrases feedback
+		if (!empty($comment_score->objectionablePhrases)) {
+			$feedback .= "Your comment contains objectionable phrases:\n";
 			foreach ($comment_score->objectionablePhrases as $phrase) {
-				$feedback .= "<li><strong>'" . $phrase->quotedObjectionablePhrase . "':</strong> " . $phrase->explanation;
-				// Don't suggest something. Just say it's objectionable
-				// if (!empty($phrase->suggestedRewrite)) {
-				// 	$feedback .= "<br/><div class=\"respectify-suggestion\"><em>Try something like:</em> '" . $phrase->suggestedRewrite . "'</div>";
-				// }
-				$feedback .= "</li>";
+				$feedback .= "- " . esc_html($phrase) . "\n";
 			}
-			$feedback .= "</ul>";
 		}
 
-		$revise_on_negative_tone = isset($revise_settings['negative_tone']) ? $revise_settings['negative_tone'] : \Respectify\REVISE_DEFAULT_NEGATIVE_TONE;
-		$hasValidNegativeTone = !empty($comment_score->negativeTonePhrases);
-		\Respectify\respectify_log('Negative tone setting: ' . $revise_on_negative_tone);
-		\Respectify\respectify_log('Negative tone?: ' . $hasValidNegativeTone);
-		if ($hasValidNegativeTone && $revise_on_negative_tone) {
-			$feedback .= "<li>Your comment may not contribute to a healthy conversation.</li>";
-			// List each phrase in a sublist
-			$feedback .= "<ul>";
-			foreach ($comment_score->negativeTonePhrases as $phrase) {
-				$feedback .= "<li><strong>'" . $phrase->quotedNegativeTonePhrase . "':</strong> " . $phrase->explanation;
-				if (!empty($phrase->suggestedRewrite)) {
-					$feedback .= "<br/><div class=\"respectify-suggestion\"><em>Try something like:</em> '" . $phrase->suggestedRewrite . "'</div>";
-				}
-				$feedback .= "</li>";
+		// Add negative tone feedback
+		if (!empty($comment_score->negativeTone)) {
+			$feedback .= "Your comment has a negative tone:\n";
+			foreach ($comment_score->negativeTone as $tone) {
+				$feedback .= "- " . esc_html($tone) . "\n";
 			}
-			$feedback .= "</ul>";
 		}
-
-		$feedback .= "</ul>";
-
-		$feedback .= "<p>Can you edit your comment to take the above feedback into account, please?</p>";
-
-		\Respectify\respectify_log("Feedback: ");
-		\Respectify\respectify_log($feedback);
 
 		return $feedback;
 	}
@@ -737,92 +700,78 @@ class RespectifyWordpressPlugin {
      * @return string Action to take -- see ACTION_ constants
      */
     private function get_comment_action($megaResult) {
-		// First check for spam if available
-		if ($megaResult->spam !== null && $megaResult->spam->isSpam) {
-			$spam_handling = get_option(\Respectify\OPTION_SPAM_HANDLING, \Respectify\ACTION_DELETE); // An ACTION_ constant
-			assert($spam_handling === \Respectify\ACTION_DELETE || $spam_handling === \Respectify\ACTION_REVISE);
-			return $spam_handling;
-		}
+        // Check for spam first
+        if (isset($megaResult->spam) && $megaResult->spam->isSpam) {
+            $spam_handling = get_option(\Respectify\OPTION_SPAM_HANDLING, \Respectify\DEFAULT_SPAM_HANDLING);
+            return $spam_handling;
+        }
 
-		// Check relevance if available
-		if ($megaResult->relevance !== null) {
-			// If not on topic, reject the comment
-			if (!$megaResult->relevance->onTopic->onTopic) {
-				\Respectify\respectify_log('Comment not on topic - decision: ' . \Respectify\ACTION_DELETE);
-				return \Respectify\ACTION_DELETE;
-			}
+        // Check for relevance issues
+        if (isset($megaResult->relevance)) {
+            $relevance_settings = get_option(\Respectify\OPTION_RELEVANCE_SETTINGS, \Respectify\RELEVANCE_DEFAULT_SETTINGS);
+            
+            // Check if comment is off-topic
+            if (!$megaResult->relevance->onTopic->isOnTopic) {
+                return $relevance_settings['off_topic_handling'];
+            }
+            
+            // Check for banned topics
+            if (!empty($megaResult->relevance->bannedTopics->bannedTopics)) {
+                // Get the banned topics percentage from the result
+                $banned_topics_percentage = $megaResult->relevance->bannedTopics->percentage ?? 0;
+                
+                // Check if we should take action based on the mode and threshold
+                $should_take_action = false;
+                
+                if ($relevance_settings['banned_topics_mode'] === 'any') {
+                    // Any mention triggers the action
+                    $should_take_action = true;
+                } else {
+                    // Only take action if the percentage exceeds the threshold
+                    $should_take_action = ($banned_topics_percentage >= $relevance_settings['banned_topics_threshold']);
+                }
+                
+                if ($should_take_action) {
+                    return $relevance_settings['banned_topics_handling'];
+                }
+            }
+        }
 
-			// If contains banned topics, reject the comment
-			if (!empty($megaResult->relevance->bannedTopics->bannedTopics)) {
-				\Respectify\respectify_log('Comment contains banned topics - decision: ' . \Respectify\ACTION_DELETE);
-				return \Respectify\ACTION_DELETE;
-			}
-		}
+        // If no comment score is available, default to publishing
+        if (!isset($megaResult->commentScore)) {
+            return \Respectify\ACTION_PUBLISH;
+        }
 
-		// If no comment score available, we can't evaluate further
-		if ($megaResult->commentScore === null) {
-			\Respectify\respectify_log('No comment score available in mega call result');
-			return \Respectify\ACTION_PUBLISH; // Default to publishing if we can't evaluate
-		}
+        // Get the revise settings
+        $revise_settings = get_option(\Respectify\OPTION_REVISE_SETTINGS, \Respectify\REVISE_DEFAULT_SETTINGS);
 
-		$comment_score = $megaResult->commentScore;
+        // Check if the comment score is below the minimum
+        if ($megaResult->commentScore->score < $revise_settings['min_score']) {
+            return \Respectify\ACTION_REVISE;
+        }
 
-		// These are true when, if any (eg) logical fallacies exist, the comment must be revised
-		// Wordpress seems to only save non-default items in this array? So need to check if the key exists
-		// and use the default if not
-		$revise_settings = get_option(\Respectify\OPTION_REVISE_SETTINGS, \Respectify\REVISE_DEFAULT_SETTINGS);
+        // Check for low effort
+        if ($revise_settings['low_effort'] && $megaResult->commentScore->isLowEffort) {
+            return \Respectify\ACTION_REVISE;
+        }
 
-		\Respectify\respectify_log('Revise settings: ' . wp_json_encode($revise_settings));
+        // Check for logical fallacies
+        if ($revise_settings['logical_fallacies'] && !empty($megaResult->commentScore->logicalFallacies)) {
+            return \Respectify\ACTION_REVISE;
+        }
 
-		\Respectify\respectify_log('Comment score object: ' . wp_json_encode($comment_score));
+        // Check for objectionable phrases
+        if ($revise_settings['objectionable_phrases'] && !empty($megaResult->commentScore->objectionablePhrases)) {
+            return \Respectify\ACTION_REVISE;
+        }
 
-		// First, if the minimum score is too low
-		$minAcceptableScore = isset($revise_settings['min_score']) ? $revise_settings['min_score'] : \Respectify\REVISE_DEFAULT_MIN_SCORE;
-		if ($comment_score->overallScore < $minAcceptableScore) {
-			\Respectify\respectify_log('Score too low - decision: ' . \Respectify\ACTION_REVISE);
-			return \Respectify\ACTION_REVISE;
-		}
+        // Check for negative tone
+        if ($revise_settings['negative_tone'] && !empty($megaResult->commentScore->negativeTone)) {
+            return \Respectify\ACTION_REVISE;
+        }
 
-		if ($comment_score->appearsLowEffort) {
-			// Setting may not be set, default true
-			$revise_on_low_effort_handling = isset($revise_settings['low_effort']) ? $revise_settings['low_effort'] : \Respectify\REVISE_DEFAULT_LOW_EFFORT;
-			$low_effort_decision = $revise_on_low_effort_handling ? \Respectify\ACTION_REVISE :  \Respectify\ACTION_PUBLISH;
-			\Respectify\respectify_log('Low effort - decision: ' . $low_effort_decision);
-			return $low_effort_decision;
-		}
-
-		// Sanitizes: Non-empty array, and any array items are not empty
-		$hasValidFallacies = !empty($comment_score->logicalFallacies);
-		if ($hasValidFallacies) {
-			// Setting may not be set, default true
-			$revise_on_logical_fallacies = isset($revise_settings['logical_fallacies']) ? $revise_settings['logical_fallacies'] : \Respectify\REVISE_DEFAULT_LOGICAL_FALLACIES;
-			$logical_fallacies_decision = $revise_on_logical_fallacies ? \Respectify\ACTION_REVISE : \Respectify\ACTION_PUBLISH;
-			\Respectify\respectify_log('Logical fallacies - decision: ' . $logical_fallacies_decision);
-			return $logical_fallacies_decision;
-		}
-
-		// Sanitizes: Non-empty array, and any array items are not empty
-		$hasValidObjectionablePhrases = !empty($comment_score->objectionablePhrases);
-		if ($hasValidObjectionablePhrases) {
-			// Setting may not be set, default true
-			$revise_on_phrases = isset($revise_settings['objectionable_phrases']) ? $revise_settings['objectionable_phrases'] : \Respectify\REVISE_DEFAULT_OBJECTIONABLE_PHRASES;
-			$phrases_decision = $revise_on_phrases ? \Respectify\ACTION_REVISE : \Respectify\ACTION_PUBLISH;
-			\Respectify\respectify_log('Objectionable phrases - decision: ' . $phrases_decision);
-			return $phrases_decision;
-		}
-
-		// Sanitizes: Non-empty array, and any array items are not empty
-		$hasValidNegativeTone = !empty($comment_score->negativeTonePhrases);
-		if ($hasValidNegativeTone) {
-			// Setting may not be set, default true
-			$revise_on_negative_tone = isset($revise_settings['negative_tone']) ? $revise_settings['negative_tone'] : \Respectify\REVISE_DEFAULT_NEGATIVE_TONE;
-			$negative_tone_decision = $revise_on_negative_tone ? \Respectify\ACTION_REVISE : \Respectify\ACTION_PUBLISH;
-			\Respectify\respectify_log('Negative tone - decision: ' . $negative_tone_decision);
-			return $negative_tone_decision;
-		}
-
-		\Respectify\respectify_log("Fallback decision: " . \Respectify\ACTION_PUBLISH);
-		return \Respectify\ACTION_PUBLISH;
+        // If all checks pass, publish the comment
+        return \Respectify\ACTION_PUBLISH;
     }
 
     /**
