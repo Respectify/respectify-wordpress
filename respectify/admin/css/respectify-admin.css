@@ -503,17 +503,16 @@ tr:has(> th[scope="row"]:not(:has(label)) + td:empty) {
     display: none !important;
 }
 
-/* Add visual separation above checkbox rows (except the first checkbox row) */
-.form-table > tbody > tr.respectify-checkbox-row:not(:first-of-type) {
+/* Add visual separation above checkbox rows with spacing */
+.form-table > tbody > tr.respectify-checkbox-row-with-spacing {
     padding-top: 2rem;
 }
 
-/* Ensure the padding is applied to the cell content (except the first checkbox row) */
-.form-table > tbody > tr.respectify-checkbox-row:not(:first-of-type) > th {
+.form-table > tbody > tr.respectify-checkbox-row-with-spacing > th {
     padding-top: 2rem;
 }
 
-.form-table > tbody > tr.respectify-checkbox-row:not(:first-of-type) > td {
+.form-table > tbody > tr.respectify-checkbox-row-with-spacing > td {
     padding-top: 2rem;
 }
 

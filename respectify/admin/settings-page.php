@@ -614,7 +614,7 @@ function respectify_assess_health_callback() {
 function respectify_check_relevance_callback() {
     $assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
     ?>
-    <tr class="respectify-checkbox-row">
+    <tr class="respectify-checkbox-row respectify-checkbox-row-with-spacing">
         <th scope="row">
             <label>
                 <input type="checkbox" name="respectify_assessment_settings[check_relevance]" value="1" <?php checked($assessment_settings['check_relevance'], true); ?> />
@@ -629,7 +629,7 @@ function respectify_check_relevance_callback() {
 function respectify_check_spam_callback() {
     $assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
     ?>
-    <tr class="respectify-checkbox-row">
+    <tr class="respectify-checkbox-row respectify-checkbox-row-with-spacing">
         <th scope="row">
             <label>
                 <input type="checkbox" name="respectify_assessment_settings[check_spam]" value="1" <?php checked($assessment_settings['check_spam'], true); ?> />
