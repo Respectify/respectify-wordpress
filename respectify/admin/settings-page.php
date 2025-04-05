@@ -195,8 +195,7 @@ function respectify_sanitize_revise_settings($input) {
 
 // Callback to render behavior section
 function respectify_behavior_section_callback() {
-    echo '<p class="description description-match-font-size">' . esc_html__('Configure how Respectify handles comments, especially the criteria for requesting a comment be revised before being posted.', 'respectify') . '</p>';
-    echo '<div class="respectify-settings-row">';
+    echo '<p class="description description-match-font-size respectify-section-description">' . esc_html__('Configure how Respectify handles comments, especially the criteria for requesting a comment be revised before being posted.', 'respectify') . '</p>';
 }
 
 // Callback to render spam handling field

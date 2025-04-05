@@ -321,13 +321,13 @@ input[type="range"] {
 
 /* Add spacing between settings sections */
 .form-table > tbody > tr {
-    margin-bottom: 2em;
+    margin-bottom: 1em;
 }
 
 .form-table > tbody > tr > th,
 .form-table > tbody > tr > td {
-    padding-bottom: 2em;
-    padding-top: 1em;
+    padding-bottom: 1em;
+    padding-top: 0.5em;
 }
 
 /* Remove spacing from the last row in each section */
@@ -429,5 +429,23 @@ input[type="range"] {
 
 .respectify-settings-column label:hover {
     color: #2271b1;
+}
+
+/* Style for section description */
+.respectify-section-description {
+    margin: 0;
+    padding: 0;
+    margin-bottom: 1em;
+}
+
+/* Remove spacing from the first row */
+.form-table > tbody > tr:first-child {
+    margin-bottom: 0;
+}
+
+.form-table > tbody > tr:first-child > th,
+.form-table > tbody > tr:first-child > td {
+    padding-bottom: 0;
+    padding-top: 0;
 }
 
