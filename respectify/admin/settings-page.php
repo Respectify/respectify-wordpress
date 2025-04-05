@@ -584,29 +584,6 @@ function respectify_banned_topics_settings_callback() {
     <?php
 }
 
-// Add the callback for assessment settings
-function respectify_assessment_settings_callback() {
-    $assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
-    ?>
-    <div class="respectify-settings-column">
-        <div class="respectify-checkbox-group">
-            <label>
-                <input type="checkbox" name="respectify_assessment_settings[assess_health]" value="1" <?php checked($assessment_settings['assess_health'], true); ?> />
-                <?php esc_html_e('Assess Comment Health', 'respectify'); ?>
-            </label>
-            <label>
-                <input type="checkbox" name="respectify_assessment_settings[check_relevance]" value="1" <?php checked($assessment_settings['check_relevance'], true); ?> />
-                <?php esc_html_e('Check if on-topic', 'respectify'); ?>
-            </label>
-            <label>
-                <input type="checkbox" name="respectify_assessment_settings[check_spam]" value="1" <?php checked($assessment_settings['check_spam'], true); ?> />
-                <?php esc_html_e('Check for spam', 'respectify'); ?>
-            </label>
-        </div>
-    </div>
-    <?php
-}
-
 // Add sanitization function for assessment settings
 function respectify_sanitize_assessment_settings($input) {
     $sanitized_input = array();
