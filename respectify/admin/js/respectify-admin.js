@@ -104,10 +104,21 @@
             $('#revise_min_score_value').text($(this).val());
         });
 
-        // Update the banned topics threshold value display
-        $('#respectify_banned_topics_threshold').on('input', function() {
-            $('#banned_topics_threshold_value').text(Math.round($(this).val() * 100));
+        // Banned topics threshold slider
+        document.getElementById('respectify_banned_topics_threshold')?.addEventListener('input', function(e) {
+            const value = parseFloat(e.target.value);
+            const percentage = Math.round(value * 100);
+            const textElement = e.target.parentElement.querySelector('.description');
+            if (textElement) {
+                textElement.textContent = `It's ok for ${percentage}% of the comment to be about an unwanted topic.`;
+            }
         });
+
+        // Set initial value
+        const bannedTopicsSlider = document.getElementById('respectify_banned_topics_threshold');
+        if (bannedTopicsSlider) {
+            bannedTopicsSlider.dispatchEvent(new Event('input'));
+        }
 
         // Handle the banned topics mode radio buttons
         $('input[name="respectify_relevance_settings[banned_topics_mode]"]').on('change', function() {

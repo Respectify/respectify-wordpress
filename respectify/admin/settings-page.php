@@ -25,21 +25,15 @@ function respectify_add_settings_page() {
 // Register settings, sections, and fields
 add_action('admin_init', 'respectify_register_settings');
 function respectify_register_settings() {
-    register_setting(
-        'respectify_options_group',
-        \Respectify\OPTION_EMAIL,
-        array(
-            'sanitize_callback' => 'sanitize_email',
-        )
-    );
-    register_setting(
-        'respectify_options_group',
-        \Respectify\OPTION_API_KEY_ENCRYPTED,
-        array(
-            'sanitize_callback' => 'sanitize_text_field',
-        )
-    );
+    // Register settings
+    register_setting('respectify_options_group', \Respectify\OPTION_EMAIL);
+    register_setting('respectify_options_group', \Respectify\OPTION_API_KEY_ENCRYPTED);
+    register_setting('respectify_options_group', \Respectify\OPTION_REVISE_SETTINGS);
+    register_setting('respectify_options_group', \Respectify\OPTION_RELEVANCE_SETTINGS);
+    register_setting('respectify_options_group', \Respectify\OPTION_BANNED_TOPICS);
+    register_setting('respectify_options_group', \Respectify\OPTION_SPAM_HANDLING);  // Moved to bottom
 
+    // Add settings sections
     add_settings_section(
         'respectify_settings_section',
         esc_html__('API Credentials', 'respectify'),
@@ -47,6 +41,21 @@ function respectify_register_settings() {
         'respectify'
     );
 
+    add_settings_section(
+        'respectify_behavior_settings_section',
+        esc_html__('Comment Handling', 'respectify'),
+        'respectify_behavior_section_callback',
+        'respectify'
+    );
+
+    add_settings_section(
+        'respectify_advanced_settings_section',
+        esc_html__('Rarely Used Settings', 'respectify'),
+        'respectify_advanced_section_callback',
+        'respectify'
+    );
+
+    // Add settings fields
     add_settings_field(
         \Respectify\OPTION_EMAIL,
         esc_html__('Email', 'respectify'),
@@ -63,71 +72,22 @@ function respectify_register_settings() {
         'respectify_settings_section'
     );
 
-    add_settings_section(
-        'respectify_behavior_settings_section',
-        esc_html__('Comment Handling', 'respectify'),
-        'respectify_behavior_section_callback',
-        'respectify'
-    );
-
-    // How to handle spam
-    register_setting(
-        'respectify_options_group',
-        \Respectify\OPTION_SPAM_HANDLING,
-        array(
-            'sanitize_callback' => 'sanitize_text_field',
-        )
-    );
-    add_settings_field(
-        \Respectify\OPTION_SPAM_HANDLING,
-        esc_html__('How to Handle Spam', 'respectify'),
-        'respectify_spam_handling_callback',
-        'respectify',
-        'respectify_behavior_settings_section'
-    );
-
-    // Revise When Settings
-    register_setting(
-        'respectify_options_group',
-        \Respectify\OPTION_REVISE_SETTINGS,
-        array(
-            'sanitize_callback' => 'respectify_sanitize_revise_settings',
-        )
-    );
     add_settings_field(
         \Respectify\OPTION_REVISE_SETTINGS,
-        esc_html__('Revise a Comment When', 'respectify'),
+        esc_html__('Healthy Comments', 'respectify'),
         'respectify_revise_settings_callback',
         'respectify',
         'respectify_behavior_settings_section'
     );
 
-    // Relevance Settings
-    register_setting(
-        'respectify_options_group',
-        \Respectify\OPTION_RELEVANCE_SETTINGS,
-        array(
-            'sanitize_callback' => 'respectify_sanitize_relevance_settings',
-        )
-    );
-
-    register_setting(
-        'respectify_options_group',
-        \Respectify\OPTION_BANNED_TOPICS,
-        array(
-            'sanitize_callback' => 'respectify_sanitize_banned_topics',
-        )
-    );
-
     add_settings_field(
         \Respectify\OPTION_RELEVANCE_SETTINGS,
-        esc_html__('Irrelevant Comments', 'respectify'),
+        esc_html__('Topic Relevance', 'respectify'),
         'respectify_relevance_settings_callback',
         'respectify',
         'respectify_behavior_settings_section'
     );
 
-    // Add a new settings field for Undesired Topics
     add_settings_field(
         \Respectify\OPTION_BANNED_TOPICS,
         esc_html__('Undesired Topics', 'respectify'),
@@ -136,22 +96,14 @@ function respectify_register_settings() {
         'respectify_behavior_settings_section'
     );
 
-    // New Settings Section for Advanced Parameters
-    add_settings_section(
-        'respectify_advanced_settings_section',
-        esc_html__('Rarely Used Settings', 'respectify'),
-        'respectify_advanced_section_callback',
-        'respectify'
+    add_settings_field(
+        \Respectify\OPTION_SPAM_HANDLING,
+        esc_html__('How to Handle Spam', 'respectify'),
+        'respectify_spam_handling_callback',
+        'respectify',
+        'respectify_behavior_settings_section'
     );
 
-    // Base URL
-    register_setting(
-        'respectify_options_group',
-        \Respectify\OPTION_BASE_URL,
-        array(
-            'sanitize_callback' => 'respectify_sanitize_base_url',
-        )
-    );
     add_settings_field(
         \Respectify\OPTION_BASE_URL,
         esc_html__('Base URL', 'respectify'),
@@ -160,14 +112,6 @@ function respectify_register_settings() {
         'respectify_advanced_settings_section'
     );
 
-    // API Version
-    register_setting(
-        'respectify_options_group',
-        \Respectify\OPTION_API_VERSION,
-        array(
-            'sanitize_callback' => 'sanitize_text_field',
-        )
-    );
     add_settings_field(
         \Respectify\OPTION_API_VERSION,
         esc_html__('API Version', 'respectify'),
@@ -250,10 +194,8 @@ function respectify_revise_settings_callback() {
                 <span id="revise_min_score_value"><?php echo esc_html($options['min_score']); ?></span> 
                 <?php esc_html_e('out of 5.', 'respectify'); ?>
             </span>
-            <span class="out-of description">
-                <br/>
-                <?php esc_html_e('Recommended value: 3 out of 5.', 'respectify'); ?>
-                <br/>
+            <br/>
+            <span class="description">
                 <?php esc_html_e('A score of 3 out of 5 is a normal, good quality comment. 4 and 5 are outstanding and unusual.', 'respectify'); ?>
             </span>
         </div>
@@ -276,7 +218,7 @@ function respectify_revise_settings_callback() {
             </label>
         </div>
     </div>
-    <p class="description"><?php esc_html_e('Define the conditions under which a comment should be revised.', 'respectify'); ?></p>
+    <p class="description"><?php esc_html_e('Comments with any of the above will not be posted, but the commenter asked to revise.', 'respectify'); ?></p>
     <?php
 }
 
@@ -530,15 +472,16 @@ function respectify_relevance_settings_callback() {
     ?>
     <div class="respectify-settings-column">
         <div class="respectify-settings-row">
-            <div class="respectify-settings-label">
-                <p class="description"><?php esc_html_e('How to handle comments that are off-topic.', 'respectify'); ?></p>
-            </div>
             <div class="respectify-settings-control">
                 <select name="respectify_relevance_settings[off_topic_handling]" id="respectify_off_topic_handling">
                     <option value="<?php echo \Respectify\ACTION_DELETE; ?>" <?php selected($relevance_settings['off_topic_handling'], \Respectify\ACTION_DELETE); ?>><?php esc_html_e('Delete', 'respectify'); ?></option>
                     <option value="<?php echo \Respectify\ACTION_REVISE; ?>" <?php selected($relevance_settings['off_topic_handling'], \Respectify\ACTION_REVISE); ?>><?php esc_html_e('Give Opportunity to Revise', 'respectify'); ?></option>
                 </select>
             </div>
+            <div class="respectify-settings-label">
+                <p class="description"><?php esc_html_e('By default an off-topic comment will be sent to the commenter to revise.', 'respectify'); ?></p>
+            </div>
+            
         </div>
     </div>
     <?php
@@ -553,7 +496,7 @@ function respectify_banned_topics_settings_callback() {
         <div class="respectify-settings-row">
             <div class="respectify-settings-label">
                 <p class="description"><?php esc_html_e('What topics do you just not want to see in your comments? Enter one per line.', 'respectify'); ?></p>
-                <p class="description"><?php esc_html_e('Be descriptive: instead of "politics", try "US politics after 1970". This avoids over-blocking.', 'respectify'); ?></p>
+                <p class="description" style="margin-bottom: 10px;"><?php esc_html_e('Be descriptive: instead of "politics", try "US politics after 1970". This avoids over-blocking.', 'respectify'); ?></p>
             
             </div>
             <div class="respectify-settings-control">
@@ -576,16 +519,21 @@ function respectify_banned_topics_settings_callback() {
                 </div>
                 
                 <div id="banned-topics-threshold-slider" class="respectify-slider-row" style="margin-top: 10px; <?php echo $relevance_settings['banned_topics_mode'] === 'threshold' ? '' : 'opacity: 0.5;'; ?>">
-                    <span class="emoji">0%</span>
+                    <span class="respectify-slider-indicator">○</span>
                     <input type="range" id="respectify_banned_topics_threshold" 
                            name="respectify_relevance_settings[banned_topics_threshold]" 
                            value="<?php echo esc_attr($relevance_settings['banned_topics_threshold']); ?>" 
-                           min="0" max="1" step="0.1" class="regular-text"
+                           min="0.1" max="1" step="0.1" class="regular-text"
                            <?php echo $relevance_settings['banned_topics_mode'] === 'threshold' ? '' : 'disabled'; ?>>
-                    <span class="emoji">100%</span>
-                    <span class="out-of description">
-                        <span id="banned_topics_threshold_value"><?php echo esc_html(round($relevance_settings['banned_topics_threshold'] * 100)); ?></span>% 
-                        <?php esc_html_e('of the comment must be about banned topics to trigger the action above.', 'respectify'); ?>
+                    <span class="respectify-slider-indicator">●</span>
+                    <br/>
+                    <span class="description" style="margin-top: 10px; margin-left: 0.35rem;">
+                        <?php 
+                        printf(
+                            esc_html__('It\'s ok for %d%% of the comment to be about an unwanted topic.', 'respectify'),
+                            round($relevance_settings['banned_topics_threshold'] * 100)
+                        );
+                        ?>
                     </span>
                 </div>
 

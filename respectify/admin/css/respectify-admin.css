@@ -73,6 +73,9 @@
     --slider-color-3: skyblue;
     --slider-color-4: yellowgreen;
     --slider-color-5: limegreen;
+    --banned-topics-color-0: yellowgreen;
+    --banned-topics-color-50: orange;
+    --banned-topics-color-100: red;
 }
 
 /* WebKit browsers (Chrome, Safari) */
@@ -152,7 +155,7 @@ input[type="range"]::-webkit-slider-thumb {
     border: 2px solid #000000;
     border-radius: 50%;
     cursor: pointer;
-    margin-top: -4px; /* Adjusted for better vertical alignment */
+    margin-top: -8px; /* Adjusted for better vertical alignment */
 }
 
 input[type="range"]::-moz-range-thumb {
@@ -162,8 +165,6 @@ input[type="range"]::-moz-range-thumb {
     border: 2px solid #000000;
     border-radius: 50%;
     cursor: pointer;
-    /* Firefox may not support margin-top on ::-moz-range-thumb */
-    /* Alternative: Use position relative with top offset? */
     position: relative;
     top: -2px;
 }
@@ -171,6 +172,8 @@ input[type="range"]::-moz-range-thumb {
 /* Ensure the overall slider height doesn't interfere */
 input[type="range"] {
     height: 8px;
+    vertical-align: middle;
+    margin: 0;
 }
 
 /*
@@ -214,4 +217,76 @@ input[type="range"] {
     transition: max-height 0.2s ease-out;
     border: 1px solid #ccc;
     margin-bottom: 10px;
+}
+
+.respectify-slider-indicator {
+    font-size: 1em;
+    color: cornflowerblue;
+    display: inline-block;
+    line-height: 1;
+    vertical-align: middle;
+    margin: 0 5px;
+    position: relative;
+    top: -2px; /* Match the Firefox thumb positioning */
+}
+
+/* Banned Topics Slider */
+#respectify_banned_topics_threshold {
+    -webkit-appearance: none;
+    width: 150px;
+    height: 8px;
+    border-radius: 4px;
+    background: linear-gradient(to right, 
+        var(--banned-topics-color-0) 0%,
+        var(--banned-topics-color-50) 50%,
+        var(--banned-topics-color-100) 100%
+    );
+    outline: none;
+    margin-top: -2px; /* Adjust vertical alignment */
+}
+
+#respectify_banned_topics_threshold::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #2271b1;
+    cursor: pointer;
+    margin-top: -2px; /* Move thumb down slightly */
+}
+
+#respectify_banned_topics_threshold::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #2271b1;
+    cursor: pointer;
+    border: none;
+    position: relative;
+    top: 2px; /* Move thumb down slightly for Firefox */
+}
+
+#respectify_banned_topics_threshold::-moz-range-track {
+    background: linear-gradient(to right, 
+        var(--banned-topics-color-0) 0%,
+        var(--banned-topics-color-50) 50%,
+        var(--banned-topics-color-100) 100%
+    );
+    height: 8px;
+    border: none;
+    border-radius: 4px;
+}
+
+.respectify-radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-left: 2rem;  /* Add indentation */
+}
+
+#banned-topics-threshold-slider {
+    margin-left: 3.2rem;
+    margin-top: 10px;
+    transition: opacity 0.3s ease;
 }
