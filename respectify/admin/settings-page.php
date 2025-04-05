@@ -235,6 +235,9 @@ function respectify_revise_settings_callback() {
                 <?php esc_html_e('A score of 3 out of 5 is a normal, good quality comment. 4 and 5 are outstanding and unusual.', 'respectify'); ?>
             </span>
         </div>
+        <p class="description" style="margin-bottom: -0.5rem;">
+            <?php esc_html_e('Revise comments which:', 'respectify'); ?>
+        </p>
         <div class="respectify-checkbox-group">
             <label>
                 <input type="checkbox" name="respectify_revise_settings[low_effort]" value="1" <?php checked($options['low_effort'], true); ?> />

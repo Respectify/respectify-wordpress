@@ -24,6 +24,7 @@
     flex-direction: column;
     gap: 0.5rem;
     margin-top: 1rem;
+    padding-left: 2rem;
 }
 
 .respectify-checkbox-group label {
@@ -165,13 +166,13 @@ input[type="range"].slider-value-5::-moz-range-track {
 input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 25px;
-    height: 25px;
+    width: 20px;
+    height: 20px;
     background: #ffffff;
     border: 2px solid #000000;
     border-radius: 50%;
     cursor: pointer;
-    margin-top: -8px; /* Adjusted for better vertical alignment */
+    margin-top: -4px; /* Adjusted from -6px to -4px to move thumb lower */
 }
 
 input[type="range"]::-moz-range-thumb {
@@ -182,14 +183,15 @@ input[type="range"]::-moz-range-thumb {
     border-radius: 50%;
     cursor: pointer;
     position: relative;
-    top: -2px;
+    top: 2px; /* Changed from 0 to 2px to move thumb lower */
 }
 
-/* Ensure the overall slider height doesn't interfere */
+/* Ensure the overall slider height is consistent */
 input[type="range"] {
     height: 8px;
     vertical-align: middle;
     margin: 0;
+    padding: 8px 0; /* Add padding to give space for the thumb */
 }
 
 /*
@@ -515,4 +517,10 @@ tr:has(> th[scope="row"]:not(:has(label)) + td:empty) {
 .form-table > tbody > tr.respectify-checkbox-row-with-spacing > td {
     padding-top: 2rem;
 }
+
+/* Add spacing above section headers in settings */
+.wrap h2:not(:first-child) {
+    margin-top: 2.5rem;
+}
+
 
