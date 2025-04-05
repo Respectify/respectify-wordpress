@@ -773,40 +773,74 @@ class RespectifyWordpressPlugin {
             }
         }
 
-        // If no comment score is available or health assessment is disabled, default to publishing
-        if (!$assessment_settings['assess_health'] || !isset($megaResult->commentScore)) {
+        // Check health assessment if enabled
+        if ($assessment_settings['assess_health'] && isset($megaResult->commentScore)) {
+            $revise_settings = get_option(\Respectify\OPTION_REVISE_SETTINGS, \Respectify\REVISE_DEFAULT_SETTINGS);
+            
+            // Validate revise settings
+            if (!isset($revise_settings['min_score']) || 
+                !is_numeric($revise_settings['min_score']) ||
+                $revise_settings['min_score'] < 1 || 
+                $revise_settings['min_score'] > 5) {
+                $revise_settings['min_score'] = \Respectify\REVISE_DEFAULT_MIN_SCORE;
+            }
+            
+            // Check if the comment score is below the minimum
+            if ($megaResult->commentScore->score < $revise_settings['min_score']) {
+                $issues[] = array(
+                    'type' => 'low_score',
+                    'action' => \Respectify\ACTION_REVISE
+                );
+            }
+
+            // Check for low effort
+            if ($revise_settings['low_effort'] && isset($megaResult->commentScore->appearsLowEffort) && $megaResult->commentScore->appearsLowEffort) {
+                $issues[] = array(
+                    'type' => 'low_effort',
+                    'action' => \Respectify\ACTION_REVISE
+                );
+            }
+
+            // Check for logical fallacies
+            if ($revise_settings['logical_fallacies'] && !empty($megaResult->commentScore->logicalFallacies)) {
+                $issues[] = array(
+                    'type' => 'logical_fallacies',
+                    'action' => \Respectify\ACTION_REVISE
+                );
+            }
+
+            // Check for objectionable phrases
+            if ($revise_settings['objectionable_phrases'] && !empty($megaResult->commentScore->objectionablePhrases)) {
+                $issues[] = array(
+                    'type' => 'objectionable_phrases',
+                    'action' => \Respectify\ACTION_REVISE
+                );
+            }
+
+            // Check for negative tone
+            if ($revise_settings['negative_tone'] && !empty($megaResult->commentScore->negativeTone)) {
+                $issues[] = array(
+                    'type' => 'negative_tone',
+                    'action' => \Respectify\ACTION_REVISE
+                );
+            }
+        }
+
+        // If no issues were found, publish the comment
+        if (empty($issues)) {
             return \Respectify\ACTION_PUBLISH;
         }
 
-        // Get the revise settings
-        $revise_settings = get_option(\Respectify\OPTION_REVISE_SETTINGS, \Respectify\REVISE_DEFAULT_SETTINGS);
-
-        // Check if the comment score is below the minimum
-        if ($megaResult->commentScore->score < $revise_settings['min_score']) {
+        // Determine the most severe action needed
+        $actions = array_column($issues, 'action');
+        if (in_array(\Respectify\ACTION_DELETE, $actions)) {
+            return \Respectify\ACTION_DELETE;
+        }
+        if (in_array(\Respectify\ACTION_REVISE, $actions)) {
             return \Respectify\ACTION_REVISE;
         }
 
-        // Check for low effort
-        if ($revise_settings['low_effort'] && $megaResult->commentScore->isLowEffort) {
-            return \Respectify\ACTION_REVISE;
-        }
-
-        // Check for logical fallacies
-        if ($revise_settings['logical_fallacies'] && !empty($megaResult->commentScore->logicalFallacies)) {
-            return \Respectify\ACTION_REVISE;
-        }
-
-        // Check for objectionable phrases
-        if ($revise_settings['objectionable_phrases'] && !empty($megaResult->commentScore->objectionablePhrases)) {
-            return \Respectify\ACTION_REVISE;
-        }
-
-        // Check for negative tone
-        if ($revise_settings['negative_tone'] && !empty($megaResult->commentScore->negativeTone)) {
-            return \Respectify\ACTION_REVISE;
-        }
-
-        // If all checks pass, publish the comment
+        // Default to publish if somehow we get here
         return \Respectify\ACTION_PUBLISH;
     }
 
