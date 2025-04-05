@@ -4,8 +4,24 @@
             event.preventDefault();
 
             var form = $(this);
-            var formData = form.serializeArray(); // Should include the nonce
-            formData.push({ name: 'action', value: 'respectify_submit_comment' });
+            // Get the form data
+            var formData = {
+                action: 'respectify_submit_comment',
+                comment_post_ID: form.find('input[name="comment_post_ID"]').val(),
+                comment_content: form.find('textarea[name="comment"]').val(),
+                comment_parent: form.find('input[name="comment_parent"]').val(),
+                respectify_nonce: form.find('input[name="respectify_nonce"]').val()
+            };
+
+            // Get user info regardless of login status
+            formData.author = form.find('input[name="author"]').val();
+            formData.email = form.find('input[name="email"]').val();
+            formData.url = form.find('input[name="url"]').val();
+
+            // If user is logged in, get their user_id
+            if (form.find('input[name="user_id"]').length) {
+                formData.user_id = form.find('input[name="user_id"]').val();
+            }
 
             // Remove previous messages and 'Post Anyway' button
             $('.respectify-message, #respectify-post-anyway').remove();
@@ -17,7 +33,7 @@
             // Check if 'Post Anyway' button was clicked
             var postAnyway = form.data('post-anyway') || false;
             if (postAnyway) {
-                formData.push({ name: 'post_anyway', value: '1' });
+                formData.post_anyway = '1';
                 // Reset the data attribute
                 form.data('post-anyway', false);
             }
@@ -25,7 +41,7 @@
             $.ajax({
                 type: 'POST',
                 url: respectify_ajax_object.ajax_url,
-                data: $.param(formData),
+                data: formData,
                 success: function(response) {
                     // Remove the loading message
                     loadingMessage.remove();

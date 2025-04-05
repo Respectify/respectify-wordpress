@@ -410,7 +410,7 @@ class RespectifyWordpressPlugin {
         if ($assessment_settings['assess_health']) {
             $services[] = 'commentscore';
         }
-        if ($assessment_settings['check_relevance']) {
+        if ($assessment_settings['check_relevance'] && $respectify_article_id) {
             $services[] = 'relevance';
         }
 
@@ -419,19 +419,23 @@ class RespectifyWordpressPlugin {
             $services = ['spam', 'commentscore', 'relevance'];
         }
 
-        // Get banned topics if relevance checking is enabled
+        // Get banned topics if relevance checking is enabled and we have an article ID
         $banned_topics = null;
-        if ($assessment_settings['check_relevance']) {
-            $banned_topics = get_option(\Respectify\OPTION_BANNED_TOPICS, '');
-            if (empty($banned_topics)) {
-                $banned_topics = null;
+        if ($assessment_settings['check_relevance'] && $respectify_article_id) {
+            $banned_topics_str = get_option(\Respectify\OPTION_BANNED_TOPICS, '');
+            if (!empty($banned_topics_str)) {
+                // Split by newlines and remove empty lines
+                $banned_topics = array_values(array_filter(explode("\n", $banned_topics_str)));
+                if (empty($banned_topics)) {
+                    $banned_topics = null;
+                }
             }
         }
 
         $promise = $this->respectify_client->megacall(
             comment: $full_comment_text,
-            articleContextId:$respectify_article_id,
-            services:$services,
+            articleContextId: $respectify_article_id,
+            services: $services,
             bannedTopics: $banned_topics,
             replyToComment: $reply_to_comment_text
         ); 
@@ -506,21 +510,38 @@ class RespectifyWordpressPlugin {
 		}
 		if (!empty($missing_fields)) {
 			\Respectify\respectify_log('Missing required fields: ' . implode(', ', $missing_fields));
-			// Don't fail, just log - WordPress will handle missing fields
+			// Return an error if content is missing
+			if (in_array('content', $missing_fields)) {
+				return new \WP_Error('missing_content', 'Comment content is required.');
+			}
+			// Don't fail for other missing fields - WordPress will handle them
 		}
 
-		$post_id = $commentdata['comment_post_ID'];
-		$article_id = $this->get_respectify_article_id($post_id);
+		// Get assessment settings to determine which services we need
+		$assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
 
-		if (!$article_id) {
-			\Respectify\respectify_log('Invalid article ID: ' . $article_id);
-			// Return an error
-			return new \WP_Error('invalid_article_id', 'Invalid article ID.');
+		// Only get article ID if we need it for relevance checking
+		$article_id = null;
+		if ($assessment_settings['check_relevance']) {
+			$post_id = $commentdata['comment_post_ID'];
+			$article_id = $this->get_respectify_article_id($post_id);
+
+			if (!$article_id) {
+				\Respectify\respectify_log('Invalid article ID: ' . $article_id);
+				// Return an error
+				return new \WP_Error('invalid_article_id', 'Invalid article ID.');
+			}
 		}
 
 		// Wordpress adds slashes, so remove them before sanitising to avoid double slashes
 		// Caught by words like "don't": visible to the user as "don\'t"
-		$comment_text = sanitize_text_field(wp_unslash($commentdata['comment_content']));
+		$comment_text = sanitize_textarea_field(wp_unslash($commentdata['comment_content']));
+		
+		// Ensure we have valid comment text after sanitization
+		if (empty($comment_text)) {
+			\Respectify\respectify_log('Comment text is empty after sanitization');
+			return new \WP_Error('empty_comment', 'Comment content is required.');
+		}
 
 		// Get the comment being replied to if this is a reply
 		$reply_to_comment_text = null;
@@ -531,7 +552,7 @@ class RespectifyWordpressPlugin {
 				if ($parent_comment->comment_post_ID != $commentdata['comment_post_ID']) {
 					\Respectify\respectify_log('Parent comment belongs to different post - ignoring parent context');
 				} else {
-					$reply_to_comment_text = sanitize_text_field(wp_unslash($parent_comment->comment_content));
+					$reply_to_comment_text = sanitize_textarea_field(wp_unslash($parent_comment->comment_content));
 					\Respectify\respectify_log('Found comment being replied to: ' . substr($reply_to_comment_text, 0, 50) . '...');
 				}
 			} else {
@@ -588,6 +609,8 @@ class RespectifyWordpressPlugin {
 					'respectify_action' => $action,
 					'respectify_evaluated_at' => current_time('mysql')
 				);
+				\Respectify\respectify_log('Comment result before insertion: ' . wp_json_encode($commentdata));
+				return $commentdata;
 			} elseif ($action === \Respectify\ACTION_REVISE) {
 				// Comment needs revision - we will NOT store it in the database
 				// Instead, we return a WP_Error which will be caught by the AJAX handler
@@ -644,19 +667,19 @@ class RespectifyWordpressPlugin {
 		// Get assessment settings
 		$assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
 
+		// Initialize array to store all feedback messages
+		$feedback_messages = array();
+
 		// Check for spam first if spam checking is enabled
 		if ($assessment_settings['check_spam'] && isset($megaResult->spam) && $megaResult->spam->isSpam) {
 			return "This looks like spam.";
 		}
 
-		// Initialize array to store all feedback messages
-		$feedback_messages = array();
-
 		// Check for relevance issues if relevance checking is enabled
 		if ($assessment_settings['check_relevance'] && isset($megaResult->relevance)) {
 			// Check if comment is off-topic
 			if (!$megaResult->relevance->onTopic->isOnTopic) {
-				$feedback_messages[] = "Your comment appears to be off-topic. " . $megaResult->relevance->onTopic->reasoning;
+				$feedback_messages[] = "<p>Your comment appears to be off-topic. " . esc_html($megaResult->relevance->onTopic->reasoning) . "</p>";
 			}
 			
 			// Check for banned topics only if we have banned topics configured
@@ -667,17 +690,8 @@ class RespectifyWordpressPlugin {
 				
 				// Only show feedback if the percentage exceeds the threshold
 				if ($banned_topics_percentage >= $relevance_settings['banned_topics_threshold']) {
-					$feedback = "Your comment contains topics that the site owner does not want discussed. ";
-					$feedback .= $megaResult->relevance->bannedTopics->reasoning;
-					
-					// Add the list of banned topics if available
-					if (!empty($megaResult->relevance->bannedTopics->bannedTopics)) {
-						$feedback .= "\n\nDetected undesired topics:\n";
-						foreach ($megaResult->relevance->bannedTopics->bannedTopics as $topic) {
-							$feedback .= "- " . esc_html($topic) . "\n";
-						}
-					}
-					
+					$feedback = "<p>Your comment contains topics that the site owner does not want discussed. ";
+					$feedback .= esc_html($megaResult->relevance->bannedTopics->reasoning) . "</p>";
 					$feedback_messages[] = $feedback;
 				}
 			}
@@ -690,44 +704,58 @@ class RespectifyWordpressPlugin {
 
 			// Add low effort feedback
 			if ($revise_settings['low_effort'] && isset($comment_score->appearsLowEffort) && $comment_score->appearsLowEffort) {
-				$feedback_messages[] = "Your comment appears to be low effort.";
+				$feedback_messages[] = "<p>Your comment appears to be low effort.</p>";
 			}
 
 			// Add logical fallacies feedback
 			if ($revise_settings['logical_fallacies'] && !empty($comment_score->logicalFallacies)) {
-				$feedback = "Your comment contains a common mistep, a logical fallacy:\n";
+				$feedback = "<p>Your comment contains a common mistep, a logical fallacy:</p><ul>";
 				foreach ($comment_score->logicalFallacies as $fallacy) {
-					$feedback .= "- " . esc_html($fallacy) . "\n";
+					$feedback .= "<li><em>" . esc_html($fallacy->quotedLogicalFallacyExample) . "</em>: ";
+					$feedback .= esc_html($fallacy->explanationAndSuggestions);
+					if (!empty($fallacy->suggestedRewrite)) {
+						$feedback .= "<div class='respectify-suggestion'>" . esc_html($fallacy->suggestedRewrite) . "</div>";
+					}
+					$feedback .= "</li>";
 				}
+				$feedback .= "</ul>";
 				$feedback_messages[] = $feedback;
 			}
 
 			// Add objectionable phrases feedback
 			if ($revise_settings['objectionable_phrases'] && !empty($comment_score->objectionablePhrases)) {
-				$feedback = "Your comment contains objectionable phrases:\n";
+				$feedback = "<p>Your comment contains objectionable phrases:</p><ul>";
 				foreach ($comment_score->objectionablePhrases as $phrase) {
-					$feedback .= "- " . esc_html($phrase) . "\n";
+					$feedback .= "<li><em>" . esc_html($phrase->quotedObjectionablePhrase) . "</em>: ";
+					$feedback .= esc_html($phrase->explanation) . "</li>";
 				}
+				$feedback .= "</ul>";
 				$feedback_messages[] = $feedback;
 			}
 
 			// Add negative tone feedback
 			if ($revise_settings['negative_tone'] && !empty($comment_score->negativeTone)) {
-				$feedback = "Your comment has an unhelpfully negative tone (that is, is negative in a way that does not help the discussion):\n";
+				$feedback = "<p>Your comment is negative in a way that does not help the discussion:</p><ul>";
 				foreach ($comment_score->negativeTone as $tone) {
-					$feedback .= "- " . esc_html($tone) . "\n";
+					$feedback .= "<li><em>" . esc_html($tone->quotedNegativeTonePhrase) . "</em>: ";
+					$feedback .= esc_html($tone->explanation);
+					if (!empty($tone->suggestedRewrite)) {
+						$feedback .= "<div class='respectify-suggestion'>" . esc_html($tone->suggestedRewrite) . "</div>";
+					}
+					$feedback .= "</li>";
 				}
+				$feedback .= "</ul>";
 				$feedback_messages[] = $feedback;
 			}
 		}
 
-		// If no feedback messages were generated, provide generic feedback
-		if (empty($feedback_messages)) {
-			return "Please revise your comment.";
+		// Only return feedback if we have actual issues to report
+		if (!empty($feedback_messages)) {
+			return implode("\n", $feedback_messages);
 		}
 
-		// Combine all feedback messages with double newlines between them
-		return implode("\n\n", $feedback_messages);
+		// No issues found, return empty string
+		return '';
 	}
 
 	/**
@@ -749,7 +777,7 @@ class RespectifyWordpressPlugin {
             return $spam_handling; // Spam is always handled first as it's the most critical
         }
 
-        // Check for relevance issues if relevance checking is enabled
+        // Only check relevance if it's enabled
         if ($assessment_settings['check_relevance'] && isset($megaResult->relevance)) {
             $relevance_settings = get_option(\Respectify\OPTION_RELEVANCE_SETTINGS, \Respectify\RELEVANCE_DEFAULT_SETTINGS);
             
@@ -805,7 +833,7 @@ class RespectifyWordpressPlugin {
             }
         }
 
-        // Check health assessment if enabled
+        // Only check health assessment if it's enabled
         if ($assessment_settings['assess_health'] && isset($megaResult->commentScore)) {
             $revise_settings = get_option(\Respectify\OPTION_REVISE_SETTINGS, \Respectify\REVISE_DEFAULT_SETTINGS);
             
@@ -891,7 +919,7 @@ class RespectifyWordpressPlugin {
 			'comment_author'       => isset($_POST['author']) ? sanitize_text_field(wp_unslash($_POST['author'])) : '',
 			'comment_author_email' => isset($_POST['email']) ? sanitize_email(wp_unslash($_POST['email'])) : '',
 			'comment_author_url'   => isset($_POST['url']) ? esc_url_raw(wp_unslash($_POST['url'])) : '',
-			'comment_content'      => isset($_POST['comment']) ? sanitize_textarea_field(wp_unslash($_POST['comment'])) : '',
+			'comment_content'      => isset($_POST['comment_content']) ? sanitize_textarea_field(wp_unslash($_POST['comment_content'])) : '',
 			'comment_type'         => '', // Empty for regular comments
 			'comment_parent'       => isset($_POST['comment_parent']) ? absint($_POST['comment_parent']) : 0,
 			'user_id'              => get_current_user_id(),
@@ -900,6 +928,9 @@ class RespectifyWordpressPlugin {
 			'comment_date'         => current_time('mysql'),
 			'comment_approved'     => 1, // Adjust approval status as needed
 		);
+
+		// Log the comment data for debugging
+		\Respectify\respectify_log('Comment data prepared: ' . wp_json_encode($commentdata));
 
 		// Intercept and process the comment
 		$result = $this->intercept_comment($commentdata);
@@ -910,9 +941,12 @@ class RespectifyWordpressPlugin {
 				'data'    => $result->get_error_data(),
 			]);
 		} else {
-			// Insert the comment into the database
-			$comment_id = wp_new_comment($result, true); // Pass $result which contains the processed comment data
-	
+			// Log the result before inserting
+			\Respectify\respectify_log('Comment result before insertion: ' . wp_json_encode($result));
+			
+			// Insert the comment into the database directly
+			$comment_id = wp_insert_comment($result);
+			
 			if (is_wp_error($comment_id)) {
 				wp_send_json_error(['message' => $comment_id->get_error_message()]);
 			} else {
