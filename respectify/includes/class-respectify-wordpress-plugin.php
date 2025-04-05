@@ -667,9 +667,6 @@ class RespectifyWordpressPlugin {
 		// Get assessment settings
 		$assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
 
-		// Initialize array to store all feedback messages
-		$feedback_messages = array();
-
 		// Check for spam first if spam checking is enabled
 		if ($assessment_settings['check_spam'] && isset($megaResult->spam) && $megaResult->spam->isSpam) {
 			return "This looks like spam.";
@@ -679,7 +676,7 @@ class RespectifyWordpressPlugin {
 		if ($assessment_settings['check_relevance'] && isset($megaResult->relevance)) {
 			// Check if comment is off-topic
 			if (!$megaResult->relevance->onTopic->isOnTopic) {
-				$feedback_messages[] = "<p>Your comment appears to be off-topic. " . esc_html($megaResult->relevance->onTopic->reasoning) . "</p>";
+				return "<p>Your comment appears to be off-topic. " . esc_html($megaResult->relevance->onTopic->reasoning) . "</p>";
 			}
 			
 			// Check for banned topics only if we have banned topics configured
@@ -690,9 +687,8 @@ class RespectifyWordpressPlugin {
 				
 				// Only show feedback if the percentage exceeds the threshold
 				if ($banned_topics_percentage >= $relevance_settings['banned_topics_threshold']) {
-					$feedback = "<p>Your comment contains topics that the site owner does not want discussed. ";
-					$feedback .= esc_html($megaResult->relevance->bannedTopics->reasoning) . "</p>";
-					$feedback_messages[] = $feedback;
+					return "<p>Your comment contains topics that the site owner does not want discussed. " . 
+						   esc_html($megaResult->relevance->bannedTopics->reasoning) . "</p>";
 				}
 			}
 		}
@@ -704,7 +700,7 @@ class RespectifyWordpressPlugin {
 
 			// Add low effort feedback
 			if ($revise_settings['low_effort'] && isset($comment_score->appearsLowEffort) && $comment_score->appearsLowEffort) {
-				$feedback_messages[] = "<p>Your comment appears to be low effort.</p>";
+				return "<p>Your comment appears to be low effort.</p>";
 			}
 
 			// Add logical fallacies feedback
@@ -719,7 +715,7 @@ class RespectifyWordpressPlugin {
 					$feedback .= "</li>";
 				}
 				$feedback .= "</ul>";
-				$feedback_messages[] = $feedback;
+				return $feedback;
 			}
 
 			// Add objectionable phrases feedback
@@ -730,7 +726,7 @@ class RespectifyWordpressPlugin {
 					$feedback .= esc_html($phrase->explanation) . "</li>";
 				}
 				$feedback .= "</ul>";
-				$feedback_messages[] = $feedback;
+				return $feedback;
 			}
 
 			// Add negative tone feedback
@@ -745,13 +741,8 @@ class RespectifyWordpressPlugin {
 					$feedback .= "</li>";
 				}
 				$feedback .= "</ul>";
-				$feedback_messages[] = $feedback;
+				return $feedback;
 			}
-		}
-
-		// Only return feedback if we have actual issues to report
-		if (!empty($feedback_messages)) {
-			return implode("\n", $feedback_messages);
 		}
 
 		// No issues found, return empty string
