@@ -252,15 +252,17 @@ input[type="range"] {
 #respectify_banned_topics_threshold {
     -webkit-appearance: none;
     width: 150px;
-    height: 8px;
-    border-radius: 4px;
+    background: transparent;
+}
+
+#respectify_banned_topics_threshold::-webkit-slider-runnable-track {
     background: linear-gradient(to right, 
         var(--banned-topics-color-0) 0%,
         var(--banned-topics-color-50) 50%,
         var(--banned-topics-color-100) 100%
     );
-    outline: none;
-    margin-top: -2px; /* Adjust vertical alignment */
+    height: 8px;
+    border-radius: 4px;
 }
 
 #respectify_banned_topics_threshold::-webkit-slider-thumb {
@@ -270,19 +272,9 @@ input[type="range"] {
     height: 16px;
     border-radius: 50%;
     background: #2271b1;
-    cursor: pointer;
-    margin-top: -2px; /* Move thumb down slightly */
-}
-
-#respectify_banned_topics_threshold::-moz-range-thumb {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: #2271b1;
-    cursor: pointer;
     border: none;
-    position: relative;
-    top: 2px; /* Move thumb down slightly for Firefox */
+    cursor: pointer;
+    margin-top: -4px;
 }
 
 #respectify_banned_topics_threshold::-moz-range-track {
@@ -295,6 +287,19 @@ input[type="range"] {
     border: none;
     border-radius: 4px;
 }
+
+#respectify_banned_topics_threshold::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #2271b1;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    top: 2px;
+}
+
+/* Thumb styling will be inherited from the base input[type="range"] styles */
 
 .respectify-radio-group {
     display: flex;
