@@ -32,7 +32,7 @@ function respectify_register_settings() {
     register_setting('respectify_options_group', \Respectify\OPTION_RELEVANCE_SETTINGS);
     register_setting('respectify_options_group', \Respectify\OPTION_BANNED_TOPICS);
     register_setting('respectify_options_group', \Respectify\OPTION_SPAM_HANDLING);
-    register_setting('respectify_options_group', \Respectify\OPTION_ASSESSMENT_SETTINGS);
+    register_setting('respectify_options_group', \Respectify\OPTION_ASSESSMENT_SETTINGS, 'respectify_sanitize_assessment_settings');
 
     // Add settings sections
     add_settings_section(
@@ -600,6 +600,14 @@ function respectify_sanitize_assessment_settings($input) {
 // Add the callbacks for individual assessment checkboxes
 function respectify_assess_health_callback() {
     $assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
+    
+    // Safety check: if settings are not an array, use defaults
+    if (!is_array($assessment_settings)) {
+        $assessment_settings = \Respectify\ASSESSMENT_DEFAULT_SETTINGS;
+        // Try to fix the stored settings
+        update_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, $assessment_settings);
+    }
+    
     ?>
     <tr class="respectify-checkbox-row">
         <th scope="row">
@@ -615,6 +623,14 @@ function respectify_assess_health_callback() {
 
 function respectify_check_relevance_callback() {
     $assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
+    
+    // Safety check: if settings are not an array, use defaults
+    if (!is_array($assessment_settings)) {
+        $assessment_settings = \Respectify\ASSESSMENT_DEFAULT_SETTINGS;
+        // Try to fix the stored settings
+        update_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, $assessment_settings);
+    }
+    
     ?>
     <tr class="respectify-checkbox-row respectify-checkbox-row-with-spacing">
         <th scope="row">
@@ -630,6 +646,14 @@ function respectify_check_relevance_callback() {
 
 function respectify_check_spam_callback() {
     $assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
+    
+    // Safety check: if settings are not an array, use defaults
+    if (!is_array($assessment_settings)) {
+        $assessment_settings = \Respectify\ASSESSMENT_DEFAULT_SETTINGS;
+        // Try to fix the stored settings
+        update_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, $assessment_settings);
+    }
+    
     ?>
     <tr class="respectify-checkbox-row respectify-checkbox-row-with-spacing">
         <th scope="row">
