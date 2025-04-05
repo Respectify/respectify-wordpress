@@ -400,12 +400,40 @@ class RespectifyWordpressPlugin {
             $full_comment_text .= "\n" . $comment_text;
         }
 
+        // Get assessment settings to determine which services to request
+        $assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
+        $services = array();
+        
+        if ($assessment_settings['check_spam']) {
+            $services[] = 'spam';
+        }
+        if ($assessment_settings['assess_health']) {
+            $services[] = 'commentscore';
+        }
+        if ($assessment_settings['check_relevance']) {
+            $services[] = 'relevance';
+        }
+
+        // If no services are enabled, default to all
+        if (empty($services)) {
+            $services = ['spam', 'commentscore', 'relevance'];
+        }
+
+        // Get banned topics if relevance checking is enabled
+        $banned_topics = null;
+        if ($assessment_settings['check_relevance']) {
+            $banned_topics = get_option(\Respectify\OPTION_BANNED_TOPICS, '');
+            if (empty($banned_topics)) {
+                $banned_topics = null;
+            }
+        }
+
         $promise = $this->respectify_client->megacall(
             comment: $full_comment_text,
             articleContextId:$respectify_article_id,
-            services:['spam', 'commentscore', 'relevance'],
-			bannedTopics: null,
-			replyToComment: $reply_to_comment_text
+            services:$services,
+            bannedTopics: $banned_topics,
+            replyToComment: $reply_to_comment_text
         ); 
         $caughtException = null;
 
@@ -613,13 +641,16 @@ class RespectifyWordpressPlugin {
      * @return string (HTML) feedback to show to the user.
      */
 	private function build_feedback_html($megaResult) {
-		// Check for spam first
-		if (isset($megaResult->spam) && $megaResult->spam->isSpam) {
+		// Get assessment settings
+		$assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
+
+		// Check for spam first if spam checking is enabled
+		if ($assessment_settings['check_spam'] && isset($megaResult->spam) && $megaResult->spam->isSpam) {
 			return "This looks like spam.";
 		}
 
-		// Check for relevance issues
-		if (isset($megaResult->relevance)) {
+		// Check for relevance issues if relevance checking is enabled
+		if ($assessment_settings['check_relevance'] && isset($megaResult->relevance)) {
 			// Check if comment is off-topic
 			if (!$megaResult->relevance->onTopic->isOnTopic) {
 				$feedback = "Your comment appears to be off-topic. ";
@@ -627,8 +658,9 @@ class RespectifyWordpressPlugin {
 				return $feedback;
 			}
 			
-			// Check for banned topics
-			if (!empty($megaResult->relevance->bannedTopics->bannedTopics)) {
+			// Check for banned topics only if we have banned topics configured
+			$banned_topics = get_option(\Respectify\OPTION_BANNED_TOPICS, '');
+			if (!empty($banned_topics) && !empty($megaResult->relevance->bannedTopics->bannedTopics)) {
 				$relevance_settings = get_option(\Respectify\OPTION_RELEVANCE_SETTINGS, \Respectify\RELEVANCE_DEFAULT_SETTINGS);
 				$banned_topics_percentage = $megaResult->relevance->bannedTopics->percentage ?? 0;
 				
@@ -650,8 +682,8 @@ class RespectifyWordpressPlugin {
 			}
 		}
 
-		// If no comment score is available, we can't provide specific feedback
-		if (!isset($megaResult->commentScore)) {
+		// If no comment score is available or health assessment is disabled, provide generic feedback
+		if (!$assessment_settings['assess_health'] || !isset($megaResult->commentScore)) {
 			return "Please revise your comment.";
 		}
 
@@ -700,14 +732,17 @@ class RespectifyWordpressPlugin {
      * @return string Action to take -- see ACTION_ constants
      */
     private function get_comment_action($megaResult) {
-        // Check for spam first
-        if (isset($megaResult->spam) && $megaResult->spam->isSpam) {
+        // Get assessment settings
+        $assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
+
+        // Check for spam first if spam checking is enabled
+        if ($assessment_settings['check_spam'] && isset($megaResult->spam) && $megaResult->spam->isSpam) {
             $spam_handling = get_option(\Respectify\OPTION_SPAM_HANDLING, \Respectify\DEFAULT_SPAM_HANDLING);
             return $spam_handling;
         }
 
-        // Check for relevance issues
-        if (isset($megaResult->relevance)) {
+        // Check for relevance issues if relevance checking is enabled
+        if ($assessment_settings['check_relevance'] && isset($megaResult->relevance)) {
             $relevance_settings = get_option(\Respectify\OPTION_RELEVANCE_SETTINGS, \Respectify\RELEVANCE_DEFAULT_SETTINGS);
             
             // Check if comment is off-topic
@@ -715,8 +750,9 @@ class RespectifyWordpressPlugin {
                 return $relevance_settings['off_topic_handling'];
             }
             
-            // Check for banned topics
-            if (!empty($megaResult->relevance->bannedTopics->bannedTopics)) {
+            // Check for banned topics only if we have banned topics configured
+            $banned_topics = get_option(\Respectify\OPTION_BANNED_TOPICS, '');
+            if (!empty($banned_topics) && !empty($megaResult->relevance->bannedTopics->bannedTopics)) {
                 // Get the banned topics percentage from the result
                 $banned_topics_percentage = $megaResult->relevance->bannedTopics->percentage ?? 0;
                 
@@ -737,8 +773,8 @@ class RespectifyWordpressPlugin {
             }
         }
 
-        // If no comment score is available, default to publishing
-        if (!isset($megaResult->commentScore)) {
+        // If no comment score is available or health assessment is disabled, default to publishing
+        if (!$assessment_settings['assess_health'] || !isset($megaResult->commentScore)) {
             return \Respectify\ACTION_PUBLISH;
         }
 
@@ -864,56 +900,4 @@ class RespectifyWordpressPlugin {
 		wp_enqueue_style('respectify-comments', plugins_url('public/css/respectify-comments.css', __DIR__), array(), $this->version);
 	}
 
-	private function process_comment($comment_id) {
-		$comment = get_comment($comment_id);
-		if (!$comment) {
-			return;
-		}
-
-		$assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
-		
-		// Prepare the request data
-		$request_data = array(
-			'comment' => $comment->comment_content,
-			'post_title' => get_the_title($comment->comment_post_ID),
-			'post_content' => get_post_field('post_content', $comment->comment_post_ID)
-		);
-
-		// Only include assessment types that are enabled
-		$assessments = array();
-		if ($assessment_settings['assess_health']) {
-			$assessments[] = 'health';
-		}
-		if ($assessment_settings['check_relevance']) {
-			$assessments[] = 'relevance';
-		}
-		if ($assessment_settings['check_spam']) {
-			$assessments[] = 'spam';
-		}
-
-		if (empty($assessments)) {
-			return; // No assessments enabled, nothing to do
-		}
-
-		$request_data['assessments'] = $assessments;
-
-		// Make the API call
-		$response = $this->make_api_request('assess', $request_data);
-		if (is_wp_error($response)) {
-			return;
-		}
-
-		// Process the response based on enabled assessments
-		if ($assessment_settings['assess_health'] && isset($response['health'])) {
-			$this->handle_health_assessment($comment_id, $response['health']);
-		}
-		
-		if ($assessment_settings['check_relevance'] && isset($response['relevance'])) {
-			$this->handle_relevance_check($comment_id, $response['relevance']);
-		}
-		
-		if ($assessment_settings['check_spam'] && isset($response['spam'])) {
-			$this->handle_spam_check($comment_id, $response['spam']);
-		}
-	}
 }
