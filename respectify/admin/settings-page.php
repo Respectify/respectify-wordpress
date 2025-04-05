@@ -257,7 +257,6 @@ function respectify_revise_settings_callback() {
             </label>
         </div>
     </div>
-    <p class="description" style="margin-top: 0.5rem;"><?php esc_html_e('Comments with any of the above will not be posted, but the commenter asked to revise.', 'respectify'); ?></p>
     <?php
 }
 
