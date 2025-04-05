@@ -290,3 +290,50 @@ input[type="range"] {
     margin-top: 10px;
     transition: opacity 0.3s ease;
 }
+
+/* Add spacing between settings sections */
+.respectify-settings-section {
+    margin-bottom: 2em;
+    padding-bottom: 1.5em;
+    border-bottom: 1px solid #eee;
+}
+
+.respectify-settings-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+/* Add spacing between settings sections */
+.form-table > tbody > tr {
+    margin-bottom: 2em;
+}
+
+.form-table > tbody > tr > th,
+.form-table > tbody > tr > td {
+    padding-bottom: 2em;
+    padding-top: 1em;
+}
+
+/* Remove spacing from the last row in each section */
+.form-table > tbody > tr:last-child > th,
+.form-table > tbody > tr:last-child > td {
+    padding-bottom: 0;
+}
+
+/* Align description text with headings in specific rows */
+.form-table > tbody > tr:nth-child(3) > td .description,
+.form-table > tbody > tr:nth-child(4) > td .description {
+    margin-top: 0;
+    padding-top: 0;
+    vertical-align: top;
+}
+
+/* Adjust Healthy Comments row content */
+.form-table > tbody > tr:nth-child(1) > td > .respectify-settings-column {
+    margin-top: -0.6em;
+}
+
+.form-table > tbody > tr:nth-child(3) > td > .respectify-settings-column {
+    margin-top: 0;
+}
+
