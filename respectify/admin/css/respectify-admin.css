@@ -245,7 +245,7 @@ input[type="range"] {
     vertical-align: middle;
     margin: 0 5px;
     position: relative;
-    top: -2px; /* Match the Firefox thumb positioning */
+    top: 0; /* Changed from 1px to 0 to align circles */
 }
 
 /* Banned Topics Slider */
@@ -312,6 +312,16 @@ input[type="range"] {
     margin-left: 3.2rem;
     margin-top: 10px;
     transition: opacity 0.3s ease;
+}
+
+#banned-topics-threshold-slider .description {
+    display: block;
+    margin-top: 1.5rem;
+    margin-left: 0.35rem;
+}
+
+#banned-topics-threshold-slider br {
+    display: none;
 }
 
 /* Add spacing between settings sections */
