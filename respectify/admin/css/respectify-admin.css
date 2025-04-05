@@ -361,8 +361,18 @@ input[type="range"] {
 
 /* Add thick left border to all table header cells except checkbox rows */
 .form-table > tbody > tr:not(.respectify-checkbox-row) > th[scope="row"] {
-    border-left: 4px solid #2271b1;
-    padding-left: 1rem;
+    position: relative;
+    padding-left: 1.5rem;
+}
+
+.form-table > tbody > tr:not(.respectify-checkbox-row) > th[scope="row"]::before {
+    content: '';
+    position: absolute;
+    left: 6px; /* Indent by half a checkbox width */
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background-color: #2271b1;
 }
 
 .respectify-checkbox-row label {
@@ -447,5 +457,63 @@ input[type="range"] {
 .form-table > tbody > tr:first-child > td {
     padding-bottom: 0;
     padding-top: 0;
+}
+
+/* Hide completely empty table rows */
+.form-table > tbody > tr:empty,
+.form-table > tbody > tr > th:empty + td:empty {
+    display: none;
+}
+
+/* Hide rows with empty th[scope="row"] and td */
+.form-table > tbody > tr > th[scope="row"]:not(:has(label)) + td:empty,
+.form-table > tbody > tr > th[scope="row"]:not(:has(label)) + td:blank {
+    display: none;
+}
+
+/* Hide the entire row */
+.form-table > tbody > tr:has(> th[scope="row"]:not(:has(label)) + td:empty),
+.form-table > tbody > tr:has(> th[scope="row"]:not(:has(label)) + td:blank) {
+    display: none !important;
+}
+
+/* Alternative approach using parent selector */
+tr:has(> th[scope="row"]:not(:has(label)) + td:empty) {
+    display: none !important;
+}
+
+/* Hide empty rows that appear before checkbox rows */
+.form-table > tbody > tr:has(> th[scope="row"]:empty + td:empty) + tr.respectify-checkbox-row,
+.form-table > tbody > tr:has(> th[scope="row"]:empty + td:empty) {
+    display: none !important;
+}
+
+/* Hide empty rows before any checkbox row */
+.form-table > tbody > tr:has(+ tr.respectify-checkbox-row):has(> th[scope="row"]:empty) {
+    display: none !important;
+}
+
+/* Hide empty rows that come before rows containing checkboxes */
+.form-table > tbody > tr:has(+ tr:has(input[type="checkbox"])):has(> th[scope="row"]:empty) {
+    display: none !important;
+}
+
+/* Target the specific pattern we're seeing */
+.form-table > tbody > tr:has(> th[scope="row"]:empty):has(+ tr:has(label:has(input[type="checkbox"]))) {
+    display: none !important;
+}
+
+/* Add visual separation above checkbox rows (except the first checkbox row) */
+.form-table > tbody > tr.respectify-checkbox-row:not(:first-of-type) {
+    padding-top: 2rem;
+}
+
+/* Ensure the padding is applied to the cell content (except the first checkbox row) */
+.form-table > tbody > tr.respectify-checkbox-row:not(:first-of-type) > th {
+    padding-top: 2rem;
+}
+
+.form-table > tbody > tr.respectify-checkbox-row:not(:first-of-type) > td {
+    padding-top: 2rem;
 }
 

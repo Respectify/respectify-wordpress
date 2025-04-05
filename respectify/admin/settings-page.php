@@ -100,7 +100,7 @@ function respectify_register_settings() {
 
     add_settings_field(
         \Respectify\OPTION_RELEVANCE_SETTINGS,
-        esc_html__('Topic Relevance', 'respectify'),
+        esc_html__('Off Topic Comments', 'respectify'),
         'respectify_relevance_settings_callback',
         'respectify',
         'respectify_behavior_settings_section'
