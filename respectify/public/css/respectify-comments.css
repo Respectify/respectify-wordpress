@@ -13,6 +13,10 @@
     margin-top: 0.8rem;
 }
 
+.respectify-message p:first-child {
+    margin-top: 0;
+}
+
 .respectify-error {
     margin-top: 10px;
     border: 1px solid var(--respectify-message-color);
