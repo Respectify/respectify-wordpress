@@ -863,4 +863,57 @@ class RespectifyWordpressPlugin {
 	
 		wp_enqueue_style('respectify-comments', plugins_url('public/css/respectify-comments.css', __DIR__), array(), $this->version);
 	}
+
+	private function process_comment($comment_id) {
+		$comment = get_comment($comment_id);
+		if (!$comment) {
+			return;
+		}
+
+		$assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
+		
+		// Prepare the request data
+		$request_data = array(
+			'comment' => $comment->comment_content,
+			'post_title' => get_the_title($comment->comment_post_ID),
+			'post_content' => get_post_field('post_content', $comment->comment_post_ID)
+		);
+
+		// Only include assessment types that are enabled
+		$assessments = array();
+		if ($assessment_settings['assess_health']) {
+			$assessments[] = 'health';
+		}
+		if ($assessment_settings['check_relevance']) {
+			$assessments[] = 'relevance';
+		}
+		if ($assessment_settings['check_spam']) {
+			$assessments[] = 'spam';
+		}
+
+		if (empty($assessments)) {
+			return; // No assessments enabled, nothing to do
+		}
+
+		$request_data['assessments'] = $assessments;
+
+		// Make the API call
+		$response = $this->make_api_request('assess', $request_data);
+		if (is_wp_error($response)) {
+			return;
+		}
+
+		// Process the response based on enabled assessments
+		if ($assessment_settings['assess_health'] && isset($response['health'])) {
+			$this->handle_health_assessment($comment_id, $response['health']);
+		}
+		
+		if ($assessment_settings['check_relevance'] && isset($response['relevance'])) {
+			$this->handle_relevance_check($comment_id, $response['relevance']);
+		}
+		
+		if ($assessment_settings['check_spam'] && isset($response['spam'])) {
+			$this->handle_spam_check($comment_id, $response['spam']);
+		}
+	}
 }

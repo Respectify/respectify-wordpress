@@ -31,7 +31,8 @@ function respectify_register_settings() {
     register_setting('respectify_options_group', \Respectify\OPTION_REVISE_SETTINGS);
     register_setting('respectify_options_group', \Respectify\OPTION_RELEVANCE_SETTINGS);
     register_setting('respectify_options_group', \Respectify\OPTION_BANNED_TOPICS);
-    register_setting('respectify_options_group', \Respectify\OPTION_SPAM_HANDLING);  // Moved to bottom
+    register_setting('respectify_options_group', \Respectify\OPTION_SPAM_HANDLING);
+    register_setting('respectify_options_group', \Respectify\OPTION_ASSESSMENT_SETTINGS);
 
     // Add settings sections
     add_settings_section(
@@ -72,10 +73,27 @@ function respectify_register_settings() {
         'respectify_settings_section'
     );
 
+    // Add assessment checkboxes in their own rows
+    add_settings_field(
+        'respectify_assess_health',
+        '',
+        'respectify_assess_health_callback',
+        'respectify',
+        'respectify_behavior_settings_section'
+    );
+
     add_settings_field(
         \Respectify\OPTION_REVISE_SETTINGS,
         esc_html__('Healthy Comments', 'respectify'),
         'respectify_revise_settings_callback',
+        'respectify',
+        'respectify_behavior_settings_section'
+    );
+
+    add_settings_field(
+        'respectify_check_relevance',
+        '',
+        'respectify_check_relevance_callback',
         'respectify',
         'respectify_behavior_settings_section'
     );
@@ -92,6 +110,14 @@ function respectify_register_settings() {
         \Respectify\OPTION_BANNED_TOPICS,
         esc_html__('Undesired Topics', 'respectify'),
         'respectify_banned_topics_settings_callback',
+        'respectify',
+        'respectify_behavior_settings_section'
+    );
+
+    add_settings_field(
+        'respectify_check_spam',
+        '',
+        'respectify_check_spam_callback',
         'respectify',
         'respectify_behavior_settings_section'
     );
@@ -118,6 +144,17 @@ function respectify_register_settings() {
         'respectify_api_version_callback',
         'respectify',
         'respectify_advanced_settings_section'
+    );
+}
+
+// Helper function to create checkbox titles
+function respectify_get_checkbox_title($setting, $title) {
+    $assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
+    return sprintf(
+        '<label><input type="checkbox" name="respectify_assessment_settings[%s]" value="1" %s /> %s</label>',
+        esc_attr($setting),
+        checked($assessment_settings[$setting], true, false),
+        esc_html__($title, 'respectify')
     );
 }
 
@@ -218,7 +255,7 @@ function respectify_revise_settings_callback() {
             </label>
         </div>
     </div>
-    <p class="description"><?php esc_html_e('Comments with any of the above will not be posted, but the commenter asked to revise.', 'respectify'); ?></p>
+    <p class="description" style="margin-top: 0.5rem;"><?php esc_html_e('Comments with any of the above will not be posted, but the commenter asked to revise.', 'respectify'); ?></p>
     <?php
 }
 
@@ -545,4 +582,118 @@ function respectify_banned_topics_settings_callback() {
         </div>
     </div>
     <?php
+}
+
+// Add the callback for assessment settings
+function respectify_assessment_settings_callback() {
+    $assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
+    ?>
+    <div class="respectify-settings-column">
+        <div class="respectify-checkbox-group">
+            <label>
+                <input type="checkbox" name="respectify_assessment_settings[assess_health]" value="1" <?php checked($assessment_settings['assess_health'], true); ?> />
+                <?php esc_html_e('Assess Comment Health', 'respectify'); ?>
+            </label>
+            <label>
+                <input type="checkbox" name="respectify_assessment_settings[check_relevance]" value="1" <?php checked($assessment_settings['check_relevance'], true); ?> />
+                <?php esc_html_e('Check if on-topic', 'respectify'); ?>
+            </label>
+            <label>
+                <input type="checkbox" name="respectify_assessment_settings[check_spam]" value="1" <?php checked($assessment_settings['check_spam'], true); ?> />
+                <?php esc_html_e('Check for spam', 'respectify'); ?>
+            </label>
+        </div>
+    </div>
+    <?php
+}
+
+// Add sanitization function for assessment settings
+function respectify_sanitize_assessment_settings($input) {
+    $sanitized_input = array();
+    
+    $checkboxes = array('assess_health', 'check_relevance', 'check_spam');
+    foreach ($checkboxes as $checkbox) {
+        $sanitized_input[$checkbox] = isset($input[$checkbox]) && $input[$checkbox] === '1' ? true : false;
+    }
+    
+    return $sanitized_input;
+}
+
+// Add the callbacks for individual assessment checkboxes
+function respectify_assess_health_callback() {
+    $assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
+    ?>
+    <tr class="respectify-checkbox-row">
+        <th scope="row">
+            <label>
+                <input type="checkbox" name="respectify_assessment_settings[assess_health]" value="1" <?php checked($assessment_settings['assess_health'], true); ?> />
+                <?php esc_html_e('Assess Comment Health', 'respectify'); ?>
+            </label>
+        </th>
+        <td></td>
+    </tr>
+    <?php
+}
+
+function respectify_check_relevance_callback() {
+    $assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
+    ?>
+    <tr class="respectify-checkbox-row">
+        <th scope="row">
+            <label>
+                <input type="checkbox" name="respectify_assessment_settings[check_relevance]" value="1" <?php checked($assessment_settings['check_relevance'], true); ?> />
+                <?php esc_html_e('Check Topic Relevance', 'respectify'); ?>
+            </label>
+        </th>
+        <td></td>
+    </tr>
+    <?php
+}
+
+function respectify_check_spam_callback() {
+    $assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
+    ?>
+    <tr class="respectify-checkbox-row">
+        <th scope="row">
+            <label>
+                <input type="checkbox" name="respectify_assessment_settings[check_spam]" value="1" <?php checked($assessment_settings['check_spam'], true); ?> />
+                <?php esc_html_e('Check for Spam', 'respectify'); ?>
+            </label>
+        </th>
+        <td></td>
+    </tr>
+    <?php
+}
+
+// Add filter to modify the field titles
+add_filter('gettext', 'respectify_modify_field_titles', 10, 3);
+function respectify_modify_field_titles($translated_text, $text, $domain) {
+    if ($domain !== 'respectify') {
+        return $translated_text;
+    }
+
+    $assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
+
+    switch ($text) {
+        case 'respectify_assess_health_title':
+            return sprintf(
+                '<label><input type="checkbox" name="respectify_assessment_settings[assess_health]" value="1" %s /> %s</label>',
+                checked($assessment_settings['assess_health'], true, false),
+                esc_html__('Assess Comment Health', 'respectify')
+            );
+        case 'respectify_check_relevance_title':
+            return sprintf(
+                '<label><input type="checkbox" name="respectify_assessment_settings[check_relevance]" value="1" %s /> %s</label>',
+                checked($assessment_settings['check_relevance'], true, false),
+                esc_html__('Check Topic Relevance', 'respectify')
+            );
+        case 'respectify_check_spam_title':
+            return sprintf(
+                '<label><input type="checkbox" name="respectify_assessment_settings[check_spam]" value="1" %s /> %s</label>',
+                checked($assessment_settings['check_spam'], true, false),
+                esc_html__('Check for Spam', 'respectify')
+            );
+        default:
+            return $translated_text;
+    }
 }
