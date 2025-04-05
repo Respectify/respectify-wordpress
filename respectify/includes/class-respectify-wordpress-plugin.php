@@ -649,13 +649,14 @@ class RespectifyWordpressPlugin {
 			return "This looks like spam.";
 		}
 
+		// Initialize array to store all feedback messages
+		$feedback_messages = array();
+
 		// Check for relevance issues if relevance checking is enabled
 		if ($assessment_settings['check_relevance'] && isset($megaResult->relevance)) {
 			// Check if comment is off-topic
 			if (!$megaResult->relevance->onTopic->isOnTopic) {
-				$feedback = "Your comment appears to be off-topic. ";
-				$feedback .= $megaResult->relevance->onTopic->reasoning;
-				return $feedback;
+				$feedback_messages[] = "Your comment appears to be off-topic. " . $megaResult->relevance->onTopic->reasoning;
 			}
 			
 			// Check for banned topics only if we have banned topics configured
@@ -671,58 +672,62 @@ class RespectifyWordpressPlugin {
 					
 					// Add the list of banned topics if available
 					if (!empty($megaResult->relevance->bannedTopics->bannedTopics)) {
-						$feedback .= "\n\nDetected banned topics:\n";
+						$feedback .= "\n\nDetected undesired topics:\n";
 						foreach ($megaResult->relevance->bannedTopics->bannedTopics as $topic) {
 							$feedback .= "- " . esc_html($topic) . "\n";
 						}
 					}
 					
-					return $feedback;
+					$feedback_messages[] = $feedback;
 				}
 			}
 		}
 
-		// If no comment score is available or health assessment is disabled, provide generic feedback
-		if (!$assessment_settings['assess_health'] || !isset($megaResult->commentScore)) {
+		// Check health assessment if enabled
+		if ($assessment_settings['assess_health'] && isset($megaResult->commentScore)) {
+			$comment_score = $megaResult->commentScore;
+			$revise_settings = get_option(\Respectify\OPTION_REVISE_SETTINGS, \Respectify\REVISE_DEFAULT_SETTINGS);
+
+			// Add low effort feedback
+			if ($revise_settings['low_effort'] && isset($comment_score->appearsLowEffort) && $comment_score->appearsLowEffort) {
+				$feedback_messages[] = "Your comment appears to be low effort.";
+			}
+
+			// Add logical fallacies feedback
+			if ($revise_settings['logical_fallacies'] && !empty($comment_score->logicalFallacies)) {
+				$feedback = "Your comment contains a common mistep, a logical fallacy:\n";
+				foreach ($comment_score->logicalFallacies as $fallacy) {
+					$feedback .= "- " . esc_html($fallacy) . "\n";
+				}
+				$feedback_messages[] = $feedback;
+			}
+
+			// Add objectionable phrases feedback
+			if ($revise_settings['objectionable_phrases'] && !empty($comment_score->objectionablePhrases)) {
+				$feedback = "Your comment contains objectionable phrases:\n";
+				foreach ($comment_score->objectionablePhrases as $phrase) {
+					$feedback .= "- " . esc_html($phrase) . "\n";
+				}
+				$feedback_messages[] = $feedback;
+			}
+
+			// Add negative tone feedback
+			if ($revise_settings['negative_tone'] && !empty($comment_score->negativeTone)) {
+				$feedback = "Your comment has an unhelpfully negative tone (that is, is negative in a way that does not help the discussion):\n";
+				foreach ($comment_score->negativeTone as $tone) {
+					$feedback .= "- " . esc_html($tone) . "\n";
+				}
+				$feedback_messages[] = $feedback;
+			}
+		}
+
+		// If no feedback messages were generated, provide generic feedback
+		if (empty($feedback_messages)) {
 			return "Please revise your comment.";
 		}
 
-		$feedback = "Please revise your comment.\n\n";
-		$comment_score = $megaResult->commentScore;
-
-		// Add score feedback
-		$feedback .= "Score: " . $comment_score->score . "/5\n";
-
-		// Add low effort feedback
-		if ($comment_score->isLowEffort) {
-			$feedback .= "Your comment appears to be low effort. Please provide more substance.\n";
-		}
-
-		// Add logical fallacies feedback
-		if (!empty($comment_score->logicalFallacies)) {
-			$feedback .= "Your comment contains logical fallacies:\n";
-			foreach ($comment_score->logicalFallacies as $fallacy) {
-				$feedback .= "- " . esc_html($fallacy) . "\n";
-			}
-		}
-
-		// Add objectionable phrases feedback
-		if (!empty($comment_score->objectionablePhrases)) {
-			$feedback .= "Your comment contains objectionable phrases:\n";
-			foreach ($comment_score->objectionablePhrases as $phrase) {
-				$feedback .= "- " . esc_html($phrase) . "\n";
-			}
-		}
-
-		// Add negative tone feedback
-		if (!empty($comment_score->negativeTone)) {
-			$feedback .= "Your comment has a negative tone:\n";
-			foreach ($comment_score->negativeTone as $tone) {
-				$feedback .= "- " . esc_html($tone) . "\n";
-			}
-		}
-
-		return $feedback;
+		// Combine all feedback messages with double newlines between them
+		return implode("\n\n", $feedback_messages);
 	}
 
 	/**
@@ -735,40 +740,67 @@ class RespectifyWordpressPlugin {
         // Get assessment settings
         $assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
 
-        // Check for spam first if spam checking is enabled
+        // Initialize array to store all issues found
+        $issues = array();
+
+        // Check for spam if spam checking is enabled
         if ($assessment_settings['check_spam'] && isset($megaResult->spam) && $megaResult->spam->isSpam) {
             $spam_handling = get_option(\Respectify\OPTION_SPAM_HANDLING, \Respectify\DEFAULT_SPAM_HANDLING);
-            return $spam_handling;
+            return $spam_handling; // Spam is always handled first as it's the most critical
         }
 
         // Check for relevance issues if relevance checking is enabled
         if ($assessment_settings['check_relevance'] && isset($megaResult->relevance)) {
             $relevance_settings = get_option(\Respectify\OPTION_RELEVANCE_SETTINGS, \Respectify\RELEVANCE_DEFAULT_SETTINGS);
             
+            // Validate relevance settings
+            if (!isset($relevance_settings['off_topic_handling']) || 
+                !in_array($relevance_settings['off_topic_handling'], [\Respectify\ACTION_DELETE, \Respectify\ACTION_REVISE, \Respectify\ACTION_PUBLISH])) {
+                $relevance_settings['off_topic_handling'] = \Respectify\RELEVANCE_DEFAULT_OFF_TOPIC_HANDLING;
+            }
+            
+            if (!isset($relevance_settings['banned_topics_mode']) || 
+                !in_array($relevance_settings['banned_topics_mode'], ['any', 'threshold'])) {
+                $relevance_settings['banned_topics_mode'] = \Respectify\RELEVANCE_DEFAULT_BANNED_TOPICS_MODE;
+            }
+            
+            if (!isset($relevance_settings['banned_topics_threshold']) || 
+                !is_numeric($relevance_settings['banned_topics_threshold']) ||
+                $relevance_settings['banned_topics_threshold'] < 0 || 
+                $relevance_settings['banned_topics_threshold'] > 1) {
+                $relevance_settings['banned_topics_threshold'] = \Respectify\RELEVANCE_DEFAULT_BANNED_TOPICS_THRESHOLD;
+            }
+            
+            if (!isset($relevance_settings['banned_topics_handling']) || 
+                !in_array($relevance_settings['banned_topics_handling'], [\Respectify\ACTION_DELETE, \Respectify\ACTION_REVISE, \Respectify\ACTION_PUBLISH])) {
+                $relevance_settings['banned_topics_handling'] = \Respectify\RELEVANCE_DEFAULT_BANNED_TOPICS_HANDLING;
+            }
+            
             // Check if comment is off-topic
             if (!$megaResult->relevance->onTopic->isOnTopic) {
-                return $relevance_settings['off_topic_handling'];
+                $issues[] = array(
+                    'type' => 'off_topic',
+                    'action' => $relevance_settings['off_topic_handling']
+                );
             }
             
             // Check for banned topics only if we have banned topics configured
             $banned_topics = get_option(\Respectify\OPTION_BANNED_TOPICS, '');
             if (!empty($banned_topics) && !empty($megaResult->relevance->bannedTopics->bannedTopics)) {
-                // Get the banned topics percentage from the result
                 $banned_topics_percentage = $megaResult->relevance->bannedTopics->percentage ?? 0;
                 
-                // Check if we should take action based on the mode and threshold
                 $should_take_action = false;
-                
                 if ($relevance_settings['banned_topics_mode'] === 'any') {
-                    // Any mention triggers the action
                     $should_take_action = true;
                 } else {
-                    // Only take action if the percentage exceeds the threshold
                     $should_take_action = ($banned_topics_percentage >= $relevance_settings['banned_topics_threshold']);
                 }
                 
                 if ($should_take_action) {
-                    return $relevance_settings['banned_topics_handling'];
+                    $issues[] = array(
+                        'type' => 'banned_topics',
+                        'action' => $relevance_settings['banned_topics_handling']
+                    );
                 }
             }
         }
