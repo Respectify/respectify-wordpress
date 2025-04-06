@@ -112,6 +112,13 @@
             if (textElement) {
                 textElement.textContent = `It's ok for ${percentage}% of the comment to be about an unwanted topic.`;
             }
+            
+            // Update color class
+            const step = Math.floor(percentage / 10);
+            e.target.classList.remove('slider-value-0', 'slider-value-1', 'slider-value-2', 'slider-value-3', 
+                                    'slider-value-4', 'slider-value-5', 'slider-value-6', 'slider-value-7', 
+                                    'slider-value-8', 'slider-value-9', 'slider-value-10');
+            e.target.classList.add('slider-value-' + step);
         });
 
         // Set initial value
