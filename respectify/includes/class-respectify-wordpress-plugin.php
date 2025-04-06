@@ -675,7 +675,7 @@ class RespectifyWordpressPlugin {
 		// Check for relevance issues if relevance checking is enabled
 		if ($assessment_settings['check_relevance'] && isset($megaResult->relevance)) {
 			// Check if comment is off-topic
-			if (!$megaResult->relevance->onTopic->isOnTopic) {
+			if ($megaResult->relevance->onTopic->isOnTopic === false) {
 				return "<p>Your comment appears to be off-topic. " . esc_html($megaResult->relevance->onTopic->reasoning) . "</p>";
 			}
 			
@@ -796,7 +796,7 @@ class RespectifyWordpressPlugin {
             }
             
             // Check if comment is off-topic
-            if (!$megaResult->relevance->onTopic->isOnTopic) {
+            if ($megaResult->relevance->onTopic->isOnTopic === false) {
                 $issues[] = array(
                     'type' => 'off_topic',
                     'action' => $relevance_settings['off_topic_handling']
