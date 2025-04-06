@@ -469,54 +469,52 @@ input[type="range"] {
     border-bottom: none;
     margin-bottom: 0;
 }
-
-/* Add spacing between settings sections */
-.form-table > tbody > tr {
+body.settings_page_respectify .form-table > tbody > tr {
     margin-bottom: 1em;
 }
 
-.form-table > tbody > tr > th,
-.form-table > tbody > tr > td {
+body.settings_page_respectify .form-table > tbody > tr > th,
+body.settings_page_respectify .form-table > tbody > tr > td {
     padding-bottom: 1em;
     padding-top: 0.5em;
 }
 
 /* Remove spacing from the last row in each section */
-.form-table > tbody > tr:last-child > th,
-.form-table > tbody > tr:last-child > td {
+body.settings_page_respectify .form-table > tbody > tr:last-child > th,
+body.settings_page_respectify .form-table > tbody > tr:last-child > td {
     padding-bottom: 0;
 }
 
 /* Align description text with headings in specific rows */
-.form-table > tbody > tr:nth-child(3) > td .description,
-.form-table > tbody > tr:nth-child(4) > td .description {
+body.settings_page_respectify .form-table > tbody > tr:nth-child(3) > td .description,
+body.settings_page_respectify .form-table > tbody > tr:nth-child(4) > td .description {
     margin-top: 0;
     padding-top: 0;
     vertical-align: top;
 }
 
 /* Adjust Healthy Comments row content */
-.form-table > tbody > tr:nth-child(1) > td > .respectify-settings-column {
+body.settings_page_respectify .form-table > tbody > tr:nth-child(1) > td > .respectify-settings-column {
     margin-top: -0.6em;
 }
 
-.form-table > tbody > tr:nth-child(3) > td > .respectify-settings-column {
+body.settings_page_respectify .form-table > tbody > tr:nth-child(3) > td > .respectify-settings-column {
     margin-top: 0;
 }
 
 /* Style for checkbox rows */
-.respectify-checkbox-row {
+body.settings_page_respectify .respectify-checkbox-row {
     margin-bottom: 0.5em;
     padding: 0.5em 0;
 }
 
 /* Add thick left border to all table header cells except checkbox rows */
-.form-table > tbody > tr:not(.respectify-checkbox-row) > th[scope="row"] {
+body.settings_page_respectify .form-table > tbody > tr:not(.respectify-checkbox-row) > th[scope="row"] {
     position: relative;
     padding-left: 1.5rem;
 }
 
-.form-table > tbody > tr:not(.respectify-checkbox-row) > th[scope="row"]::before {
+body.settings_page_respectify .form-table > tbody > tr:not(.respectify-checkbox-row) > th[scope="row"]::before {
     content: '';
     position: absolute;
     left: 6px; /* Indent by half a checkbox width */
@@ -526,7 +524,7 @@ input[type="range"] {
     background-color: #2271b1;
 }
 
-.respectify-checkbox-row label {
+body.settings_page_respectify .respectify-checkbox-row label {
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -534,141 +532,141 @@ input[type="range"] {
     font-weight: 600;
 }
 
-.respectify-checkbox-row input[type="checkbox"] {
+body.settings_page_respectify .respectify-checkbox-row input[type="checkbox"] {
     margin: 0;
 }
 
 /* Ensure checkbox rows take up both columns */
-.form-table > tbody > tr.respectify-checkbox-row {
+body.settings_page_respectify .form-table > tbody > tr.respectify-checkbox-row {
     display: table-row;
 }
 
-.form-table > tbody > tr.respectify-checkbox-row > th,
-.form-table > tbody > tr.respectify-checkbox-row > td {
+body.settings_page_respectify .form-table > tbody > tr.respectify-checkbox-row > th,
+body.settings_page_respectify .form-table > tbody > tr.respectify-checkbox-row > td {
     padding-left: 0;
     padding-right: 0;
 }
 
 /* Remove any indentation from the checkbox rows */
-.form-table > tbody > tr.respectify-checkbox-row > th {
+body.settings_page_respectify .form-table > tbody > tr.respectify-checkbox-row > th {
     padding-left: 0;
     width: 0;
 }
 
 /* Add spacing between checkbox and its settings section */
-.respectify-settings-column + .respectify-settings-column {
+body.settings_page_respectify .respectify-settings-column + .respectify-settings-column {
     margin-top: 1rem;
 }
 
 /* Style for checkboxes in field titles */
-.form-table th label {
+body.settings_page_respectify .form-table th label {
     display: flex;
     align-items: center;
     gap: 0.5rem;
     cursor: pointer;
 }
 
-.form-table th input[type="checkbox"] {
+body.settings_page_respectify .form-table th input[type="checkbox"] {
     margin: 0;
 }
 
-.form-table th label:hover {
+body.settings_page_respectify .form-table th label:hover {
     color: #2271b1;
 }
 
 /* Style for settings checkboxes */
-.respectify-settings-column label {
+body.settings_page_respectify .respectify-settings-column label {
     display: flex;
     align-items: center;
     gap: 0.5rem;
     cursor: pointer;
 }
 
-.respectify-settings-column input[type="checkbox"] {
+body.settings_page_respectify .respectify-settings-column input[type="checkbox"] {
     margin: 0;
 }
 
-.respectify-settings-column label:hover {
+body.settings_page_respectify .respectify-settings-column label:hover {
     color: #2271b1;
 }
 
 /* Style for section description */
-.respectify-section-description {
+body.settings_page_respectify .respectify-section-description {
     margin: 0;
     padding: 0;
     margin-bottom: 1em;
 }
 
 /* Remove spacing from the first row */
-.form-table > tbody > tr:first-child {
+body.settings_page_respectify .form-table > tbody > tr:first-child {
     margin-bottom: 0;
 }
 
-.form-table > tbody > tr:first-child > th,
-.form-table > tbody > tr:first-child > td {
+body.settings_page_respectify .form-table > tbody > tr:first-child > th,
+body.settings_page_respectify .form-table > tbody > tr:first-child > td {
     padding-bottom: 0;
     padding-top: 0;
 }
 
 /* Hide completely empty table rows */
-.form-table > tbody > tr:empty,
-.form-table > tbody > tr > th:empty + td:empty {
+body.settings_page_respectify .form-table > tbody > tr:empty,
+body.settings_page_respectify .form-table > tbody > tr > th:empty + td:empty {
     display: none;
 }
 
 /* Hide rows with empty th[scope="row"] and td */
-.form-table > tbody > tr > th[scope="row"]:not(:has(label)) + td:empty,
-.form-table > tbody > tr > th[scope="row"]:not(:has(label)) + td:blank {
+body.settings_page_respectify .form-table > tbody > tr > th[scope="row"]:not(:has(label)) + td:empty,
+body.settings_page_respectify .form-table > tbody > tr > th[scope="row"]:not(:has(label)) + td:blank {
     display: none;
 }
 
 /* Hide the entire row */
-.form-table > tbody > tr:has(> th[scope="row"]:not(:has(label)) + td:empty),
-.form-table > tbody > tr:has(> th[scope="row"]:not(:has(label)) + td:blank) {
+body.settings_page_respectify .form-table > tbody > tr:has(> th[scope="row"]:not(:has(label)) + td:empty),
+body.settings_page_respectify .form-table > tbody > tr:has(> th[scope="row"]:not(:has(label)) + td:blank) {
     display: none !important;
 }
 
 /* Alternative approach using parent selector */
-tr:has(> th[scope="row"]:not(:has(label)) + td:empty) {
+body.settings_page_respectify tr:has(> th[scope="row"]:not(:has(label)) + td:empty) {
     display: none !important;
 }
 
 /* Hide empty rows that appear before checkbox rows */
-.form-table > tbody > tr:has(> th[scope="row"]:empty + td:empty) + tr.respectify-checkbox-row,
-.form-table > tbody > tr:has(> th[scope="row"]:empty + td:empty) {
+body.settings_page_respectify .form-table > tbody > tr:has(> th[scope="row"]:empty + td:empty) + tr.respectify-checkbox-row,
+body.settings_page_respectify .form-table > tbody > tr:has(> th[scope="row"]:empty + td:empty) {
     display: none !important;
 }
 
 /* Hide empty rows before any checkbox row */
-.form-table > tbody > tr:has(+ tr.respectify-checkbox-row):has(> th[scope="row"]:empty) {
+body.settings_page_respectify .form-table > tbody > tr:has(+ tr.respectify-checkbox-row):has(> th[scope="row"]:empty) {
     display: none !important;
 }
 
 /* Hide empty rows that come before rows containing checkboxes */
-.form-table > tbody > tr:has(+ tr:has(input[type="checkbox"])):has(> th[scope="row"]:empty) {
+body.settings_page_respectify .form-table > tbody > tr:has(+ tr:has(input[type="checkbox"])):has(> th[scope="row"]:empty) {
     display: none !important;
 }
 
 /* Target the specific pattern we're seeing */
-.form-table > tbody > tr:has(> th[scope="row"]:empty):has(+ tr:has(label:has(input[type="checkbox"]))) {
+body.settings_page_respectify .form-table > tbody > tr:has(> th[scope="row"]:empty):has(+ tr:has(label:has(input[type="checkbox"]))) {
     display: none !important;
 }
 
 /* Add visual separation above checkbox rows with spacing */
-.form-table > tbody > tr.respectify-checkbox-row-with-spacing {
+body.settings_page_respectify .form-table > tbody > tr.respectify-checkbox-row-with-spacing {
     padding-top: 2rem;
 }
 
-.form-table > tbody > tr.respectify-checkbox-row-with-spacing > th {
+body.settings_page_respectify .form-table > tbody > tr.respectify-checkbox-row-with-spacing > th {
     padding-top: 2rem;
 }
 
-.form-table > tbody > tr.respectify-checkbox-row-with-spacing > td {
+body.settings_page_respectify .form-table > tbody > tr.respectify-checkbox-row-with-spacing > td {
     padding-top: 2rem;
 }
 
 /* Add spacing above section headers in settings */
-.wrap h2:not(:first-child) {
+body.settings_page_respectify .wrap h2:not(:first-child) {
     margin-top: 2.5rem;
 }
 
