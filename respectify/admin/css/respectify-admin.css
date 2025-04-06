@@ -53,35 +53,39 @@
     margin-bottom: 1em; /* Space below the slider row */
 }
 
+.respectify-slider-row .slider-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+}
+
 .respectify-slider-row label {
-    display: inline-block;
-    vertical-align: middle;
     margin: 0;
-    margin-right: 0.5em;
 }
 
 .respectify-slider-row .emoji {
     font-size: 1.8em; /* Increases the size of the emojis */
-    display: inline-block;
-    vertical-align: middle; /* Centers emoji vertically */
 }
 
 /* "Out of 5" text styling */
 .respectify-slider-row .out-of {
-    display: inline-block;
-    vertical-align: middle;
     font-size: 1em;
-    margin-left: 0.5em; /* Space before the text */
+    display: flex;
+    align-items: center;
 }
 
 /* Slider styling */
-
 .respectify-slider-row input[type="range"] {
-    display: inline-block;
-    vertical-align: middle;
     width: 150px; /* Sets a fixed width to prevent it from being too wide */
     margin: 0;
     background: transparent; /* Make sure the default background doesn't interfere */
+}
+
+/* Description text styling */
+.respectify-slider-row .description {
+    display: block;
+    margin-top: 0.5em;
+    margin-left: 0;
 }
 
 :root {
@@ -443,7 +447,7 @@ input[type="range"] {
 }
 
 #banned-topics-threshold-slider {
-    margin-left: 3.2rem;
+    margin-left: 3.5rem;
     margin-top: 10px;
     transition: opacity 0.3s ease;
 }

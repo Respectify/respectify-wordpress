@@ -108,7 +108,7 @@
         document.getElementById('respectify_banned_topics_threshold')?.addEventListener('input', function(e) {
             const value = parseFloat(e.target.value);
             const percentage = Math.round(value * 100);
-            const textElement = e.target.parentElement.querySelector('.description');
+            const textElement = e.target.closest('.respectify-slider-row').querySelector('.description');
             if (textElement) {
                 textElement.textContent = `It's ok for ${percentage}% of the comment to be about an unwanted topic.`;
             }

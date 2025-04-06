@@ -221,16 +221,17 @@ function respectify_revise_settings_callback() {
     }
     ?>
     <div class="respectify-settings-column">
+        <label for="respectify_revise_min_score"><?php esc_html_e('Minimum Score:', 'respectify'); ?></label>
         <div class="respectify-slider-row">
-            <label for="respectify_revise_min_score"><?php esc_html_e('Minimum Score:', 'respectify'); ?></label>
-            <span class="emoji">😧</span>
-            <input type="range" id="respectify_revise_min_score" name="respectify_revise_settings[min_score]" value="<?php echo esc_attr($options['min_score']); ?>" min="1" max="5" step="1">
-            <span class="emoji">🤩</span>
-            <span class="out-of description">
-                <span id="revise_min_score_value"><?php echo esc_html($options['min_score']); ?></span> 
-                <?php esc_html_e('out of 5.', 'respectify'); ?>
-            </span>
-            <br/>
+            <div class="slider-controls">
+                <span class="emoji">😧</span>
+                <input type="range" id="respectify_revise_min_score" name="respectify_revise_settings[min_score]" value="<?php echo esc_attr($options['min_score']); ?>" min="1" max="5" step="1">
+                <span class="emoji">🤩</span>
+                <span class="out-of description">
+                    <span id="revise_min_score_value"><?php echo esc_html($options['min_score']); ?></span> 
+                    <?php esc_html_e('out of 5.', 'respectify'); ?>
+                </span>
+            </div>
             <span class="description">
                 <?php esc_html_e('A score of 3 out of 5 is a normal, good quality comment. 4 and 5 are outstanding and unusual.', 'respectify'); ?>
             </span>
@@ -558,14 +559,15 @@ function respectify_banned_topics_settings_callback() {
                 </div>
                 
                 <div id="banned-topics-threshold-slider" class="respectify-slider-row" style="margin-top: 10px; <?php echo $relevance_settings['banned_topics_mode'] === 'threshold' ? '' : 'opacity: 0.5;'; ?>">
-                    <span class="respectify-slider-indicator">○</span>
-                    <input type="range" id="respectify_banned_topics_threshold" 
-                           name="respectify_relevance_settings[banned_topics_threshold]" 
-                           value="<?php echo esc_attr($relevance_settings['banned_topics_threshold']); ?>" 
-                           min="0.1" max="1" step="0.1" class="regular-text"
-                           <?php echo $relevance_settings['banned_topics_mode'] === 'threshold' ? '' : 'disabled'; ?>>
-                    <span class="respectify-slider-indicator">●</span>
-                    <br/>
+                    <div class="slider-controls">
+                        <span class="respectify-slider-indicator">○</span>
+                        <input type="range" id="respectify_banned_topics_threshold" 
+                               name="respectify_relevance_settings[banned_topics_threshold]" 
+                               value="<?php echo esc_attr($relevance_settings['banned_topics_threshold']); ?>" 
+                               min="0.1" max="1" step="0.1" class="regular-text"
+                               <?php echo $relevance_settings['banned_topics_mode'] === 'threshold' ? '' : 'disabled'; ?>>
+                        <span class="respectify-slider-indicator">●</span>
+                    </div>
                     <span class="description" style="margin-top: 10px; margin-left: 0.35rem;">
                         <?php 
                         printf(
