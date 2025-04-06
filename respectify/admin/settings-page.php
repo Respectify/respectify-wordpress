@@ -512,12 +512,13 @@ function respectify_relevance_settings_callback() {
         <div class="respectify-settings-row">
             <div class="respectify-settings-control">
                 <select name="respectify_relevance_settings[off_topic_handling]" id="respectify_off_topic_handling">
+                    <option value="<?php echo \Respectify\ACTION_PUBLISH; ?>" <?php selected($relevance_settings['off_topic_handling'], \Respectify\ACTION_PUBLISH); ?>><?php esc_html_e('Are Okay', 'respectify'); ?></option>
                     <option value="<?php echo \Respectify\ACTION_DELETE; ?>" <?php selected($relevance_settings['off_topic_handling'], \Respectify\ACTION_DELETE); ?>><?php esc_html_e('Delete', 'respectify'); ?></option>
                     <option value="<?php echo \Respectify\ACTION_REVISE; ?>" <?php selected($relevance_settings['off_topic_handling'], \Respectify\ACTION_REVISE); ?>><?php esc_html_e('Give Opportunity to Revise', 'respectify'); ?></option>
                 </select>
             </div>
             <div class="respectify-settings-label">
-                <p class="description"><?php esc_html_e('By default an off-topic comment will be sent to the commenter to revise.', 'respectify'); ?></p>
+                <p class="description"><?php esc_html_e('By default off-topic comments are allowed, for freely flowing conversation, but you can require comments are related to the main topic.', 'respectify'); ?></p>
             </div>
             
         </div>

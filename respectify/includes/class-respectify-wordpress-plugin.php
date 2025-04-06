@@ -774,7 +774,7 @@ class RespectifyWordpressPlugin {
             
             // Validate relevance settings
             if (!isset($relevance_settings['off_topic_handling']) || 
-                !in_array($relevance_settings['off_topic_handling'], [\Respectify\ACTION_DELETE, \Respectify\ACTION_REVISE, \Respectify\ACTION_PUBLISH])) {
+                !in_array($relevance_settings['off_topic_handling'], [\Respectify\ACTION_PUBLISH, \Respectify\ACTION_DELETE, \Respectify\ACTION_REVISE])) {
                 $relevance_settings['off_topic_handling'] = \Respectify\RELEVANCE_DEFAULT_OFF_TOPIC_HANDLING;
             }
             
@@ -797,10 +797,13 @@ class RespectifyWordpressPlugin {
             
             // Check if comment is off-topic
             if ($megaResult->relevance->onTopic->isOnTopic === false) {
-                $issues[] = array(
-                    'type' => 'off_topic',
-                    'action' => $relevance_settings['off_topic_handling']
-                );
+                // If off-topic comments are allowed (ACTION_PUBLISH), don't add it as an issue
+                if ($relevance_settings['off_topic_handling'] !== \Respectify\ACTION_PUBLISH) {
+                    $issues[] = array(
+                        'type' => 'off_topic',
+                        'action' => $relevance_settings['off_topic_handling']
+                    );
+                }
             }
             
             // Check for banned topics only if we have banned topics configured

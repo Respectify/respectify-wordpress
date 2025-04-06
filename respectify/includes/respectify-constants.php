@@ -35,7 +35,7 @@ const ASSESSMENT_DEFAULT_SETTINGS = array(
 );
 
 // Relevance Settings
-const RELEVANCE_DEFAULT_OFF_TOPIC_HANDLING = ACTION_REVISE; // Default to revise for off-topic comments
+const RELEVANCE_DEFAULT_OFF_TOPIC_HANDLING = ACTION_PUBLISH; // Default to allow off-topic comments
 const RELEVANCE_DEFAULT_BANNED_TOPICS_HANDLING = ACTION_REVISE; // Default to revise for banned topics
 const RELEVANCE_DEFAULT_BANNED_TOPICS_THRESHOLD = 0.1; // Default 10% threshold for banned topics
 const RELEVANCE_DEFAULT_BANNED_TOPICS_MODE = 'any'; // Default to 'any' (any mention triggers action)
