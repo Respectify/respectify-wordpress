@@ -8,13 +8,22 @@
     font-size: var(--wp--preset--font-size--medium);
 }
 
-.respectify-message p {
-    margin: 0;
-    margin-top: 0.8rem;
-}
-
 .respectify-message p:first-child {
     margin-top: 0;
+}
+
+.respectify-message p {
+    margin: 0.8rem 0 0;
+}
+
+/* Override WordPress error page styles - this is the non-JS message  */
+#error-page .respectify-message p:first-child {
+    margin-top: 0;
+}
+
+/* Override WordPress error page styles - this is the non-JS message */
+#error-page .respectify-message p {
+    margin: 0.8rem 0 0;
 }
 
 .respectify-error {

@@ -973,7 +973,7 @@ class RespectifyWordpressPlugin {
 				<link rel="stylesheet" href="' . esc_url(plugins_url('public/css/respectify-comments.css', dirname(__FILE__))) . '" type="text/css" media="all" />
 			</head>
 			<body>
-				<div class="respectify-message">
+				<div class="respectify-message respectify-error">
 					' . $result->get_error_message() . '
 				</div>
 				<div class="respectify-comment-text">
