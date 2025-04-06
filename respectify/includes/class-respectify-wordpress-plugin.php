@@ -964,12 +964,28 @@ class RespectifyWordpressPlugin {
 
 		if (is_wp_error($result)) {
 			\Respectify\respectify_log('Comment rejected: ' . $result->get_error_message());
-			// Handle the error by preventing the comment from being saved
-			wp_die(
-				esc_html($result->get_error_message()),
-				esc_html__('Comment Submission Error', 'respectify'),
-				array('back_link' => true)
-			);
+			
+			// Create a properly formatted HTML error page
+			$html = '<!DOCTYPE html>
+			<html>
+			<head>
+				<title>' . esc_html__('Please revise your comment', 'respectify') . '</title>
+				<link rel="stylesheet" href="' . esc_url(plugins_url('public/css/respectify-comments.css', dirname(__FILE__))) . '" type="text/css" media="all" />
+			</head>
+			<body>
+				<div class="respectify-message">
+					' . $result->get_error_message() . '
+				</div>
+				<div class="respectify-comment-text">
+					<p>' . esc_html__('Your comment:', 'respectify') . '</p>
+					<blockquote>' . esc_html($commentdata['comment_content']) . '</blockquote>
+					<p>' . esc_html__('Please use your browser\'s back button to return to the previous page and revise your comment.', 'respectify') . '</p>
+				</div>
+			</body>
+			</html>';
+
+			// Handle the error with proper HTML formatting
+			wp_die($html, esc_html__('Please revise your comment', 'respectify'), array('back_link' => false));
 		}
 	
 		\Respectify\respectify_log('Comment allowed: ' . $result['comment_content']);
