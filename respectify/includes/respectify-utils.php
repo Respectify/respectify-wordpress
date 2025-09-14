@@ -12,27 +12,37 @@ function respectify_create_client() {
     $api_key = \Respectify\respectify_get_decrypted_api_key();
     $base_url = get_option(\Respectify\OPTION_BASE_URL, '');
     $api_version = get_option(\Respectify\OPTION_API_VERSION, '');
+    
+    // Get the website URL from WordPress
+    $website = parse_url(get_site_url(), PHP_URL_HOST);
 
     $params = [
         'email' => $email,
         'apiKey' => $api_key,
         'baseUrl' => !empty($base_url) ? $base_url : null,
-        'version' => !empty($api_version) ? floatval($api_version) : null
+        'version' => !empty($api_version) ? floatval($api_version) : null,
+        'website' => $website
     ];
 
-    \Respectify\respectify_log('Parameters being passed to constructor: ' . print_r($params, true));
+    \Respectify\respectify_log('Respectify client constructed with base URL: ' . ($params['baseUrl'] ?? 'default') . ' and website: ' . ($website ?? 'none'));
     return new \RespectifyScoper\Respectify\RespectifyClientAsync(...array_values($params));
 }
 
-function respectify_create_test_client($email, $api_key, $base_url, $api_version) {
+function respectify_create_test_client($email, $api_key, $base_url, $api_version, $website = null) {
+    // If no website provided, try to get it from WordPress
+    if ($website === null) {
+        $website = parse_url(get_site_url(), PHP_URL_HOST);
+    }
+    
     $params = [
         'email' => $email,
         'apiKey' => $api_key,
         'baseUrl' => !empty($base_url) ? $base_url : null,
-        'version' => !empty($api_version) ? floatval($api_version) : null
+        'version' => !empty($api_version) ? floatval($api_version) : null,
+        'website' => $website
     ];
 
-    respectify_log('Parameters being passed to test constructor: ' . print_r($params, true));
+    respectify_log('Test client constructed with base URL: ' . ($params['baseUrl'] ?? 'default') . ' and website: ' . ($website ?? 'none'));
     return new \RespectifyScoper\Respectify\RespectifyClientAsync(...array_values($params));
 }
 
@@ -49,7 +59,16 @@ function get_friendly_message_which_client($base_url, $api_version) {
 function respectify_encrypt($data) {
     $encryption_key = wp_salt('auth');
     // This prepends random bytes to the encrypted data to create the IV (initialization vector)
-    $iv = openssl_random_pseudo_bytes(openssl_cipher_iv_length('AES-256-CBC'));
+    $iv_length = openssl_cipher_iv_length('AES-256-CBC');
+    if (function_exists('random_bytes')) {
+        $iv = random_bytes($iv_length);
+    } else {
+        // Fallback for older PHP versions with strong parameter
+        $iv = openssl_random_pseudo_bytes($iv_length, $crypto_strong);
+        if (!$crypto_strong) {
+            wp_die('Unable to generate cryptographically strong random bytes for encryption.');
+        }
+    }
     $encrypted_data = openssl_encrypt($data, 'AES-256-CBC', $encryption_key, 0, $iv);
     return base64_encode($iv . $encrypted_data);
 }
