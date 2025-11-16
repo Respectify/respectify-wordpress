@@ -33,6 +33,11 @@ function respectify_register_settings() {
     register_setting('respectify_options_group', \Respectify\OPTION_BANNED_TOPICS);
     register_setting('respectify_options_group', \Respectify\OPTION_SPAM_HANDLING);
     register_setting('respectify_options_group', \Respectify\OPTION_ASSESSMENT_SETTINGS, 'respectify_sanitize_assessment_settings');
+    register_setting('respectify_options_group', \Respectify\OPTION_DOGWHISTLE_SETTINGS, 'respectify_sanitize_dogwhistle_settings');
+    register_setting('respectify_options_group', \Respectify\OPTION_SENSITIVE_TOPICS, 'respectify_sanitize_sensitive_topics');
+    register_setting('respectify_options_group', \Respectify\OPTION_DOGWHISTLE_EXAMPLES, 'respectify_sanitize_dogwhistle_examples');
+    register_setting('respectify_options_group', \Respectify\OPTION_BASE_URL, 'respectify_sanitize_base_url');
+    register_setting('respectify_options_group', \Respectify\OPTION_API_VERSION, 'sanitize_text_field');
 
     // Add settings sections
     add_settings_section(
@@ -118,6 +123,30 @@ function respectify_register_settings() {
         'respectify_check_spam',
         '',
         'respectify_check_spam_callback',
+        'respectify',
+        'respectify_behavior_settings_section'
+    );
+
+    add_settings_field(
+        'respectify_check_dogwhistle',
+        '',
+        'respectify_check_dogwhistle_callback',
+        'respectify',
+        'respectify_behavior_settings_section'
+    );
+
+    add_settings_field(
+        \Respectify\OPTION_DOGWHISTLE_SETTINGS,
+        esc_html__('Dogwhistle Settings', 'respectify'),
+        'respectify_dogwhistle_settings_callback',
+        'respectify',
+        'respectify_behavior_settings_section'
+    );
+
+    add_settings_field(
+        'respectify_anti_spam_only',
+        '',
+        'respectify_anti_spam_only_callback',
         'respectify',
         'respectify_behavior_settings_section'
     );
@@ -242,15 +271,15 @@ function respectify_revise_settings_callback() {
         <div class="respectify-checkbox-group">
             <label>
                 <input type="checkbox" name="respectify_revise_settings[low_effort]" value="1" <?php checked($options['low_effort'], true); ?> />
-                <?php esc_html_e('Seems Low Effort', 'respectify'); ?>
+                <?php esc_html_e('Seem Low Effort', 'respectify'); ?>
             </label>
             <label>
                 <input type="checkbox" name="respectify_revise_settings[logical_fallacies]" value="1" <?php checked($options['logical_fallacies'], true); ?> />
-                <?php esc_html_e('Contains Logical Fallacies', 'respectify'); ?>
+                <?php esc_html_e('Contain Logical Fallacies', 'respectify'); ?>
             </label>
             <label>
                 <input type="checkbox" name="respectify_revise_settings[objectionable_phrases]" value="1" <?php checked($options['objectionable_phrases'], true); ?> />
-                <?php esc_html_e('Contains Objectionable Phrases', 'respectify'); ?>
+                <?php esc_html_e('Contain Objectionable Phrases', 'respectify'); ?>
             </label>
             <label>
                 <input type="checkbox" name="respectify_revise_settings[negative_tone]" value="1" <?php checked($options['negative_tone'], true); ?> />
@@ -351,11 +380,14 @@ function respectify_verify_nonce() {
 function respectify_render_settings_page() {
     ?>
     <div class="wrap">
-        <h1><?php esc_html_e('Respectify Settings', 'respectify'); ?></h1>
+        <div class="respectify-header">
+            <img src="<?php echo esc_url(plugins_url('images/respectify-logo.png', dirname(__FILE__))); ?>" alt="<?php esc_attr_e('Respectify Logo', 'respectify'); ?>" class="respectify-logo">
+            <h1><?php esc_html_e('Respectify Settings', 'respectify'); ?></h1>
+        </div>
+
         <form method="post" action="options.php">
             <?php
             settings_fields('respectify_options_group');
-
             wp_nonce_field('respectify_save_settings', 'respectify_settings_nonce');
             
             do_settings_sections('respectify');
@@ -592,9 +624,16 @@ function respectify_banned_topics_settings_callback() {
 function respectify_sanitize_assessment_settings($input) {
     $sanitized_input = array();
     
-    $checkboxes = array('assess_health', 'check_relevance', 'check_spam');
+    $checkboxes = array('assess_health', 'check_relevance', 'check_spam', 'check_dogwhistle', 'anti_spam_only');
     foreach ($checkboxes as $checkbox) {
         $sanitized_input[$checkbox] = isset($input[$checkbox]) && $input[$checkbox] === '1' ? true : false;
+    }
+    
+    // If anti-spam only mode is enabled, disable other services
+    if ($sanitized_input['anti_spam_only']) {
+        $sanitized_input['assess_health'] = false;
+        $sanitized_input['check_relevance'] = false;
+        $sanitized_input['check_dogwhistle'] = false;
     }
     
     return $sanitized_input;
@@ -611,13 +650,22 @@ function respectify_assess_health_callback() {
         update_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, $assessment_settings);
     }
     
+    // Check if anti-spam only mode is enabled
+    $anti_spam_only = isset($assessment_settings['anti_spam_only']) && $assessment_settings['anti_spam_only'];
+    $disabled = $anti_spam_only ? 'disabled' : '';
+    
     ?>
     <tr class="respectify-checkbox-row">
         <th scope="row">
             <label>
-                <input type="checkbox" name="respectify_assessment_settings[assess_health]" value="1" <?php checked($assessment_settings['assess_health'], true); ?> />
+                <input type="checkbox" name="respectify_assessment_settings[assess_health]" value="1" <?php checked($assessment_settings['assess_health'] && !$anti_spam_only, true); ?> <?php echo $disabled; ?> />
                 <?php esc_html_e('Assess Comment Health', 'respectify'); ?>
             </label>
+            <?php if ($anti_spam_only): ?>
+                <p class="description" style="color: #d54e21; font-style: italic;">
+                    <?php esc_html_e('Disabled because Anti-Spam Only mode is enabled.', 'respectify'); ?>
+                </p>
+            <?php endif; ?>
         </th>
         <td></td>
     </tr>
@@ -634,13 +682,22 @@ function respectify_check_relevance_callback() {
         update_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, $assessment_settings);
     }
     
+    // Check if anti-spam only mode is enabled
+    $anti_spam_only = isset($assessment_settings['anti_spam_only']) && $assessment_settings['anti_spam_only'];
+    $disabled = $anti_spam_only ? 'disabled' : '';
+    
     ?>
     <tr class="respectify-checkbox-row respectify-checkbox-row-with-spacing">
         <th scope="row">
             <label>
-                <input type="checkbox" name="respectify_assessment_settings[check_relevance]" value="1" <?php checked($assessment_settings['check_relevance'], true); ?> />
+                <input type="checkbox" name="respectify_assessment_settings[check_relevance]" value="1" <?php checked($assessment_settings['check_relevance'] && !$anti_spam_only, true); ?> <?php echo $disabled; ?> />
                 <?php esc_html_e('Check Topic Relevance', 'respectify'); ?>
             </label>
+            <?php if ($anti_spam_only): ?>
+                <p class="description" style="color: #d54e21; font-style: italic;">
+                    <?php esc_html_e('Disabled because Anti-Spam Only mode is enabled.', 'respectify'); ?>
+                </p>
+            <?php endif; ?>
         </th>
         <td></td>
     </tr>
@@ -667,6 +724,205 @@ function respectify_check_spam_callback() {
         </th>
         <td></td>
     </tr>
+    <?php
+}
+
+function respectify_check_dogwhistle_callback() {
+    $assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
+
+    // Safety check: if settings are not an array, use defaults
+    if (!is_array($assessment_settings)) {
+        $assessment_settings = \Respectify\ASSESSMENT_DEFAULT_SETTINGS;
+        // Try to fix the stored settings
+        update_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, $assessment_settings);
+    }
+
+    // Check if anti-spam only mode is enabled
+    $anti_spam_only = isset($assessment_settings['anti_spam_only']) && $assessment_settings['anti_spam_only'];
+    $disabled = $anti_spam_only ? 'disabled' : '';
+    $checkbox_checked = isset($assessment_settings['check_dogwhistle']) ? $assessment_settings['check_dogwhistle'] : true;
+
+    ?>
+    <tr class="respectify-checkbox-row respectify-checkbox-row-with-spacing">
+        <th scope="row">
+            <label>
+                <input type="checkbox" name="respectify_assessment_settings[check_dogwhistle]" value="1" <?php checked($checkbox_checked && !$anti_spam_only, true); ?> <?php echo $disabled; ?> />
+                <?php esc_html_e('Check for Dogwhistles', 'respectify'); ?>
+            </label>
+            <?php if ($anti_spam_only): ?>
+                <p class="description" style="color: #d54e21; font-style: italic;">
+                    <?php esc_html_e('Disabled because Anti-Spam Only mode is enabled.', 'respectify'); ?>
+                </p>
+            <?php endif; ?>
+        </th>
+        <td></td>
+    </tr>
+    <?php
+}
+
+// Callback for dogwhistle settings (handling, sensitive topics, examples)
+function respectify_dogwhistle_settings_callback() {
+    $dogwhistle_settings = get_option(\Respectify\OPTION_DOGWHISTLE_SETTINGS, array('handling' => \Respectify\DOGWHISTLE_DEFAULT_HANDLING));
+    $sensitive_topics = get_option(\Respectify\OPTION_SENSITIVE_TOPICS, '');
+    $dogwhistle_examples = get_option(\Respectify\OPTION_DOGWHISTLE_EXAMPLES, '');
+
+    // Ensure settings array has the expected structure
+    if (!is_array($dogwhistle_settings)) {
+        $dogwhistle_settings = array('handling' => \Respectify\DOGWHISTLE_DEFAULT_HANDLING);
+    }
+    if (!isset($dogwhistle_settings['handling'])) {
+        $dogwhistle_settings['handling'] = \Respectify\DOGWHISTLE_DEFAULT_HANDLING;
+    }
+    ?>
+    <div class="respectify-settings-column">
+        <p class="description"><?php esc_html_e('Dogwhistles are coded language that appears innocent but contains hidden meanings, often used for harmful purposes.', 'respectify'); ?></p>
+
+        <div class="respectify-settings-row" style="margin-top: 15px;">
+            <div class="respectify-settings-label">
+                <label for="respectify_sensitive_topics"><strong><?php esc_html_e('Sensitive Topics', 'respectify'); ?></strong></label>
+                <p class="description"><?php esc_html_e('Topics to watch for potential dogwhistles. One per line.', 'respectify'); ?></p>
+            </div>
+            <div class="respectify-settings-control">
+                <textarea name="respectify_sensitive_topics" id="respectify_sensitive_topics" rows="4" class="large-text"><?php echo esc_textarea($sensitive_topics); ?></textarea>
+            </div>
+        </div>
+
+        <div class="respectify-settings-row" style="margin-top: 15px;">
+            <div class="respectify-settings-label">
+                <label for="respectify_dogwhistle_examples"><strong><?php esc_html_e('Dogwhistle Examples', 'respectify'); ?></strong></label>
+                <p class="description"><?php esc_html_e('Known dogwhistle terms or phrases to look for. One per line.', 'respectify'); ?></p>
+            </div>
+            <div class="respectify-settings-control">
+                <textarea name="respectify_dogwhistle_examples" id="respectify_dogwhistle_examples" rows="4" class="large-text"><?php echo esc_textarea($dogwhistle_examples); ?></textarea>
+            </div>
+        </div>
+
+        <div class="respectify-settings-row" style="margin-top: 15px;">
+            <div class="respectify-settings-label">
+                <label for="respectify_dogwhistle_handling"><strong><?php esc_html_e('When Dogwhistles Detected', 'respectify'); ?></strong></label>
+            </div>
+            <div class="respectify-settings-control">
+                <select name="respectify_dogwhistle_settings[handling]" id="respectify_dogwhistle_handling">
+                    <option value="<?php echo esc_attr(\Respectify\ACTION_PUBLISH); ?>" <?php selected($dogwhistle_settings['handling'], \Respectify\ACTION_PUBLISH); ?>><?php esc_html_e('Allow (Publish)', 'respectify'); ?></option>
+                    <option value="<?php echo esc_attr(\Respectify\ACTION_REVISE); ?>" <?php selected($dogwhistle_settings['handling'], \Respectify\ACTION_REVISE); ?>><?php esc_html_e('Give Opportunity to Revise', 'respectify'); ?></option>
+                    <option value="<?php echo esc_attr(\Respectify\ACTION_DELETE); ?>" <?php selected($dogwhistle_settings['handling'], \Respectify\ACTION_DELETE); ?>><?php esc_html_e('Delete', 'respectify'); ?></option>
+                </select>
+                <p class="description"><?php esc_html_e('Choose how to handle comments that contain potential dogwhistles.', 'respectify'); ?></p>
+            </div>
+        </div>
+    </div>
+    <?php
+}
+
+// Sanitization function for dogwhistle settings
+function respectify_sanitize_dogwhistle_settings($input) {
+    $sanitized_input = array();
+
+    if (isset($input['handling'])) {
+        $valid_actions = array(\Respectify\ACTION_PUBLISH, \Respectify\ACTION_REVISE, \Respectify\ACTION_DELETE);
+        if (in_array($input['handling'], $valid_actions)) {
+            $sanitized_input['handling'] = $input['handling'];
+        } else {
+            $sanitized_input['handling'] = \Respectify\DOGWHISTLE_DEFAULT_HANDLING;
+        }
+    } else {
+        $sanitized_input['handling'] = \Respectify\DOGWHISTLE_DEFAULT_HANDLING;
+    }
+
+    return $sanitized_input;
+}
+
+// Sanitization function for sensitive topics
+function respectify_sanitize_sensitive_topics($input) {
+    $topics = explode("\n", $input);
+    $sanitized_topics = array();
+
+    foreach ($topics as $topic) {
+        $topic = trim($topic);
+        if (!empty($topic)) {
+            $sanitized_topics[] = sanitize_text_field($topic);
+        }
+    }
+
+    return implode("\n", $sanitized_topics);
+}
+
+// Sanitization function for dogwhistle examples
+function respectify_sanitize_dogwhistle_examples($input) {
+    $examples = explode("\n", $input);
+    $sanitized_examples = array();
+
+    foreach ($examples as $example) {
+        $example = trim($example);
+        if (!empty($example)) {
+            $sanitized_examples[] = sanitize_text_field($example);
+        }
+    }
+
+    return implode("\n", $sanitized_examples);
+}
+
+function respectify_anti_spam_only_callback() {
+    $assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
+    
+    // Safety check: if settings are not an array, use defaults
+    if (!is_array($assessment_settings)) {
+        $assessment_settings = \Respectify\ASSESSMENT_DEFAULT_SETTINGS;
+        // Try to fix the stored settings
+        update_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, $assessment_settings);
+    }
+    
+    $anti_spam_only = isset($assessment_settings['anti_spam_only']) && $assessment_settings['anti_spam_only'];
+    
+    ?>
+    <tr class="respectify-checkbox-row respectify-checkbox-row-with-spacing" style="border-top: 2px solid #ddd; padding-top: 15px;">
+        <th scope="row">
+            <label>
+                <input type="checkbox" name="respectify_assessment_settings[anti_spam_only]" value="1" <?php checked($anti_spam_only, true); ?> id="respectify_anti_spam_only" />
+                <strong><?php esc_html_e('Anti-Spam Only Mode', 'respectify'); ?></strong>
+            </label>
+            <p class="description">
+                <?php esc_html_e('Enable this if you have an anti-spam only plan. This will disable all other checks except spam detection.', 'respectify'); ?>
+            </p>
+        </th>
+        <td></td>
+    </tr>
+    <script>
+    jQuery(document).ready(function($) {
+        $('#respectify_anti_spam_only').change(function() {
+            var isChecked = $(this).is(':checked');
+            var dogwhistleCheckbox = $('input[name="respectify_assessment_settings[check_dogwhistle]"]');
+            var healthCheckbox = $('input[name="respectify_assessment_settings[assess_health]"]');
+            var relevanceCheckbox = $('input[name="respectify_assessment_settings[check_relevance]"]');
+            
+            if (isChecked) {
+                // Disable and uncheck other services
+                dogwhistleCheckbox.prop('disabled', true).prop('checked', false);
+                healthCheckbox.prop('disabled', true).prop('checked', false);
+                relevanceCheckbox.prop('disabled', true).prop('checked', false);
+                
+                // Add visual indication
+                dogwhistleCheckbox.closest('tr').find('.description').remove();
+                dogwhistleCheckbox.closest('label').after('<p class="description" style="color: #d54e21; font-style: italic;">Disabled because Anti-Spam Only mode is enabled.</p>');
+                healthCheckbox.closest('label').after('<p class="description" style="color: #d54e21; font-style: italic;">Disabled because Anti-Spam Only mode is enabled.</p>');
+                relevanceCheckbox.closest('label').after('<p class="description" style="color: #d54e21; font-style: italic;">Disabled because Anti-Spam Only mode is enabled.</p>');
+            } else {
+                // Re-enable other services
+                dogwhistleCheckbox.prop('disabled', false);
+                healthCheckbox.prop('disabled', false);
+                relevanceCheckbox.prop('disabled', false);
+                
+                // Remove visual indication
+                dogwhistleCheckbox.closest('tr').find('.description').remove();
+                healthCheckbox.closest('tr').find('.description').remove();
+                relevanceCheckbox.closest('tr').find('.description').remove();
+            }
+        });
+        
+        // Trigger change event on page load to set initial state
+        $('#respectify_anti_spam_only').trigger('change');
+    });
+    </script>
     <?php
 }
 

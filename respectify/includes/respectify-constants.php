@@ -15,6 +15,11 @@ const OPTION_REVISE_SETTINGS = 'respectify_revise_settings';
 const OPTION_RELEVANCE_SETTINGS = 'respectify_relevance_settings';
 const OPTION_BANNED_TOPICS = 'respectify_banned_topics';
 const OPTION_ASSESSMENT_SETTINGS = 'respectify_assessment_settings';
+const OPTION_DOGWHISTLE_SETTINGS = 'respectify_dogwhistle_settings';
+const OPTION_SENSITIVE_TOPICS = 'respectify_sensitive_topics';
+const OPTION_DOGWHISTLE_EXAMPLES = 'respectify_dogwhistle_examples';
+const OPTION_BASE_URL = 'respectify_base_url';
+const OPTION_API_VERSION = 'respectify_api_version';
 
 // Action Constants
 const ACTION_DELETE = 'trash';
@@ -31,13 +36,18 @@ const REVISE_DEFAULT_NEGATIVE_TONE = true; // Revise if any number of negative t
 const ASSESSMENT_DEFAULT_SETTINGS = array(
     'assess_health' => true,
     'check_relevance' => true,
-    'check_spam' => true
+    'check_spam' => true,
+    'check_dogwhistle' => true,
+    'anti_spam_only' => false  // New setting for anti-spam plan users
 );
 
 // Relevance Settings
 const RELEVANCE_DEFAULT_OFF_TOPIC_HANDLING = ACTION_PUBLISH; // Default to allow off-topic comments
 const RELEVANCE_DEFAULT_BANNED_TOPICS_HANDLING = ACTION_REVISE; // Default to revise for banned topics
 const RELEVANCE_DEFAULT_BANNED_TOPICS_THRESHOLD = 0.1; // Default 10% threshold for banned topics
+
+// Dogwhistle Settings
+const DOGWHISTLE_DEFAULT_HANDLING = ACTION_REVISE; // Default to revise for dogwhistles
 const RELEVANCE_DEFAULT_BANNED_TOPICS_MODE = 'any'; // Default to 'any' (any mention triggers action)
 
 const RELEVANCE_DEFAULT_SETTINGS = array(

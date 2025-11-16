@@ -3,6 +3,7 @@ namespace Respectify;
 use RespectifyScoper\Respectify\RespectifyClientAsync;
 use RespectifyScoper\Respectify\CommentScore;
 use RespectifyScoper\Respectify\MegaCallResult;
+use RespectifyScoper\Respectify\DogwhistleResult;
 
 
 /**
@@ -404,19 +405,37 @@ class RespectifyWordpressPlugin {
         $assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
         $services = array();
         
-        if ($assessment_settings['check_spam']) {
-            $services[] = 'spam';
-        }
-        if ($assessment_settings['assess_health']) {
-            $services[] = 'commentscore';
-        }
-        if ($assessment_settings['check_relevance'] && $respectify_article_id) {
-            $services[] = 'relevance';
+        // Check if we're in anti-spam only mode
+        $anti_spam_only = isset($assessment_settings['anti_spam_only']) && $assessment_settings['anti_spam_only'];
+        
+        if ($anti_spam_only) {
+            // For anti-spam plan users, only allow spam checking
+            if ($assessment_settings['check_spam']) {
+                $services[] = 'spam';
+            }
+        } else {
+            // For full plan users, check all enabled services
+            if ($assessment_settings['check_spam']) {
+                $services[] = 'spam';
+            }
+            if ($assessment_settings['assess_health']) {
+                $services[] = 'commentscore';
+            }
+            if ($assessment_settings['check_relevance'] && $respectify_article_id) {
+                $services[] = 'relevance';
+            }
+            if (isset($assessment_settings['check_dogwhistle']) && $assessment_settings['check_dogwhistle'] && $respectify_article_id) {
+                $services[] = 'dogwhistle';
+            }
         }
 
-        // If no services are enabled, default to all
+        // If no services are enabled, default based on plan type
         if (empty($services)) {
-            $services = ['spam', 'commentscore', 'relevance'];
+            if ($anti_spam_only) {
+                $services = ['spam'];
+            } else {
+                $services = ['spam', 'commentscore', 'relevance'];
+            }
         }
 
         // Get banned topics if relevance checking is enabled and we have an article ID
@@ -432,12 +451,35 @@ class RespectifyWordpressPlugin {
             }
         }
 
+        // Get sensitive topics and dogwhistle examples if dogwhistle checking is enabled
+        $sensitive_topics = null;
+        $dogwhistle_examples = null;
+        if (in_array('dogwhistle', $services)) {
+            $sensitive_topics_str = get_option(\Respectify\OPTION_SENSITIVE_TOPICS, '');
+            if (!empty($sensitive_topics_str)) {
+                $sensitive_topics = array_values(array_filter(explode("\n", $sensitive_topics_str)));
+                if (empty($sensitive_topics)) {
+                    $sensitive_topics = null;
+                }
+            }
+            
+            $dogwhistle_examples_str = get_option(\Respectify\OPTION_DOGWHISTLE_EXAMPLES, '');
+            if (!empty($dogwhistle_examples_str)) {
+                $dogwhistle_examples = array_values(array_filter(explode("\n", $dogwhistle_examples_str)));
+                if (empty($dogwhistle_examples)) {
+                    $dogwhistle_examples = null;
+                }
+            }
+        }
+
         $promise = $this->respectify_client->megacall(
             comment: $full_comment_text,
             articleContextId: $respectify_article_id,
             services: $services,
             bannedTopics: $banned_topics,
-            replyToComment: $reply_to_comment_text
+            replyToComment: $reply_to_comment_text,
+            sensitiveTopics: $sensitive_topics,
+            dogwhistleExamples: $dogwhistle_examples
         ); 
         $caughtException = null;
 
@@ -675,21 +717,32 @@ class RespectifyWordpressPlugin {
 		// Check for relevance issues if relevance checking is enabled
 		if ($assessment_settings['check_relevance'] && isset($megaResult->relevance)) {
 			// Check if comment is off-topic
-			if ($megaResult->relevance->onTopic->isOnTopic === false) {
+			if ($megaResult->relevance->onTopic->onTopic === false) {
 				return "<p>Your comment appears to be off-topic. " . esc_html($megaResult->relevance->onTopic->reasoning) . "</p>";
 			}
-			
+
 			// Check for banned topics only if we have banned topics configured
 			$banned_topics = get_option(\Respectify\OPTION_BANNED_TOPICS, '');
 			if (!empty($banned_topics) && !empty($megaResult->relevance->bannedTopics->bannedTopics)) {
 				$relevance_settings = get_option(\Respectify\OPTION_RELEVANCE_SETTINGS, \Respectify\RELEVANCE_DEFAULT_SETTINGS);
-				$banned_topics_percentage = $megaResult->relevance->bannedTopics->percentage ?? 0;
-				
+				$banned_topics_percentage = $megaResult->relevance->bannedTopics->quantityOnBannedTopics ?? 0;
+
 				// Only show feedback if the percentage exceeds the threshold
 				if ($banned_topics_percentage >= $relevance_settings['banned_topics_threshold']) {
-					return "<p>Your comment contains topics that the site owner does not want discussed. " . 
+					return "<p>Your comment contains topics that the site owner does not want discussed. " .
 						   esc_html($megaResult->relevance->bannedTopics->reasoning) . "</p>";
 				}
+			}
+		}
+
+		// Check for dogwhistles if dogwhistle checking is enabled
+		if (isset($assessment_settings['check_dogwhistle']) && $assessment_settings['check_dogwhistle'] && isset($megaResult->dogwhistle)) {
+			if ($megaResult->dogwhistle->detection->dogwhistlesDetected) {
+				$feedback = "<p>" . esc_html($megaResult->dogwhistle->detection->reasoning) . "</p>";
+				if (isset($megaResult->dogwhistle->details) && !empty($megaResult->dogwhistle->details->dogwhistleTerms)) {
+					$feedback .= "<p><strong>Detected terms:</strong> " . esc_html(implode(', ', $megaResult->dogwhistle->details->dogwhistleTerms)) . "</p>";
+				}
+				return $feedback;
 			}
 		}
 
@@ -730,9 +783,9 @@ class RespectifyWordpressPlugin {
 			}
 
 			// Add negative tone feedback
-			if ($revise_settings['negative_tone'] && !empty($comment_score->negativeTone)) {
+			if ($revise_settings['negative_tone'] && !empty($comment_score->negativeTonePhrases)) {
 				$feedback = "<p>Your comment is negative in a way that does not help the discussion:</p><ul>";
-				foreach ($comment_score->negativeTone as $tone) {
+				foreach ($comment_score->negativeTonePhrases as $tone) {
 					$feedback .= "<li><em>" . esc_html($tone->quotedNegativeTonePhrase) . "</em>: ";
 					$feedback .= esc_html($tone->explanation);
 					if (!empty($tone->suggestedRewrite)) {
@@ -796,7 +849,7 @@ class RespectifyWordpressPlugin {
             }
             
             // Check if comment is off-topic
-            if ($megaResult->relevance->onTopic->isOnTopic === false) {
+            if ($megaResult->relevance->onTopic->onTopic === false) {
                 // If off-topic comments are allowed (ACTION_PUBLISH), don't add it as an issue
                 if ($relevance_settings['off_topic_handling'] !== \Respectify\ACTION_PUBLISH) {
                     $issues[] = array(
@@ -809,7 +862,7 @@ class RespectifyWordpressPlugin {
             // Check for banned topics only if we have banned topics configured
             $banned_topics = get_option(\Respectify\OPTION_BANNED_TOPICS, '');
             if (!empty($banned_topics) && !empty($megaResult->relevance->bannedTopics->bannedTopics)) {
-                $banned_topics_percentage = $megaResult->relevance->bannedTopics->percentage ?? 0;
+                $banned_topics_percentage = $megaResult->relevance->bannedTopics->quantityOnBannedTopics ?? 0;
                 
                 $should_take_action = false;
                 if ($relevance_settings['banned_topics_mode'] === 'any') {
@@ -822,6 +875,28 @@ class RespectifyWordpressPlugin {
                     $issues[] = array(
                         'type' => 'banned_topics',
                         'action' => $relevance_settings['banned_topics_handling']
+                    );
+                }
+            }
+        }
+
+        // Check for dogwhistles if dogwhistle checking is enabled
+        if (isset($assessment_settings['check_dogwhistle']) && $assessment_settings['check_dogwhistle'] && isset($megaResult->dogwhistle)) {
+            $dogwhistle_settings = get_option(\Respectify\OPTION_DOGWHISTLE_SETTINGS, array('handling' => \Respectify\DOGWHISTLE_DEFAULT_HANDLING));
+            
+            // Validate dogwhistle handling setting
+            if (!isset($dogwhistle_settings['handling']) || 
+                !in_array($dogwhistle_settings['handling'], [\Respectify\ACTION_DELETE, \Respectify\ACTION_REVISE, \Respectify\ACTION_PUBLISH])) {
+                $dogwhistle_settings['handling'] = \Respectify\DOGWHISTLE_DEFAULT_HANDLING;
+            }
+            
+            // Check if dogwhistles were detected
+            if ($megaResult->dogwhistle->detection->dogwhistlesDetected) {
+                // Only add as an issue if the handling is not to publish (allow)
+                if ($dogwhistle_settings['handling'] !== \Respectify\ACTION_PUBLISH) {
+                    $issues[] = array(
+                        'type' => 'dogwhistle',
+                        'action' => $dogwhistle_settings['handling']
                     );
                 }
             }
@@ -840,7 +915,7 @@ class RespectifyWordpressPlugin {
             }
             
             // Check if the comment score is below the minimum
-            if ($megaResult->commentScore->score < $revise_settings['min_score']) {
+            if ($megaResult->commentScore->overallScore < $revise_settings['min_score']) {
                 $issues[] = array(
                     'type' => 'low_score',
                     'action' => \Respectify\ACTION_REVISE
