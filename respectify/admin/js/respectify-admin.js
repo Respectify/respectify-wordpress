@@ -52,22 +52,22 @@
                 console.log('AJAX response:', response); // Debugging: Log the response
                 if (response.success) {
                     if (response.data && response.data.message) {
-                        $('#respectify-test-result').html('<span style="color:green;">' + response.data.message + '</span>');
+                        $('#respectify-test-result').html('<span style="color:green;"></span>').find('span').text(response.data.message);
                     } else {
                         console.log('Success response but no message:', response);
-                        $('#respectify-test-result').html('<span style="color:green;">' + respectify_admin_i18n.success_no_message + '</span>');
+                        $('#respectify-test-result').html('<span style="color:green;"></span>').find('span').text(respectify_admin_i18n.success_no_message);
                     }
                 } else {
                     if (response.data && response.data.message) {
-                        $('#respectify-test-result').html('<span style="color:red;">' + response.data.message + '</span>');
+                        $('#respectify-test-result').html('<span style="color:red;"></span>').find('span').text(response.data.message);
                     } else {
                         console.log('Error response but no message:', response);
-                        $('#respectify-test-result').html('<span style="color:red;">' + respectify_admin_i18n.error_prefix + response.data.message + '</span>');
+                        $('#respectify-test-result').html('<span style="color:red;"></span>').find('span').text(respectify_admin_i18n.error_prefix + response.data.message);
                     }
                 }
             }).fail(function(jqXHR, textStatus, errorThrown) {
                 console.log('AJAX request failed:', textStatus, errorThrown); // Debugging: Log the failure
-                $('#respectify-test-result').html('<span style="color:red;">' + respectify_admin_i18n.error_prefix + response.data.message + '</span>');
+                $('#respectify-test-result').html('<span style="color:red;"></span>').find('span').text(respectify_admin_i18n.error_generic);
             });
         });
 

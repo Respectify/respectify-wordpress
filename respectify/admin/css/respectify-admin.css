@@ -674,4 +674,27 @@ body.settings_page_respectify .wrap h2:not(:first-child) {
     margin-top: 2.5rem;
 }
 
+/* Header and Logo */
+.respectify-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #ccd0d4;
+}
+
+.respectify-logo {
+    height: 40px;
+    width: auto;
+    margin-right: 15px;
+}
+
+.respectify-header h1 {
+    margin: 0;
+    padding: 0;
+    font-size: 23px;
+    font-weight: 400;
+    line-height: 1.3;
+}
+
 
