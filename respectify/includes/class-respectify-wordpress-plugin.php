@@ -761,7 +761,7 @@ class RespectifyWordpressPlugin {
 				$feedback = "<p>Your comment contains a common mistep, a logical fallacy:</p><ul>";
 				foreach ($comment_score->logicalFallacies as $fallacy) {
 					$feedback .= "<li><em>" . esc_html($fallacy->quotedLogicalFallacyExample) . "</em>: ";
-					$feedback .= esc_html($fallacy->explanationAndSuggestions);
+					$feedback .= esc_html($fallacy->explanation);
 					if (!empty($fallacy->suggestedRewrite)) {
 						$feedback .= "<div class='respectify-suggestion'>" . esc_html($fallacy->suggestedRewrite) . "</div>";
 					}
