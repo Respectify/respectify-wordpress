@@ -120,14 +120,6 @@ function respectify_register_settings() {
     );
 
     add_settings_field(
-        'respectify_check_spam',
-        '',
-        'respectify_check_spam_callback',
-        'respectify',
-        'respectify_behavior_settings_section'
-    );
-
-    add_settings_field(
         'respectify_check_dogwhistle',
         '',
         'respectify_check_dogwhistle_callback',
@@ -139,6 +131,14 @@ function respectify_register_settings() {
         \Respectify\OPTION_DOGWHISTLE_SETTINGS,
         esc_html__('Dogwhistle Settings', 'respectify'),
         'respectify_dogwhistle_settings_callback',
+        'respectify',
+        'respectify_behavior_settings_section'
+    );
+
+    add_settings_field(
+        'respectify_check_spam',
+        '',
+        'respectify_check_spam_callback',
         'respectify',
         'respectify_behavior_settings_section'
     );
@@ -379,6 +379,14 @@ function respectify_verify_nonce() {
 // Render the settings page
 function respectify_render_settings_page() {
     ?>
+    <style>
+        .respectify-indented th {
+            padding-left: 2em !important;
+        }
+        .respectify-indented td {
+            padding-left: 0 !important;
+        }
+    </style>
     <div class="wrap">
         <div class="respectify-header">
             <img src="<?php echo esc_url(plugins_url('images/respectify-logo.png', dirname(__FILE__))); ?>" alt="<?php esc_attr_e('Respectify Logo', 'respectify'); ?>" class="respectify-logo">
@@ -419,17 +427,6 @@ function respectify_enqueue_admin_scripts($hook_suffix) {
         'ajax_url' => admin_url('admin-ajax.php'),
         'nonce'    => wp_create_nonce('respectify_test_nonce'),
     ));
-
-    // Add inline CSS for side-by-side settings and checkbox alignment
-    $custom_css = '
-    .respectify-indented th {
-        padding-left: 20px;
-    }
-    .respectify-indented td {
-        padding-left: 20px;
-    }
-    ';
-    wp_add_inline_style('wp-admin', $custom_css);
 }
 
 // Handle AJAX request for testing credentials
@@ -780,7 +777,8 @@ function respectify_dogwhistle_settings_callback() {
         <div class="respectify-settings-row" style="margin-top: 15px;">
             <div class="respectify-settings-label">
                 <label for="respectify_sensitive_topics"><strong><?php esc_html_e('Sensitive Topics', 'respectify'); ?></strong></label>
-                <p class="description"><?php esc_html_e('Topics to watch for potential dogwhistles. One per line.', 'respectify'); ?></p>
+                <p class="description"><?php esc_html_e('What topics are sensitive in your community where dogwhistles might appear? Enter one per line.', 'respectify'); ?></p>
+                <p class="description"><?php esc_html_e('For example: nationalism, racial issues, LGBTQ+ rights, conspiracy theories. This helps focus detection on discussions where coded language is more likely.', 'respectify'); ?></p>
             </div>
             <div class="respectify-settings-control">
                 <textarea name="respectify_sensitive_topics" id="respectify_sensitive_topics" rows="4" class="large-text"><?php echo esc_textarea($sensitive_topics); ?></textarea>
@@ -790,7 +788,8 @@ function respectify_dogwhistle_settings_callback() {
         <div class="respectify-settings-row" style="margin-top: 15px;">
             <div class="respectify-settings-label">
                 <label for="respectify_dogwhistle_examples"><strong><?php esc_html_e('Dogwhistle Examples', 'respectify'); ?></strong></label>
-                <p class="description"><?php esc_html_e('Known dogwhistle terms or phrases to look for. One per line.', 'respectify'); ?></p>
+                <p class="description"><?php esc_html_e('Have you noticed specific coded language being used in your community\'s comments? Enter one per line.', 'respectify'); ?></p>
+                <p class="description"><?php esc_html_e('Examples might include: inside jokes with hidden meanings, references that seem innocent but aren\'t, or terms you have seen used differently than their standard meaning. Respectify detects dogwhistles automatically, but this helps it understand your community\'s specific context.', 'respectify'); ?></p>
             </div>
             <div class="respectify-settings-control">
                 <textarea name="respectify_dogwhistle_examples" id="respectify_dogwhistle_examples" rows="4" class="large-text"><?php echo esc_textarea($dogwhistle_examples); ?></textarea>
@@ -864,28 +863,28 @@ function respectify_sanitize_dogwhistle_examples($input) {
 
 function respectify_anti_spam_only_callback() {
     $assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
-    
+
     // Safety check: if settings are not an array, use defaults
     if (!is_array($assessment_settings)) {
         $assessment_settings = \Respectify\ASSESSMENT_DEFAULT_SETTINGS;
-        // Try to fix the stored settings
         update_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, $assessment_settings);
     }
-    
+
     $anti_spam_only = isset($assessment_settings['anti_spam_only']) && $assessment_settings['anti_spam_only'];
-    
+
     ?>
-    <tr class="respectify-checkbox-row respectify-checkbox-row-with-spacing" style="border-top: 2px solid #ddd; padding-top: 15px;">
+    <tr class="respectify-checkbox-row respectify-indented">
         <th scope="row">
             <label>
                 <input type="checkbox" name="respectify_assessment_settings[anti_spam_only]" value="1" <?php checked($anti_spam_only, true); ?> id="respectify_anti_spam_only" />
-                <strong><?php esc_html_e('Anti-Spam Only Mode', 'respectify'); ?></strong>
+                <strong><?php esc_html_e('Anti-Spam Only Plan', 'respectify'); ?></strong>
             </label>
-            <p class="description">
+        </th>
+        <td style="padding-left: 0;">
+            <p class="description" style="margin-top: 0;">
                 <?php esc_html_e('Enable this if you have an anti-spam only plan. This will disable all other checks except spam detection.', 'respectify'); ?>
             </p>
-        </th>
-        <td></td>
+        </td>
     </tr>
     <script>
     jQuery(document).ready(function($) {
@@ -894,33 +893,51 @@ function respectify_anti_spam_only_callback() {
             var dogwhistleCheckbox = $('input[name="respectify_assessment_settings[check_dogwhistle]"]');
             var healthCheckbox = $('input[name="respectify_assessment_settings[assess_health]"]');
             var relevanceCheckbox = $('input[name="respectify_assessment_settings[check_relevance]"]');
-            
+
             if (isChecked) {
-                // Disable and uncheck other services
                 dogwhistleCheckbox.prop('disabled', true).prop('checked', false);
                 healthCheckbox.prop('disabled', true).prop('checked', false);
                 relevanceCheckbox.prop('disabled', true).prop('checked', false);
-                
-                // Add visual indication
+
+                // Fade the disabled checkboxes and their labels
+                dogwhistleCheckbox.closest('label').css('opacity', '0.5');
+                healthCheckbox.closest('label').css('opacity', '0.5');
+                relevanceCheckbox.closest('label').css('opacity', '0.5');
+
                 dogwhistleCheckbox.closest('tr').find('.description').remove();
-                dogwhistleCheckbox.closest('label').after('<p class="description" style="color: #d54e21; font-style: italic;">Disabled because Anti-Spam Only mode is enabled.</p>');
-                healthCheckbox.closest('label').after('<p class="description" style="color: #d54e21; font-style: italic;">Disabled because Anti-Spam Only mode is enabled.</p>');
-                relevanceCheckbox.closest('label').after('<p class="description" style="color: #d54e21; font-style: italic;">Disabled because Anti-Spam Only mode is enabled.</p>');
+                dogwhistleCheckbox.closest('label').after('<p class="description" style="color: #d54e21; font-style: italic;">Disabled because <a href="#respectify_anti_spam_only" class="anti-spam-link">Anti-Spam Only Plan</a> is enabled.</p>');
+                healthCheckbox.closest('label').after('<p class="description" style="color: #d54e21; font-style: italic;">Disabled because <a href="#respectify_anti_spam_only" class="anti-spam-link">Anti-Spam Only Plan</a> is enabled.</p>');
+                relevanceCheckbox.closest('label').after('<p class="description" style="color: #d54e21; font-style: italic;">Disabled because <a href="#respectify_anti_spam_only" class="anti-spam-link">Anti-Spam Only Plan</a> is enabled.</p>');
             } else {
-                // Re-enable other services
                 dogwhistleCheckbox.prop('disabled', false);
                 healthCheckbox.prop('disabled', false);
                 relevanceCheckbox.prop('disabled', false);
-                
-                // Remove visual indication
+
+                // Restore opacity
+                dogwhistleCheckbox.closest('label').css('opacity', '1');
+                healthCheckbox.closest('label').css('opacity', '1');
+                relevanceCheckbox.closest('label').css('opacity', '1');
+
                 dogwhistleCheckbox.closest('tr').find('.description').remove();
                 healthCheckbox.closest('tr').find('.description').remove();
                 relevanceCheckbox.closest('tr').find('.description').remove();
             }
         });
-        
-        // Trigger change event on page load to set initial state
+
         $('#respectify_anti_spam_only').trigger('change');
+
+        // Handle clicking the anti-spam link
+        $(document).on('click', '.anti-spam-link', function(e) {
+            e.preventDefault();
+            var target = $('#respectify_anti_spam_only').closest('tr');
+            $('html, body').animate({
+                scrollTop: target.offset().top - 100
+            }, 500);
+            target.css('background-color', '#fff3cd');
+            setTimeout(function() {
+                target.css('background-color', '');
+            }, 2000);
+        });
     });
     </script>
     <?php
