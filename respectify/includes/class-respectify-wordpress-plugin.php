@@ -610,8 +610,13 @@ class RespectifyWordpressPlugin {
 		\Respectify\respectify_log('Evaluating comment with Respectify API...');
 
 		// Evaluate the comment
-		$evaluation = $this->evaluate_comment($article_id, $comment_text, $reply_to_comment_text, $author_name, $author_email);
-		
+		try {
+			$evaluation = $this->evaluate_comment($article_id, $comment_text, $reply_to_comment_text, $author_name, $author_email);
+		} catch (\Exception $e) {
+			\Respectify\respectify_log('Exception evaluating comment: ' . $e->getMessage());
+			return new \WP_Error('evaluation_error', 'There was an error handling your comment: ' . $e->getMessage());
+		}
+
 		if (is_wp_error($evaluation)) {
 			\Respectify\respectify_log('Error evaluating comment: ' . $evaluation->get_error_message());
 			$commentdata['comment_approved'] = 0; // Set to pending rather than spam
