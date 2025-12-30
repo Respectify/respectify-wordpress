@@ -417,10 +417,11 @@ function respectify_enqueue_admin_scripts($hook_suffix) {
     wp_enqueue_script('respectify-admin-js', plugin_dir_url(__FILE__) . '../js/respectify-admin.js', array('jquery'), '1.0.0', true);
     
     // Add localization data
+    // Note: Use __() not esc_html__() because JS uses .text() which handles escaping
     wp_localize_script('respectify-admin-js', 'respectify_admin_i18n', array(
-        'testing' => esc_html__('Testing...', 'respectify'),
-        'success_no_message' => '✅ ' . esc_html__('Success, but no message provided. Try using Respectify but if you get errors, contact Support.', 'respectify'),
-        'error_prefix' => '❌ ' . esc_html__('An error occurred: ', 'respectify'),
+        'testing' => __('Testing...', 'respectify'),
+        'success_no_message' => '✅ ' . __('Success, but no message provided. Try using Respectify but if you get errors, contact Support.', 'respectify'),
+        'error_prefix' => '❌ ' . __('An error occurred: ', 'respectify'),
     ));
 
     wp_localize_script('respectify-admin-js', 'respectify_ajax_object', array(
@@ -435,7 +436,7 @@ function respectify_test_credentials() {
     check_ajax_referer('respectify_test_nonce', 'nonce');
 
     if (!current_user_can('manage_options')) {
-        wp_send_json_error(array('message' => '❌ ' . esc_html__('Unauthorized. Please check your permissions and try again.', 'respectify')));
+        wp_send_json_error(array('message' => '❌ ' . __('Unauthorized. Please check your permissions and try again.', 'respectify')));
     }
 
     $email = isset($_POST['email']) ? sanitize_email(wp_unslash($_POST['email'])) : get_option(\Respectify\OPTION_EMAIL, '');
@@ -446,7 +447,7 @@ function respectify_test_credentials() {
     $api_version = isset($_POST['api_version']) ? sanitize_text_field(wp_unslash($_POST['api_version'])) : get_option(\Respectify\OPTION_API_VERSION, '');
 
     if (!class_exists('RespectifyScoper\Respectify\RespectifyClientAsync')) {
-        wp_send_json_error(array('message' => esc_html__('Class not found.', 'respectify')));
+        wp_send_json_error(array('message' => __('Class not found.', 'respectify')));
     }
     $which_client = \Respectify\get_friendly_message_which_client($base_url, $api_version);
     error_log('Testing credentials with email ' . $email . ' - ' . $which_client);
@@ -461,17 +462,19 @@ function respectify_test_credentials() {
             list($success, $info) = $result;
             $which_client = \Respectify\get_friendly_message_which_client($base_url, $api_version);
             error_log('Base url ' . $base_url . ' and API version ' . (!empty($api_version) ? $api_version : 'default') . ' give: which client ' . $which_client);
+            // Note: Use __() not esc_html__() because JS uses .text() which handles escaping
             if (!empty($which_client)) {
-                $which_client = '<br><span style="font-size: smaller;">' . esc_html($which_client) . "</span>";
+                $which_client = ' (' . $which_client . ')';
             }
             if ($success) {
-                wp_send_json_success(array('message' => '✅ ' . esc_html__('Authorization successful - click Save Changes, and then you\'re good to go!', 'respectify') . $which_client));
+                wp_send_json_success(array('message' => '✅ ' . __('Authorization successful - click Save Changes, and then you\'re good to go!', 'respectify') . $which_client));
             } else {
-                wp_send_json_error(array('message' => '⚠️ ' . esc_html($info) . $which_client));
+                wp_send_json_error(array('message' => '⚠️ ' . $info . $which_client));
             }
         },
         function ($ex) {
-            $unauth_message = '⛔️ ' . esc_html__('Unauthorized. This means there was an error with the email and/or API key. Please check them and try again.', 'respectify');
+            // Note: Use __() not esc_html__() because JS uses .text() which handles escaping
+            $unauth_message = '⛔️ ' . __('Unauthorized. This means there was an error with the email and/or API key. Please check them and try again.', 'respectify');
             $errorMessage = $ex->getMessage();
             if ($ex->getCode() === 401) {
                 $errorMessage = $unauth_message;
@@ -482,10 +485,10 @@ function respectify_test_credentials() {
                 if (!empty($base_url) || !empty($api_version)) {
                     $errorMessage = sprintf(
                         /* translators: %1$s: Base URL, %2$s: API Version */
-                        '⛔️ ' . esc_html__('Connection to %1$s version %2$s failed. Please check the URL and try again.', 'respectify'),
-                        esc_html($base_url),
-                        esc_html($api_version)
-                    ) . '<br/><span style="font-size: smaller;">' . esc_html($errorMessage) . "</span>";
+                        '⛔️ ' . __('Connection to %1$s version %2$s failed. Please check the URL and try again.', 'respectify'),
+                        $base_url,
+                        $api_version
+                    ) . ' - ' . $errorMessage;
                 }
             }
             wp_send_json_error(array('message' => $errorMessage));
