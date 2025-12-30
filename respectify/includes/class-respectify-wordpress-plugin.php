@@ -566,7 +566,12 @@ class RespectifyWordpressPlugin {
 		$article_id = null;
 		if ($assessment_settings['check_relevance']) {
 			$post_id = $commentdata['comment_post_ID'];
-			$article_id = $this->get_respectify_article_id($post_id);
+			try {
+				$article_id = $this->get_respectify_article_id($post_id);
+			} catch (\Exception $e) {
+				\Respectify\respectify_log('Exception getting article ID: ' . $e->getMessage());
+				return new \WP_Error('article_id_error', 'There was an error processing your comment: ' . $e->getMessage());
+			}
 
 			if (!$article_id) {
 				\Respectify\respectify_log('Invalid article ID: ' . $article_id);

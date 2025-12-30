@@ -495,7 +495,11 @@ function respectify_test_credentials() {
         }
     );
 
-    $client->run();
+    try {
+        $client->run();
+    } catch (\Exception $e) {
+        wp_send_json_error(array('message' => '❌ ' . __('An unexpected error occurred: ', 'respectify') . $e->getMessage()));
+    }
 }
 
 // Add the sanitization function for relevance settings
