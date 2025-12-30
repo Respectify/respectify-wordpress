@@ -57,7 +57,7 @@ if (class_exists('\RespectifyScoper\Respectify\RespectifyClientAsync')) {
  * Start at version 1.0.0 and use SemVer - https://semver.org
  * Rename this for your plugin and update it as you release new versions.
  */
-define( 'RESPECTIFY_VERSION', '1.0.0' );
+define( 'RESPECTIFY_VERSION', '0.2.0' );
 
 define('Respectify\OPTION_BASE_URL', 'respectify_base_url');
 define('Respectify\OPTION_API_VERSION', 'respectify_api_version');
