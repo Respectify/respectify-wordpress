@@ -14,6 +14,10 @@
     margin-left: 1rem;
 }
 
+#respectify-test-result span {
+    white-space: pre-line;
+}
+
 .description.description-match-font-size { /* Match the font size of text in the settings tables */
     font-size: 14px;
 }

@@ -10,6 +10,63 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 require_once plugin_dir_path(__FILE__) . '../includes/respectify-utils.php';
 
+// Admin notice for API errors
+add_action('admin_notices', 'respectify_admin_api_error_notice');
+function respectify_admin_api_error_notice() {
+    // Only show to users who can manage options
+    if (!current_user_can('manage_options')) {
+        return;
+    }
+
+    $error = \Respectify\respectify_get_api_error();
+    if (!$error) {
+        return;
+    }
+
+    // Check if user dismissed this notice
+    if (get_transient('respectify_error_notice_dismissed')) {
+        return;
+    }
+
+    $settings_url = admin_url('options-general.php?page=respectify');
+    $dismiss_url = wp_nonce_url(add_query_arg('respectify_dismiss_notice', '1'), 'respectify_dismiss_notice');
+
+    ?>
+    <div class="notice notice-error">
+        <p>
+            <strong><?php esc_html_e('Respectify:', 'respectify'); ?></strong>
+            <?php esc_html_e('Some visitors may be unable to post comments due to an API error.', 'respectify'); ?>
+        </p>
+        <p>
+            <strong><?php esc_html_e('Error:', 'respectify'); ?></strong>
+            <?php echo esc_html($error['message']); ?>
+        </p>
+        <p>
+            <strong><?php esc_html_e('When:', 'respectify'); ?></strong>
+            <?php echo esc_html($error['formatted_time']); ?>
+        </p>
+        <p>
+            <?php esc_html_e('Comments that couldn\'t be processed are being held for manual moderation.', 'respectify'); ?>
+        </p>
+        <p>
+            <a href="<?php echo esc_url($settings_url); ?>" class="button button-primary"><?php esc_html_e('Check Settings', 'respectify'); ?></a>
+            <a href="<?php echo esc_url($dismiss_url); ?>" class="button"><?php esc_html_e('Dismiss for 24 hours', 'respectify'); ?></a>
+        </p>
+    </div>
+    <?php
+}
+
+// Handle dismissing the admin notice
+add_action('admin_init', 'respectify_handle_notice_dismissal');
+function respectify_handle_notice_dismissal() {
+    if (isset($_GET['respectify_dismiss_notice']) && wp_verify_nonce($_GET['_wpnonce'], 'respectify_dismiss_notice')) {
+        set_transient('respectify_error_notice_dismissed', true, DAY_IN_SECONDS);
+        // Redirect to remove the query args
+        wp_redirect(remove_query_arg(['respectify_dismiss_notice', '_wpnonce']));
+        exit;
+    }
+}
+
 // Add settings page to the admin menu
 add_action('admin_menu', 'respectify_add_settings_page');
 function respectify_add_settings_page() {
@@ -459,7 +516,7 @@ function respectify_test_credentials() {
 
     $promise->then(
         function ($result) use ($base_url, $api_version) {
-            list($success, $info) = $result;
+            list($success, $info, $subscription) = $result;
             $which_client = \Respectify\get_friendly_message_which_client($base_url, $api_version);
             error_log('Base url ' . $base_url . ' and API version ' . (!empty($api_version) ? $api_version : 'default') . ' give: which client ' . $which_client);
             // Note: Use __() not esc_html__() because JS uses .text() which handles escaping
@@ -467,7 +524,22 @@ function respectify_test_credentials() {
                 $which_client = ' (' . $which_client . ')';
             }
             if ($success) {
-                wp_send_json_success(array('message' => '✅ ' . __('Authorization successful - click Save Changes, and then you\'re good to go!', 'respectify') . $which_client));
+                $message = '✅ ' . __('Authorization successful - click Save Changes, and then you\'re good to go!', 'respectify') . $which_client;
+
+                // Add subscription info if available
+                if ($subscription !== null) {
+                    $plan_name = isset($subscription['plan_name']) ? $subscription['plan_name'] : null;
+                    $allowed_endpoints = isset($subscription['allowed_endpoints']) ? $subscription['allowed_endpoints'] : [];
+
+                    if ($plan_name) {
+                        $message .= "\n\n" . sprintf(__('Plan: %s', 'respectify'), $plan_name);
+                    }
+                    if (!empty($allowed_endpoints)) {
+                        $message .= "\n" . sprintf(__('Available features: %s', 'respectify'), implode(', ', $allowed_endpoints));
+                    }
+                }
+
+                wp_send_json_success(array('message' => $message));
             } else {
                 wp_send_json_error(array('message' => '⚠️ ' . $info . $which_client));
             }
