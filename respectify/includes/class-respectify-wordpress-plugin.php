@@ -570,7 +570,10 @@ class RespectifyWordpressPlugin {
 				$article_id = $this->get_respectify_article_id($post_id);
 			} catch (\Exception $e) {
 				\Respectify\respectify_log('Exception getting article ID: ' . $e->getMessage());
-				return new \WP_Error('article_id_error', 'There was an error processing your comment: ' . $e->getMessage());
+				// Handle API error: notify admin, hold comment for moderation
+				$held_comment = \Respectify\respectify_handle_api_error($e->getMessage(), $commentdata);
+				wp_insert_comment($held_comment);
+				return new \WP_Error('api_error', \Respectify\respectify_get_commenter_error_message());
 			}
 
 			if (!$article_id) {
@@ -619,7 +622,10 @@ class RespectifyWordpressPlugin {
 			$evaluation = $this->evaluate_comment($article_id, $comment_text, $reply_to_comment_text, $author_name, $author_email);
 		} catch (\Exception $e) {
 			\Respectify\respectify_log('Exception evaluating comment: ' . $e->getMessage());
-			return new \WP_Error('evaluation_error', 'There was an error handling your comment: ' . $e->getMessage());
+			// Handle API error: notify admin, hold comment for moderation
+			$held_comment = \Respectify\respectify_handle_api_error($e->getMessage(), $commentdata);
+			wp_insert_comment($held_comment);
+			return new \WP_Error('api_error', \Respectify\respectify_get_commenter_error_message());
 		}
 
 		if (is_wp_error($evaluation)) {

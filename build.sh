@@ -83,6 +83,7 @@ ESSENTIAL_DIRS=(
   "public"
   "admin"
   "includes"
+  "images"
 )
 
 # Copy essential directories

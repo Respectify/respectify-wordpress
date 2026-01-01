@@ -18,6 +18,61 @@
     white-space: pre-line;
 }
 
+#respectify-test-result a {
+    color: #0073aa;
+    text-decoration: underline;
+}
+
+#respectify-test-result a:hover {
+    color: #005177;
+}
+
+/* API credentials two-column wrapper */
+.respectify-credentials-wrapper {
+    position: relative;
+}
+
+.respectify-credentials-left {
+    max-width: 500px;
+}
+
+.respectify-credentials-right {
+    position: absolute;
+    left: 530px;
+    bottom: 0;
+}
+
+/* Feature indicator inline styling */
+.respectify-feature-indicator {
+    white-space: nowrap;
+    display: inline;
+}
+
+/* Subscription status section */
+.respectify-subscription-status {
+    padding: 1em;
+    background-color: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.respectify-subscription-status h4 {
+    margin: 0 0 0.5em 0;
+    font-size: 14px;
+}
+
+.respectify-subscription-status #respectify-plan-name {
+    margin: 0 0 0.75em 0;
+}
+
+.respectify-features-table {
+    border-collapse: collapse;
+}
+
+.respectify-features-table td {
+    vertical-align: middle;
+}
+
 .description.description-match-font-size { /* Match the font size of text in the settings tables */
     font-size: 14px;
 }
@@ -538,6 +593,13 @@ body.settings_page_respectify .respectify-checkbox-row label {
     gap: 0.5rem;
     cursor: pointer;
     font-weight: 600;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+}
+
+body.settings_page_respectify .respectify-checkbox-row th {
+    width: auto;
+    min-width: 350px;
 }
 
 body.settings_page_respectify .respectify-checkbox-row input[type="checkbox"] {

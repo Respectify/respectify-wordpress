@@ -29,30 +29,128 @@
 	 * practising this, we should strive to set a better example in our own work.
 	 */
 
-	// For the admin page, button to test credentials
-    $(document).ready(function() {
-        $('#respectify-test-button').on('click', function() {
+	// Feature names mapping (internal name -> display name)
+    var featureNames = {
+        'commentscore': 'Comment Quality Scoring',
+        'commentrelevance': 'Relevance Checking',
+        'dogwhistle': 'Dogwhistle Detection',
+        'antispam': 'Spam Detection'
+    };
+
+    // All features to display (in order - spam last)
+    var allFeatures = ['commentscore', 'commentrelevance', 'dogwhistle', 'antispam'];
+
+    // Mapping from endpoint names to checkbox setting names
+    var endpointToCheckbox = {
+        'commentscore': 'assess_health',
+        'commentrelevance': 'check_relevance',
+        'dogwhistle': 'check_dogwhistle',
+        'antispam': 'check_spam'
+    };
+
+    // Function to update subscription status display
+    function updateSubscriptionStatus(subscription) {
+        var $container = $('#respectify-subscription-status');
+        var $planName = $('#respectify-plan-name');
+        var $featuresList = $('#respectify-features-list');
+
+        if (!subscription) {
+            $container.hide();
+            // Clear checkbox indicators
+            $('.respectify-feature-indicator').remove();
+            return;
+        }
+
+        $container.show();
+
+        // Show plan name or "No active subscription" with colored indicator
+        if (subscription.active && subscription.plan_name) {
+            $planName.html('<span style="color: #46b450;">●</span> <strong>Plan:</strong> ' + $('<div>').text(subscription.plan_name).html());
+            $container.css('border-left', '4px solid #46b450');
+        } else {
+            $planName.html('<span style="color: #d63638;">●</span> <em>No active subscription</em>');
+            $container.css('border-left', '4px solid #d63638');
+        }
+
+        // Build features list with checkmarks/crosses
+        var allowedEndpoints = subscription.allowed_endpoints || [];
+        var html = '<table class="respectify-features-table">';
+
+        for (var i = 0; i < allFeatures.length; i++) {
+            var feature = allFeatures[i];
+            var displayName = featureNames[feature] || feature;
+            var isAllowed = allowedEndpoints.indexOf(feature) !== -1;
+            var icon = isAllowed ? '<span style="color: green;">✓</span>' : '<span style="color: #999;">✗</span>';
+            var textStyle = isAllowed ? '' : 'color: #999;';
+
+            html += '<tr><td style="padding: 2px 10px 2px 0;">' + icon + '</td>';
+            html += '<td style="padding: 2px 0; ' + textStyle + '">' + displayName + '</td></tr>';
+        }
+
+        html += '</table>';
+        $featuresList.html(html);
+
+        // Update indicators next to checkboxes
+        updateCheckboxIndicators(allowedEndpoints);
+    }
+
+    // Function to update indicators next to each feature checkbox
+    function updateCheckboxIndicators(allowedEndpoints) {
+        // Remove existing indicators
+        $('.respectify-feature-indicator').remove();
+
+        for (var endpoint in endpointToCheckbox) {
+            var checkboxName = endpointToCheckbox[endpoint];
+            var isAllowed = allowedEndpoints && allowedEndpoints.indexOf(endpoint) !== -1;
+            var icon = isAllowed ? '✓' : '✗';
+            var text = isAllowed ? 'In your plan' : 'Not in your plan';
+            var color = isAllowed ? '#46b450' : '#999';
+
+            // Find the checkbox and add indicator inline after the label text
+            var $checkbox = $('input[name="respectify_assessment_settings[' + checkboxName + ']"]');
+            if ($checkbox.length) {
+                var $label = $checkbox.closest('label');
+                if ($label.length) {
+                    // Append the indicator inside the label, after the text
+                    $label.append('<span class="respectify-feature-indicator" style="color: ' + color + '; margin-left: 10px; font-size: 12px; font-weight: normal;">' + icon + ' ' + text + '</span>');
+                }
+            }
+        }
+    }
+
+    // Function to fetch subscription status (used on page load and test click)
+    function fetchSubscriptionStatus(showTestResult) {
+        var email = $('input[name="respectify_email"]').val();
+        var apiKey = $('input[name="respectify_api_key"]').val();
+        var baseUrl = $('input[name="respectify_base_url"]').val();
+        var apiVersion = $('input[name="respectify_api_version"]').val();
+
+        // Don't fetch if no credentials
+        if (!email || !apiKey) {
+            return;
+        }
+
+        if (showTestResult) {
             $('#respectify-test-result').html('Testing...');
+        }
 
-            // Get the values from the input fields
-            var email = $('input[name="respectify_email"]').val();
-            var apiKey = $('input[name="respectify_api_key"]').val();
-            // New: retrieve advanced settings
-            var baseUrl = $('input[name="respectify_base_url"]').val();
-            var apiVersion = $('input[name="respectify_api_version"]').val();
-
-            $.post(respectify_ajax_object.ajax_url, {
-                action: 'respectify_test_credentials',
-                nonce: respectify_ajax_object.nonce,
-                email: email,
-                api_key: apiKey,
-                base_url: baseUrl,
-                api_version: apiVersion
-            }, function(response) {
-                console.log('AJAX response:', response); // Debugging: Log the response
+        $.post(respectify_ajax_object.ajax_url, {
+            action: 'respectify_test_credentials',
+            nonce: respectify_ajax_object.nonce,
+            email: email,
+            api_key: apiKey,
+            base_url: baseUrl,
+            api_version: apiVersion
+        }, function(response) {
+            if (showTestResult) {
+                console.log('AJAX response:', response);
                 if (response.success) {
                     if (response.data && response.data.message) {
-                        $('#respectify-test-result').html('<span style="color:green;"></span>').find('span').text(response.data.message);
+                        // Check if there's an active subscription to determine color
+                        var hasSubscription = response.data.has_subscription;
+                        var color = hasSubscription ? 'green' : '#b26200';
+                        // Use .html() for the message since it may contain a link
+                        $('#respectify-test-result').html('<span style="color:' + color + ';">' + response.data.message + '</span>');
                     } else {
                         console.log('Success response but no message:', response);
                         $('#respectify-test-result').html('<span style="color:green;"></span>').find('span').text(respectify_admin_i18n.success_no_message);
@@ -65,10 +163,30 @@
                         $('#respectify-test-result').html('<span style="color:red;"></span>').find('span').text(respectify_admin_i18n.error_prefix + response.data.message);
                     }
                 }
-            }).fail(function(jqXHR, textStatus, errorThrown) {
-                console.log('AJAX request failed:', textStatus, errorThrown); // Debugging: Log the failure
+            }
+
+            // Update subscription status display (on success only)
+            if (response.success && response.data && response.data.subscription) {
+                updateSubscriptionStatus(response.data.subscription);
+            } else if (showTestResult) {
+                $('#respectify-subscription-status').hide();
+            }
+        }).fail(function(jqXHR, textStatus, errorThrown) {
+            if (showTestResult) {
+                console.log('AJAX request failed:', textStatus, errorThrown);
                 $('#respectify-test-result').html('<span style="color:red;"></span>').find('span').text(respectify_admin_i18n.error_generic);
-            });
+                $('#respectify-subscription-status').hide();
+            }
+        });
+    }
+
+    // For the admin page, button to test credentials
+    $(document).ready(function() {
+        // Fetch subscription status on page load (silently)
+        fetchSubscriptionStatus(false);
+
+        $('#respectify-test-button').on('click', function() {
+            fetchSubscriptionStatus(true);
         });
 
 

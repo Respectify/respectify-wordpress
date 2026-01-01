@@ -357,15 +357,26 @@ function respectify_email_callback() {
 // Callback to render API key input
 function respectify_api_key_callback() {
     $api_key = \Respectify\respectify_get_decrypted_api_key();
-    echo '<input type="password" name="respectify_api_key" value="' . esc_attr($api_key) . '" class="regular-text" required />';
-    echo '<p class="description">' . esc_html__('Enter the Respectify API key you wish to use for this Wordpress site.', 'respectify') . '</p>';
-
     ?>
-    <div class="respectify-test-container">
-        <button type="button" id="respectify-test-button" class="button"><?php esc_html_e('Test', 'respectify'); ?></button>
-        <span id="respectify-test-result"></span>   
+    <div class="respectify-credentials-wrapper">
+        <div class="respectify-credentials-left">
+            <input type="password" name="respectify_api_key" value="<?php echo esc_attr($api_key); ?>" class="regular-text" required />
+            <p class="description"><?php esc_html_e('Enter the Respectify API key you wish to use for this Wordpress site.', 'respectify'); ?></p>
+
+            <div class="respectify-test-container">
+                <button type="button" id="respectify-test-button" class="button"><?php esc_html_e('Test', 'respectify'); ?></button>
+                <span id="respectify-test-result"></span>
+            </div>
+            <p><?php esc_html_e('Click "Test" to verify the email and API key are working correctly.', 'respectify'); ?></p>
+        </div>
+        <div class="respectify-credentials-right">
+            <div id="respectify-subscription-status" class="respectify-subscription-status" style="display: none;">
+                <h4><?php esc_html_e('Subscription Status', 'respectify'); ?></h4>
+                <p id="respectify-plan-name"></p>
+                <div id="respectify-features-list" class="respectify-features-list"></div>
+            </div>
+        </div>
     </div>
-    <p><?php esc_html_e('Click "Test" to verify the email and API key are working correctly.', 'respectify'); ?></p>
     <?php
 }
 
@@ -446,7 +457,7 @@ function respectify_render_settings_page() {
     </style>
     <div class="wrap">
         <div class="respectify-header">
-            <img src="<?php echo esc_url(plugins_url('images/respectify-logo.png', dirname(__FILE__))); ?>" alt="<?php esc_attr_e('Respectify Logo', 'respectify'); ?>" class="respectify-logo">
+            <img src="<?php echo esc_url(plugins_url('images/respectify.svg', dirname(__FILE__))); ?>" alt="<?php esc_attr_e('Respectify Logo', 'respectify'); ?>" class="respectify-logo">
             <h1><?php esc_html_e('Respectify Settings', 'respectify'); ?></h1>
         </div>
 
@@ -524,22 +535,33 @@ function respectify_test_credentials() {
                 $which_client = ' (' . $which_client . ')';
             }
             if ($success) {
-                $message = '✅ ' . __('Authorization successful - click Save Changes, and then you\'re good to go!', 'respectify') . $which_client;
+                // Prepare subscription data for JS
+                $subscription_data = array(
+                    'active' => isset($subscription['active']) ? $subscription['active'] : false,
+                    'plan_name' => isset($subscription['plan_name']) ? $subscription['plan_name'] : null,
+                    'allowed_endpoints' => isset($subscription['allowed_endpoints']) ? $subscription['allowed_endpoints'] : array(),
+                );
 
-                // Add subscription info if available
-                if ($subscription !== null) {
-                    $plan_name = isset($subscription['plan_name']) ? $subscription['plan_name'] : null;
-                    $allowed_endpoints = isset($subscription['allowed_endpoints']) ? $subscription['allowed_endpoints'] : [];
+                // Check if there's an active subscription
+                $has_active_subscription = $subscription_data['active'] && !empty($subscription_data['plan_name']);
 
-                    if ($plan_name) {
-                        $message .= "\n\n" . sprintf(__('Plan: %s', 'respectify'), $plan_name);
-                    }
-                    if (!empty($allowed_endpoints)) {
-                        $message .= "\n" . sprintf(__('Available features: %s', 'respectify'), implode(', ', $allowed_endpoints));
-                    }
+                if ($has_active_subscription) {
+                    $message = '✅ ' . __('Authorization successful - click Save Changes, and then you\'re good to go!', 'respectify') . $which_client;
+                } else {
+                    // Auth works but no subscription - show warning
+                    $billing_url = 'https://respectify.ai/dashboard/billing';
+                    $message = '⚠️ ' . sprintf(
+                        /* translators: %s: URL to billing page */
+                        __('Authorization successful, but no active plan found. Please visit <a href="%s" target="_blank">your billing page</a> to subscribe.<br>Click Save Changes to save this email and API key.', 'respectify'),
+                        esc_url($billing_url)
+                    );
                 }
 
-                wp_send_json_success(array('message' => $message));
+                wp_send_json_success(array(
+                    'message' => $message,
+                    'subscription' => $subscription_data,
+                    'has_subscription' => $has_active_subscription,
+                ));
             } else {
                 wp_send_json_error(array('message' => '⚠️ ' . $info . $which_client));
             }

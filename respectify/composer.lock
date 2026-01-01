@@ -921,16 +921,16 @@
         },
         {
             "name": "respectify/respectify-php",
-            "version": "v0.2.18",
+            "version": "v0.2.21",
             "source": {
                 "type": "git",
                 "url": "https://github.com/Respectify/respectify-php.git",
-                "reference": "c97e34eba6d5533d4efa489f0e70ff7946b546d9"
+                "reference": "306c18c0d360e4974cfd6d05212ae3546daf2e0d"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Respectify/respectify-php/zipball/c97e34eba6d5533d4efa489f0e70ff7946b546d9",
-                "reference": "c97e34eba6d5533d4efa489f0e70ff7946b546d9",
+                "url": "https://api.github.com/repos/Respectify/respectify-php/zipball/306c18c0d360e4974cfd6d05212ae3546daf2e0d",
+                "reference": "306c18c0d360e4974cfd6d05212ae3546daf2e0d",
                 "shasum": ""
             },
             "require": {
@@ -967,9 +967,9 @@
             "description": "PHP library for the Respectify API",
             "support": {
                 "issues": "https://github.com/Respectify/respectify-php/issues",
-                "source": "https://github.com/Respectify/respectify-php/tree/v0.2.18"
+                "source": "https://github.com/Respectify/respectify-php/tree/v0.2.21"
             },
-            "time": "2025-11-23T20:59:29+00:00"
+            "time": "2026-01-01T15:10:38+00:00"
         }
     ],
     "packages-dev": [
