@@ -38,7 +38,6 @@ const ASSESSMENT_DEFAULT_SETTINGS = array(
     'check_relevance' => true,
     'check_spam' => true,
     'check_dogwhistle' => true,
-    'anti_spam_only' => false  // New setting for anti-spam plan users
 );
 
 // Relevance Settings

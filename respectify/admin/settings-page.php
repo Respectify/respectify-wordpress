@@ -201,14 +201,6 @@ function respectify_register_settings() {
     );
 
     add_settings_field(
-        'respectify_anti_spam_only',
-        '',
-        'respectify_anti_spam_only_callback',
-        'respectify',
-        'respectify_behavior_settings_section'
-    );
-
-    add_settings_field(
         \Respectify\OPTION_SPAM_HANDLING,
         esc_html__('How to Handle Spam', 'respectify'),
         'respectify_spam_handling_callback',
@@ -526,45 +518,42 @@ function respectify_test_credentials() {
     $promise = $client->checkUserCredentials();
 
     $promise->then(
-        function ($result) use ($base_url, $api_version) {
-            list($success, $info, $subscription) = $result;
+        function ($userCheckResponse) use ($base_url, $api_version) {
+            // UserCheckResponse object has: active, status, expires, planName, allowedEndpoints, error
             $which_client = \Respectify\get_friendly_message_which_client($base_url, $api_version);
             error_log('Base url ' . $base_url . ' and API version ' . (!empty($api_version) ? $api_version : 'default') . ' give: which client ' . $which_client);
             // Note: Use __() not esc_html__() because JS uses .text() which handles escaping
             if (!empty($which_client)) {
                 $which_client = ' (' . $which_client . ')';
             }
-            if ($success) {
-                // Prepare subscription data for JS
-                $subscription_data = array(
-                    'active' => isset($subscription['active']) ? $subscription['active'] : false,
-                    'plan_name' => isset($subscription['plan_name']) ? $subscription['plan_name'] : null,
-                    'allowed_endpoints' => isset($subscription['allowed_endpoints']) ? $subscription['allowed_endpoints'] : array(),
-                );
 
-                // Check if there's an active subscription
-                $has_active_subscription = $subscription_data['active'] && !empty($subscription_data['plan_name']);
+            // Prepare subscription data for JS
+            $subscription_data = array(
+                'active' => $userCheckResponse->active,
+                'plan_name' => $userCheckResponse->planName,
+                'allowed_endpoints' => $userCheckResponse->allowedEndpoints,
+            );
 
-                if ($has_active_subscription) {
-                    $message = '✅ ' . __('Authorization successful - click Save Changes, and then you\'re good to go!', 'respectify') . $which_client;
-                } else {
-                    // Auth works but no subscription - show warning
-                    $billing_url = 'https://respectify.ai/dashboard/billing';
-                    $message = '⚠️ ' . sprintf(
-                        /* translators: %s: URL to billing page */
-                        __('Authorization successful, but no active plan found. Please visit <a href="%s" target="_blank">your billing page</a> to subscribe.<br>Click Save Changes to save this email and API key.', 'respectify'),
-                        esc_url($billing_url)
-                    );
-                }
+            // Check if there's an active subscription
+            $has_active_subscription = $subscription_data['active'] && !empty($subscription_data['plan_name']);
 
-                wp_send_json_success(array(
-                    'message' => $message,
-                    'subscription' => $subscription_data,
-                    'has_subscription' => $has_active_subscription,
-                ));
+            if ($has_active_subscription) {
+                $message = '✅ ' . __('Authorization successful - click Save Changes, and then you\'re good to go!', 'respectify') . $which_client;
             } else {
-                wp_send_json_error(array('message' => '⚠️ ' . $info . $which_client));
+                // Auth works but no subscription - show warning
+                $billing_url = 'https://respectify.ai/dashboard/billing';
+                $message = '⚠️ ' . sprintf(
+                    /* translators: %s: URL to billing page */
+                    __('Authorization successful, but no active plan found. Please visit <a href="%s" target="_blank">your billing page</a> to subscribe.<br>Click Save Changes to save this email and API key.', 'respectify'),
+                    esc_url($billing_url)
+                );
             }
+
+            wp_send_json_success(array(
+                'message' => $message,
+                'subscription' => $subscription_data,
+                'has_subscription' => $has_active_subscription,
+            ));
         },
         function ($ex) {
             // Note: Use __() not esc_html__() because JS uses .text() which handles escaping
@@ -721,49 +710,33 @@ function respectify_banned_topics_settings_callback() {
 // Add sanitization function for assessment settings
 function respectify_sanitize_assessment_settings($input) {
     $sanitized_input = array();
-    
-    $checkboxes = array('assess_health', 'check_relevance', 'check_spam', 'check_dogwhistle', 'anti_spam_only');
+
+    $checkboxes = array('assess_health', 'check_relevance', 'check_spam', 'check_dogwhistle');
     foreach ($checkboxes as $checkbox) {
         $sanitized_input[$checkbox] = isset($input[$checkbox]) && $input[$checkbox] === '1' ? true : false;
     }
-    
-    // If anti-spam only mode is enabled, disable other services
-    if ($sanitized_input['anti_spam_only']) {
-        $sanitized_input['assess_health'] = false;
-        $sanitized_input['check_relevance'] = false;
-        $sanitized_input['check_dogwhistle'] = false;
-    }
-    
+
     return $sanitized_input;
 }
 
 // Add the callbacks for individual assessment checkboxes
 function respectify_assess_health_callback() {
     $assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
-    
+
     // Safety check: if settings are not an array, use defaults
     if (!is_array($assessment_settings)) {
         $assessment_settings = \Respectify\ASSESSMENT_DEFAULT_SETTINGS;
         // Try to fix the stored settings
         update_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, $assessment_settings);
     }
-    
-    // Check if anti-spam only mode is enabled
-    $anti_spam_only = isset($assessment_settings['anti_spam_only']) && $assessment_settings['anti_spam_only'];
-    $disabled = $anti_spam_only ? 'disabled' : '';
-    
+
     ?>
     <tr class="respectify-checkbox-row">
         <th scope="row">
             <label>
-                <input type="checkbox" name="respectify_assessment_settings[assess_health]" value="1" <?php checked($assessment_settings['assess_health'] && !$anti_spam_only, true); ?> <?php echo $disabled; ?> />
+                <input type="checkbox" name="respectify_assessment_settings[assess_health]" value="1" <?php checked($assessment_settings['assess_health'], true); ?> />
                 <?php esc_html_e('Assess Comment Health', 'respectify'); ?>
             </label>
-            <?php if ($anti_spam_only): ?>
-                <p class="description" style="color: #d54e21; font-style: italic;">
-                    <?php esc_html_e('Disabled because Anti-Spam Only mode is enabled.', 'respectify'); ?>
-                </p>
-            <?php endif; ?>
         </th>
         <td></td>
     </tr>
@@ -772,30 +745,21 @@ function respectify_assess_health_callback() {
 
 function respectify_check_relevance_callback() {
     $assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
-    
+
     // Safety check: if settings are not an array, use defaults
     if (!is_array($assessment_settings)) {
         $assessment_settings = \Respectify\ASSESSMENT_DEFAULT_SETTINGS;
         // Try to fix the stored settings
         update_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, $assessment_settings);
     }
-    
-    // Check if anti-spam only mode is enabled
-    $anti_spam_only = isset($assessment_settings['anti_spam_only']) && $assessment_settings['anti_spam_only'];
-    $disabled = $anti_spam_only ? 'disabled' : '';
-    
+
     ?>
     <tr class="respectify-checkbox-row respectify-checkbox-row-with-spacing">
         <th scope="row">
             <label>
-                <input type="checkbox" name="respectify_assessment_settings[check_relevance]" value="1" <?php checked($assessment_settings['check_relevance'] && !$anti_spam_only, true); ?> <?php echo $disabled; ?> />
+                <input type="checkbox" name="respectify_assessment_settings[check_relevance]" value="1" <?php checked($assessment_settings['check_relevance'], true); ?> />
                 <?php esc_html_e('Check Topic Relevance', 'respectify'); ?>
             </label>
-            <?php if ($anti_spam_only): ?>
-                <p class="description" style="color: #d54e21; font-style: italic;">
-                    <?php esc_html_e('Disabled because Anti-Spam Only mode is enabled.', 'respectify'); ?>
-                </p>
-            <?php endif; ?>
         </th>
         <td></td>
     </tr>
@@ -835,23 +799,15 @@ function respectify_check_dogwhistle_callback() {
         update_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, $assessment_settings);
     }
 
-    // Check if anti-spam only mode is enabled
-    $anti_spam_only = isset($assessment_settings['anti_spam_only']) && $assessment_settings['anti_spam_only'];
-    $disabled = $anti_spam_only ? 'disabled' : '';
     $checkbox_checked = isset($assessment_settings['check_dogwhistle']) ? $assessment_settings['check_dogwhistle'] : true;
 
     ?>
     <tr class="respectify-checkbox-row respectify-checkbox-row-with-spacing">
         <th scope="row">
             <label>
-                <input type="checkbox" name="respectify_assessment_settings[check_dogwhistle]" value="1" <?php checked($checkbox_checked && !$anti_spam_only, true); ?> <?php echo $disabled; ?> />
+                <input type="checkbox" name="respectify_assessment_settings[check_dogwhistle]" value="1" <?php checked($checkbox_checked, true); ?> />
                 <?php esc_html_e('Check for Dogwhistles', 'respectify'); ?>
             </label>
-            <?php if ($anti_spam_only): ?>
-                <p class="description" style="color: #d54e21; font-style: italic;">
-                    <?php esc_html_e('Disabled because Anti-Spam Only mode is enabled.', 'respectify'); ?>
-                </p>
-            <?php endif; ?>
         </th>
         <td></td>
     </tr>
@@ -960,88 +916,6 @@ function respectify_sanitize_dogwhistle_examples($input) {
     }
 
     return implode("\n", $sanitized_examples);
-}
-
-function respectify_anti_spam_only_callback() {
-    $assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
-
-    // Safety check: if settings are not an array, use defaults
-    if (!is_array($assessment_settings)) {
-        $assessment_settings = \Respectify\ASSESSMENT_DEFAULT_SETTINGS;
-        update_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, $assessment_settings);
-    }
-
-    $anti_spam_only = isset($assessment_settings['anti_spam_only']) && $assessment_settings['anti_spam_only'];
-
-    ?>
-    <tr class="respectify-checkbox-row respectify-indented">
-        <th scope="row">
-            <label>
-                <input type="checkbox" name="respectify_assessment_settings[anti_spam_only]" value="1" <?php checked($anti_spam_only, true); ?> id="respectify_anti_spam_only" />
-                <strong><?php esc_html_e('Anti-Spam Only Plan', 'respectify'); ?></strong>
-            </label>
-        </th>
-        <td style="padding-left: 0;">
-            <p class="description" style="margin-top: 0;">
-                <?php esc_html_e('Enable this if you have an anti-spam only plan. This will disable all other checks except spam detection.', 'respectify'); ?>
-            </p>
-        </td>
-    </tr>
-    <script>
-    jQuery(document).ready(function($) {
-        $('#respectify_anti_spam_only').change(function() {
-            var isChecked = $(this).is(':checked');
-            var dogwhistleCheckbox = $('input[name="respectify_assessment_settings[check_dogwhistle]"]');
-            var healthCheckbox = $('input[name="respectify_assessment_settings[assess_health]"]');
-            var relevanceCheckbox = $('input[name="respectify_assessment_settings[check_relevance]"]');
-
-            if (isChecked) {
-                dogwhistleCheckbox.prop('disabled', true).prop('checked', false);
-                healthCheckbox.prop('disabled', true).prop('checked', false);
-                relevanceCheckbox.prop('disabled', true).prop('checked', false);
-
-                // Fade the disabled checkboxes and their labels
-                dogwhistleCheckbox.closest('label').css('opacity', '0.5');
-                healthCheckbox.closest('label').css('opacity', '0.5');
-                relevanceCheckbox.closest('label').css('opacity', '0.5');
-
-                dogwhistleCheckbox.closest('tr').find('.description').remove();
-                dogwhistleCheckbox.closest('label').after('<p class="description" style="color: #d54e21; font-style: italic;">Disabled because <a href="#respectify_anti_spam_only" class="anti-spam-link">Anti-Spam Only Plan</a> is enabled.</p>');
-                healthCheckbox.closest('label').after('<p class="description" style="color: #d54e21; font-style: italic;">Disabled because <a href="#respectify_anti_spam_only" class="anti-spam-link">Anti-Spam Only Plan</a> is enabled.</p>');
-                relevanceCheckbox.closest('label').after('<p class="description" style="color: #d54e21; font-style: italic;">Disabled because <a href="#respectify_anti_spam_only" class="anti-spam-link">Anti-Spam Only Plan</a> is enabled.</p>');
-            } else {
-                dogwhistleCheckbox.prop('disabled', false);
-                healthCheckbox.prop('disabled', false);
-                relevanceCheckbox.prop('disabled', false);
-
-                // Restore opacity
-                dogwhistleCheckbox.closest('label').css('opacity', '1');
-                healthCheckbox.closest('label').css('opacity', '1');
-                relevanceCheckbox.closest('label').css('opacity', '1');
-
-                dogwhistleCheckbox.closest('tr').find('.description').remove();
-                healthCheckbox.closest('tr').find('.description').remove();
-                relevanceCheckbox.closest('tr').find('.description').remove();
-            }
-        });
-
-        $('#respectify_anti_spam_only').trigger('change');
-
-        // Handle clicking the anti-spam link
-        $(document).on('click', '.anti-spam-link', function(e) {
-            e.preventDefault();
-            var target = $('#respectify_anti_spam_only').closest('tr');
-            $('html, body').animate({
-                scrollTop: target.offset().top - 100
-            }, 500);
-            target.css('background-color', '#fff3cd');
-            setTimeout(function() {
-                target.css('background-color', '');
-            }, 2000);
-        });
-    });
-    </script>
-    <?php
 }
 
 // Add filter to modify the field titles

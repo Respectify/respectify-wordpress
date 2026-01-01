@@ -404,38 +404,25 @@ class RespectifyWordpressPlugin {
         // Get assessment settings to determine which services to request
         $assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
         $services = array();
-        
-        // Check if we're in anti-spam only mode
-        $anti_spam_only = isset($assessment_settings['anti_spam_only']) && $assessment_settings['anti_spam_only'];
-        
-        if ($anti_spam_only) {
-            // For anti-spam plan users, only allow spam checking
-            if ($assessment_settings['check_spam']) {
-                $services[] = 'spam';
-            }
-        } else {
-            // For full plan users, check all enabled services
-            if ($assessment_settings['check_spam']) {
-                $services[] = 'spam';
-            }
-            if ($assessment_settings['assess_health']) {
-                $services[] = 'commentscore';
-            }
-            if ($assessment_settings['check_relevance'] && $respectify_article_id) {
-                $services[] = 'relevance';
-            }
-            if (isset($assessment_settings['check_dogwhistle']) && $assessment_settings['check_dogwhistle'] && $respectify_article_id) {
-                $services[] = 'dogwhistle';
-            }
+
+        // Check all enabled services based on user settings
+        if ($assessment_settings['check_spam']) {
+            $services[] = 'spam';
+        }
+        if ($assessment_settings['assess_health']) {
+            $services[] = 'commentscore';
+        }
+        if ($assessment_settings['check_relevance'] && $respectify_article_id) {
+            $services[] = 'relevance';
+        }
+        if (isset($assessment_settings['check_dogwhistle']) && $assessment_settings['check_dogwhistle'] && $respectify_article_id) {
+            $services[] = 'dogwhistle';
         }
 
-        // If no services are enabled, default based on plan type
+        // If no services are enabled, default to all available services
+        // The server will enforce plan limits and return PaymentRequiredException for unauthorized services
         if (empty($services)) {
-            if ($anti_spam_only) {
-                $services = ['spam'];
-            } else {
-                $services = ['spam', 'commentscore', 'relevance'];
-            }
+            $services = ['spam', 'commentscore', 'relevance'];
         }
 
         // Get banned topics if relevance checking is enabled and we have an article ID
