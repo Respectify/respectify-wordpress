@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "952b44365695d7210acca821ac8c4c1b",
+    "content-hash": "01c64bf250427fc9eda55e1c665636d7",
     "packages": [
         {
             "name": "evenement/evenement",
@@ -921,16 +921,16 @@
         },
         {
             "name": "respectify/respectify-php",
-            "version": "v0.2.21",
+            "version": "v0.2.22",
             "source": {
                 "type": "git",
                 "url": "https://github.com/Respectify/respectify-php.git",
-                "reference": "306c18c0d360e4974cfd6d05212ae3546daf2e0d"
+                "reference": "a7399bc20d4c94e899d7a2dd0e06ab359f49a9f4"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Respectify/respectify-php/zipball/306c18c0d360e4974cfd6d05212ae3546daf2e0d",
-                "reference": "306c18c0d360e4974cfd6d05212ae3546daf2e0d",
+                "url": "https://api.github.com/repos/Respectify/respectify-php/zipball/a7399bc20d4c94e899d7a2dd0e06ab359f49a9f4",
+                "reference": "a7399bc20d4c94e899d7a2dd0e06ab359f49a9f4",
                 "shasum": ""
             },
             "require": {
@@ -967,9 +967,9 @@
             "description": "PHP library for the Respectify API",
             "support": {
                 "issues": "https://github.com/Respectify/respectify-php/issues",
-                "source": "https://github.com/Respectify/respectify-php/tree/v0.2.21"
+                "source": "https://github.com/Respectify/respectify-php/tree/v0.2.22"
             },
-            "time": "2026-01-01T15:10:38+00:00"
+            "time": "2026-01-01T19:38:09+00:00"
         }
     ],
     "packages-dev": [
