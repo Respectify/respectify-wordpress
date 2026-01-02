@@ -221,6 +221,10 @@ echo "Copying files to WordPress SVN trunk directory..."
 
 cp -r "$FINAL_BUILD_DIR"/* "../respectify-wordpress-svn/trunk/"
 
+echo "Copying SVN assets (icons)..."
+
+cp -r "$SCRIPT_DIR/svn-assets"/* "../respectify-wordpress-svn/assets/"
+
 echo "Done."
 
 

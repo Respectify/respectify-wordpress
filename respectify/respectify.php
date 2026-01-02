@@ -14,12 +14,12 @@
  *
  * @wordpress-plugin
  * Plugin Name:       Respectify
- * Plugin URI:        https://respectify.org
+ * Plugin URI:        https://respectify.ai
  * Description:       Healthy internet comments! Use Respectify to help your commenters post in a way that builds community.
- * Version:           0.2.0
+ * Version:           0.2.2
  * Requires at least: 6.6
- * Author:            David Millington
- * Author URI:        https://github.com/respectify/
+ * Author:            Respectify Inc
+ * Author URI:        https://respectify.ai/
  * License:           GPL-3.0+
  * License URI:       http://www.gnu.org/licenses/gpl-3.0.txt
  * Text Domain:       respectify
@@ -57,7 +57,7 @@ if (class_exists('\RespectifyScoper\Respectify\RespectifyClientAsync')) {
  * Start at version 1.0.0 and use SemVer - https://semver.org
  * Rename this for your plugin and update it as you release new versions.
  */
-define( 'RESPECTIFY_VERSION', '0.2.0' );
+define( 'RESPECTIFY_VERSION', '0.2.2' );
 
 define('Respectify\OPTION_BASE_URL', 'respectify_base_url');
 define('Respectify\OPTION_API_VERSION', 'respectify_api_version');
