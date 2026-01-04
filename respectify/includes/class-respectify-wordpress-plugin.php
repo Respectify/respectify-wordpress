@@ -725,19 +725,23 @@ class RespectifyWordpressPlugin {
 
 		// Check for relevance issues if relevance checking is enabled
 		if ($assessment_settings['check_relevance'] && isset($megaResult->relevanceCheck)) {
-			// Check if comment is off-topic
+			$relevance_settings = get_option(\Respectify\OPTION_RELEVANCE_SETTINGS, \Respectify\RELEVANCE_DEFAULT_SETTINGS);
+
+			// Check if comment is off-topic (only show feedback if not set to allow)
 			if ($megaResult->relevanceCheck->onTopic->onTopic === false) {
-				return "<p>Your comment appears to be off-topic. " . esc_html($megaResult->relevanceCheck->onTopic->reasoning) . "</p>";
+				if ($relevance_settings['off_topic_handling'] !== \Respectify\ACTION_PUBLISH) {
+					return "<p>Your comment appears to be off-topic. " . esc_html($megaResult->relevanceCheck->onTopic->reasoning) . "</p>";
+				}
 			}
 
 			// Check for banned topics only if we have banned topics configured
 			$banned_topics = get_option(\Respectify\OPTION_BANNED_TOPICS, '');
 			if (!empty($banned_topics) && !empty($megaResult->relevanceCheck->bannedTopics->bannedTopics)) {
-				$relevance_settings = get_option(\Respectify\OPTION_RELEVANCE_SETTINGS, \Respectify\RELEVANCE_DEFAULT_SETTINGS);
 				$banned_topics_percentage = $megaResult->relevanceCheck->bannedTopics->quantityOnBannedTopics ?? 0;
 
-				// Only show feedback if the percentage exceeds the threshold
-				if ($banned_topics_percentage >= $relevance_settings['banned_topics_threshold']) {
+				// Only show feedback if the percentage exceeds the threshold and not set to allow
+				if ($banned_topics_percentage >= $relevance_settings['banned_topics_threshold'] &&
+					$relevance_settings['banned_topics_handling'] !== \Respectify\ACTION_PUBLISH) {
 					return "<p>Your comment contains topics that the site owner does not want discussed. " .
 						   esc_html($megaResult->relevanceCheck->bannedTopics->reasoning) . "</p>";
 				}
@@ -746,7 +750,10 @@ class RespectifyWordpressPlugin {
 
 		// Check for dogwhistles if dogwhistle checking is enabled
 		if (isset($assessment_settings['check_dogwhistle']) && $assessment_settings['check_dogwhistle'] && isset($megaResult->dogwhistleCheck)) {
-			if ($megaResult->dogwhistleCheck->detection->dogwhistlesDetected) {
+			$dogwhistle_settings = get_option(\Respectify\OPTION_DOGWHISTLE_SETTINGS, array('handling' => \Respectify\DOGWHISTLE_DEFAULT_HANDLING));
+			// Only show feedback if dogwhistles detected and not set to allow
+			if ($megaResult->dogwhistleCheck->detection->dogwhistlesDetected &&
+				$dogwhistle_settings['handling'] !== \Respectify\ACTION_PUBLISH) {
 				$feedback = "<p>" . esc_html($megaResult->dogwhistleCheck->detection->reasoning) . "</p>";
 				if (isset($megaResult->dogwhistleCheck->details) && !empty($megaResult->dogwhistleCheck->details->dogwhistleTerms)) {
 					$feedback .= "<p><strong>Detected terms:</strong> " . esc_html(implode(', ', $megaResult->dogwhistleCheck->details->dogwhistleTerms)) . "</p>";

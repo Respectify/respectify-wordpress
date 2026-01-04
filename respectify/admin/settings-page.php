@@ -743,18 +743,16 @@ function respectify_sanitize_assessment_settings($input) {
 function respectify_assess_health_callback() {
     $assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
 
-    // Safety check: if settings are not an array, use defaults
+    // Safety check: if settings are not an array, use defaults for display only
     if (!is_array($assessment_settings)) {
         $assessment_settings = \Respectify\ASSESSMENT_DEFAULT_SETTINGS;
-        // Try to fix the stored settings
-        update_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, $assessment_settings);
     }
 
     ?>
     <tr class="respectify-checkbox-row">
         <th scope="row">
             <label>
-                <input type="checkbox" name="respectify_assessment_settings[assess_health]" value="1" <?php checked($assessment_settings['assess_health'], true); ?> />
+                <input type="checkbox" name="respectify_assessment_settings[assess_health]" value="1" <?php checked($assessment_settings['assess_health'] ?? true, true); ?> />
                 <?php esc_html_e('Assess Comment Health', 'respectify'); ?>
             </label>
         </th>
@@ -766,18 +764,16 @@ function respectify_assess_health_callback() {
 function respectify_check_relevance_callback() {
     $assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
 
-    // Safety check: if settings are not an array, use defaults
+    // Safety check: if settings are not an array, use defaults for display only
     if (!is_array($assessment_settings)) {
         $assessment_settings = \Respectify\ASSESSMENT_DEFAULT_SETTINGS;
-        // Try to fix the stored settings
-        update_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, $assessment_settings);
     }
 
     ?>
     <tr class="respectify-checkbox-row respectify-checkbox-row-with-spacing">
         <th scope="row">
             <label>
-                <input type="checkbox" name="respectify_assessment_settings[check_relevance]" value="1" <?php checked($assessment_settings['check_relevance'], true); ?> />
+                <input type="checkbox" name="respectify_assessment_settings[check_relevance]" value="1" <?php checked($assessment_settings['check_relevance'] ?? true, true); ?> />
                 <?php esc_html_e('Check Topic Relevance', 'respectify'); ?>
             </label>
         </th>
@@ -788,19 +784,17 @@ function respectify_check_relevance_callback() {
 
 function respectify_check_spam_callback() {
     $assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
-    
-    // Safety check: if settings are not an array, use defaults
+
+    // Safety check: if settings are not an array, use defaults for display only
     if (!is_array($assessment_settings)) {
         $assessment_settings = \Respectify\ASSESSMENT_DEFAULT_SETTINGS;
-        // Try to fix the stored settings
-        update_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, $assessment_settings);
     }
-    
+
     ?>
     <tr class="respectify-checkbox-row respectify-checkbox-row-with-spacing">
         <th scope="row">
             <label>
-                <input type="checkbox" name="respectify_assessment_settings[check_spam]" value="1" <?php checked($assessment_settings['check_spam'], true); ?> />
+                <input type="checkbox" name="respectify_assessment_settings[check_spam]" value="1" <?php checked($assessment_settings['check_spam'] ?? true, true); ?> />
                 <?php esc_html_e('Check for Spam', 'respectify'); ?>
             </label>
         </th>
@@ -812,20 +806,16 @@ function respectify_check_spam_callback() {
 function respectify_check_dogwhistle_callback() {
     $assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
 
-    // Safety check: if settings are not an array, use defaults
+    // Safety check: if settings are not an array, use defaults for display only
     if (!is_array($assessment_settings)) {
         $assessment_settings = \Respectify\ASSESSMENT_DEFAULT_SETTINGS;
-        // Try to fix the stored settings
-        update_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, $assessment_settings);
     }
-
-    $checkbox_checked = isset($assessment_settings['check_dogwhistle']) ? $assessment_settings['check_dogwhistle'] : true;
 
     ?>
     <tr class="respectify-checkbox-row respectify-checkbox-row-with-spacing">
         <th scope="row">
             <label>
-                <input type="checkbox" name="respectify_assessment_settings[check_dogwhistle]" value="1" <?php checked($checkbox_checked, true); ?> />
+                <input type="checkbox" name="respectify_assessment_settings[check_dogwhistle]" value="1" <?php checked($assessment_settings['check_dogwhistle'] ?? true, true); ?> />
                 <?php esc_html_e('Check for Dogwhistles', 'respectify'); ?>
             </label>
         </th>

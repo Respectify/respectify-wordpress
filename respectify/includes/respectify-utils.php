@@ -281,7 +281,7 @@ function respectify_handle_api_error($error_message, $commentdata) {
  */
 function respectify_get_branding_footer() {
     $plugin_url = plugin_dir_url(dirname(__FILE__));
-    $logo_url = $plugin_url . 'images/icon-128x128.png';
+    $logo_url = $plugin_url . 'images/respectify.svg';
 
     return '<div class="respectify-branding">' .
            '<a href="https://respectify.ai" target="_blank" rel="noopener noreferrer">' .
