@@ -393,6 +393,17 @@ function respectify_api_version_callback() {
     echo '<p class="description">' . esc_html__('Enter the API version for the Respectify API. An example is "1.0". Leave blank for the normal Respectify service.', 'respectify') . '</p>';
 }
 
+// Clear API error when email is updated
+add_filter('pre_update_option_respectify_email', 'respectify_clear_error_on_email_update', 10, 2);
+function respectify_clear_error_on_email_update($new_value, $old_value) {
+    if ($new_value !== $old_value) {
+        // Clear any stored API error when credentials are updated
+        \Respectify\respectify_clear_api_error();
+        delete_transient('respectify_error_notice_dismissed');
+    }
+    return $new_value;
+}
+
 // Encrypt API key before saving
 add_filter('pre_update_option_respectify_api_key_encrypted', 'respectify_encrypt_api_key', 10, 2);
 function respectify_encrypt_api_key($new_value, $old_value) {
@@ -400,6 +411,12 @@ function respectify_encrypt_api_key($new_value, $old_value) {
 
     if (!empty($_POST['respectify_api_key'])) {
         $api_key = sanitize_text_field(wp_unslash($_POST['respectify_api_key']));
+
+        // Clear any stored API error when credentials are updated
+        // (user is actively fixing the issue by saving new settings)
+        \Respectify\respectify_clear_api_error();
+        delete_transient('respectify_error_notice_dismissed');
+
         return \Respectify\respectify_encrypt($api_key);
     }
     return $old_value;
