@@ -747,8 +747,6 @@ body.settings_page_respectify .wrap h2:not(:first-child) {
     margin-bottom: 20px;
     padding-bottom: 20px;
     border-bottom: 1px solid #ccd0d4;
-    width: 100%;
-    clear: both;
 }
 
 .respectify-logo {
@@ -758,28 +756,12 @@ body.settings_page_respectify .wrap h2:not(:first-child) {
     flex-shrink: 0;
 }
 
-.respectify-header h1 {
+.respectify-header .respectify-title {
     margin: 0;
     padding: 0;
     font-size: 23px;
     font-weight: 400;
     line-height: 1.3;
-    flex-grow: 1;
-}
-
-/* Ensure WordPress admin notices appear below the header, not inline */
-body.settings_page_respectify .wrap > .notice,
-body.settings_page_respectify .notice {
-    display: block;
-    width: 100%;
-    margin-top: 15px;
-    margin-bottom: 15px;
-    clear: both;
-}
-
-/* Force the wrap container to not use flexbox that could affect notices */
-body.settings_page_respectify .wrap {
-    display: block;
 }
 
 
