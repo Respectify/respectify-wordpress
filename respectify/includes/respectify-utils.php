@@ -140,7 +140,7 @@ function respectify_get_contact_page_url() {
  * @return string The error message HTML.
  */
 function respectify_get_commenter_error_message() {
-    $message = __('We couldn\'t process your comment due to a configuration issue.', 'respectify');
+    $message = __('Respectify couldn\'t process your comment due to a configuration issue.', 'respectify');
 
     $contact_url = respectify_get_contact_page_url();
     if ($contact_url) {
@@ -271,5 +271,22 @@ function respectify_handle_api_error($error_message, $commentdata) {
     ];
 
     return $commentdata;
+}
+
+/**
+ * Get the Respectify branding footer HTML for feedback messages.
+ * Includes a small logo and link to respectify.ai
+ *
+ * @return string The footer HTML.
+ */
+function respectify_get_branding_footer() {
+    $plugin_url = plugin_dir_url(dirname(__FILE__));
+    $logo_url = $plugin_url . 'images/icon-128x128.png';
+
+    return '<div class="respectify-branding">' .
+           '<a href="https://respectify.ai" target="_blank" rel="noopener noreferrer">' .
+           '<img src="' . esc_url($logo_url) . '" alt="Respectify" class="respectify-logo" />' .
+           '<span>Powered by Respectify</span>' .
+           '</a></div>';
 }
 

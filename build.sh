@@ -25,6 +25,27 @@ if [ ! -f "$PHPCS_PREFIXER" ]; then
   exit 1
 fi
 
+# Step 0: Run PHPStan static analysis
+echo "Running PHPStan static analysis..."
+PHPSTAN="$PLUGIN_DIR/vendor/bin/phpstan"
+
+if [ ! -f "$PHPSTAN" ]; then
+  echo "Error: PHPStan not found at '$PHPSTAN'. Please run 'composer install' in '$PLUGIN_DIR' first."
+  exit 1
+fi
+
+cd "$PLUGIN_DIR"
+php -d memory_limit=1G "$PHPSTAN" analyse --no-progress
+PHPSTAN_EXIT_CODE=$?
+cd "$SCRIPT_DIR"
+
+if [ $PHPSTAN_EXIT_CODE -ne 0 ]; then
+  echo "Error: PHPStan found errors. Please fix them before building."
+  exit 1
+fi
+
+echo "PHPStan analysis passed."
+
 # Ensure the build directory exists
 if [ ! -d "$FINAL_BUILD_DIR" ]; then
   echo "Build directory '$FINAL_BUILD_DIR' does not exist. Creating it..."

@@ -1,0 +1,36 @@
+includes:
+    - vendor/szepeviktor/phpstan-wordpress/extension.neon
+
+parameters:
+    # Level 2: catches undefined variables, unknown functions, some type errors
+    level: 2
+
+    paths:
+        - includes/
+        - admin/
+        - public/
+        - respectify.php
+
+    excludePaths:
+        - vendor/
+        - build/
+
+    # Scan the respectify-php SDK for type information
+    scanDirectories:
+        - vendor/respectify/respectify-php/src/
+
+    treatPhpDocTypesAsCertain: false
+    reportUnmatchedIgnoredErrors: false
+
+    ignoreErrors:
+        # RespectifyScoper namespace is created by php-scoper at build time
+        # These classes don't exist in dev, only after scoping
+        - '~RespectifyScoper~'
+        - '~Respectify\\RespectifyClient~'
+        - '~Respectify\\Exception~'
+        # is_wp_error checks that are valid at runtime
+        - '~is_wp_error\(.+\) will always evaluate to false~'
+        # Properties on objects from scoped namespace (PHPStan can't resolve types)
+        - '~Access to an undefined property object::~'
+        # Missing return in intercept_comment (all code paths do return, PHPStan just can't verify)
+        - '~should return array but return statement is missing~'

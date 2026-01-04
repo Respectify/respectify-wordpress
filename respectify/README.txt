@@ -1,8 +1,9 @@
 === Respectify ===
 Contributors: vintagedave, respectify
 Tags: comments, moderation, community, user engagement, spam
-Tested up to: 6.7
-Stable tag: 0.2.2
+Tested up to: 6.9
+Requires PHP: 8.0
+Stable tag: 0.2.3
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -28,6 +29,9 @@ Respectify is available in the Wordpress plugins directory, so:
 4. That's it!
 
 == Changelog ==
+
+= 0.2.3 =
+* Documents PHP 8.0+ requirement
 
 = 0.2.2 =
 * Added plugin icon
