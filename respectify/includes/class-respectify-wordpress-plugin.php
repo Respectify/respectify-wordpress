@@ -477,7 +477,7 @@ class RespectifyWordpressPlugin {
                 if ($megaResult instanceof MegaCallResult) {
                     $res = $megaResult;
                 } else {
-                    $caughtException = new Exception('Mega call result is not an instance of MegaCallResult');
+                    $caughtException = new \Exception('Mega call result is not an instance of MegaCallResult');
                 }
             },
             function ($e) use (&$caughtException) {
@@ -812,6 +812,12 @@ class RespectifyWordpressPlugin {
      * @return string Action to take -- see ACTION_ constants
      */
     private function get_comment_action($megaResult) {
+        // If evaluation failed (null result), don't publish - hold for moderation
+        if ($megaResult === null) {
+            \Respectify\respectify_log('get_comment_action: megaResult is null, returning REVISE to hold comment');
+            return \Respectify\ACTION_REVISE;
+        }
+
         // Get assessment settings
         $assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
 
