@@ -720,7 +720,11 @@ class RespectifyWordpressPlugin {
 
 		// Check for spam first if spam checking is enabled
 		if ($assessment_settings['check_spam'] && isset($megaResult->spamCheck) && $megaResult->spamCheck->isSpam) {
-			return "This looks like spam.";
+			$feedback = "<p>This looks like spam.</p>";
+			if (!empty($megaResult->spamCheck->reasoning)) {
+				$feedback .= "<p>" . esc_html($megaResult->spamCheck->reasoning) . "</p>";
+			}
+			return $feedback;
 		}
 
 		// Check for relevance issues if relevance checking is enabled
