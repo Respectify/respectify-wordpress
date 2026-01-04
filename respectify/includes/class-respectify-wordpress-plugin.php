@@ -1,9 +1,9 @@
 <?php
 namespace Respectify;
 use RespectifyScoper\Respectify\RespectifyClientAsync;
-use RespectifyScoper\Respectify\CommentScore;
-use RespectifyScoper\Respectify\MegaCallResult;
-use RespectifyScoper\Respectify\DogwhistleResult;
+use RespectifyScoper\Respectify\Schemas\CommentScore;
+use RespectifyScoper\Respectify\Schemas\MegaCallResult;
+use RespectifyScoper\Respectify\Schemas\DogwhistleResult;
 
 
 /**
@@ -73,7 +73,7 @@ class RespectifyWordpressPlugin {
 	 *
 	 * @since    1.0.0
 	 * @access   protected
-	 * @var      RespectifyClient    $respectify_client    Respectify client.
+	 * @var      RespectifyClientAsync    $respectify_client    Respectify client.
 	 */
 	protected RespectifyClientAsync $respectify_client;
 
@@ -625,6 +625,12 @@ class RespectifyWordpressPlugin {
 			);
 			// Return error to prevent comment from being posted
 			return new \WP_Error('evaluation_error', 'Respectify encountered an error while processing your comment. Please try again later.');
+		} elseif ($evaluation === null) {
+			// Evaluation returned null (unexpected error) - hold for moderation
+			\Respectify\respectify_log('Evaluation returned null - holding comment for moderation');
+			$held_comment = \Respectify\respectify_handle_api_error('Evaluation returned null unexpectedly', $commentdata);
+			wp_insert_comment($held_comment);
+			return new \WP_Error('evaluation_error', 'Respectify encountered an error while processing your comment. Please try again later.');
 		} else {
 			// Handle the evaluation result
 			$action = $this->get_comment_action($evaluation);
@@ -703,12 +709,12 @@ class RespectifyWordpressPlugin {
 
 	/**
      * When a comment was sent for revision, we need to show feedback to the user. This
-	 * builds that feedback (as HTML)  
+	 * builds that feedback (as HTML)
      *
-     * @param \RespectifyScoper\Respectify\MegaCallResult $megaResult The comment evaluation result.
+     * @param MegaCallResult $megaResult The comment evaluation result.
      * @return string (HTML) feedback to show to the user.
      */
-	private function build_feedback_html($megaResult) {
+	private function build_feedback_html(MegaCallResult $megaResult) {
 		// Get assessment settings
 		$assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
 
@@ -811,11 +817,11 @@ class RespectifyWordpressPlugin {
      * @param MegaCallResult $megaResult The comment evaluation result.
      * @return string Action to take -- see ACTION_ constants
      */
-    private function get_comment_action($megaResult) {
-        // If evaluation failed (null result), don't publish - hold for moderation
+    private function get_comment_action(MegaCallResult $megaResult) {
+        // Null should be handled by caller - this is a defensive check
         if ($megaResult === null) {
-            \Respectify\respectify_log('get_comment_action: megaResult is null, returning REVISE to hold comment');
-            return \Respectify\ACTION_REVISE;
+            \Respectify\respectify_log('get_comment_action: megaResult is null - this should not happen');
+            throw new \Exception('get_comment_action called with null megaResult');
         }
 
         // Get assessment settings

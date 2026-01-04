@@ -60,9 +60,6 @@ if (class_exists('\RespectifyScoper\Respectify\RespectifyClientAsync')) {
  */
 define( 'RESPECTIFY_VERSION', '0.2.3' );
 
-define('Respectify\OPTION_BASE_URL', 'respectify_base_url');
-define('Respectify\OPTION_API_VERSION', 'respectify_api_version');
-
 use Respectify\Respectify_Activator;
 
 /**
@@ -97,7 +94,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/class-respectify-wordpress-
 
 if (!class_exists('Respectify\RespectifyWordpressPlugin')) {
     \Respectify\respectify_log('Class Respectify\RespectifyWordpressPlugin not found');
-    throw new Exception('Class Respectify\RespectifyWordpressPlugin not found');
+    throw new \Exception('Class Respectify\RespectifyWordpressPlugin not found');
 }
 
 // Settings page
