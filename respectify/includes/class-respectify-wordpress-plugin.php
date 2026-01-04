@@ -715,110 +715,193 @@ class RespectifyWordpressPlugin {
      * @return string (HTML) feedback to show to the user.
      */
 	private function build_feedback_html(MegaCallResult $megaResult) {
+		$feedback_content = $this->get_feedback_content($megaResult);
+
+		if (empty($feedback_content)) {
+			return '';
+		}
+
+		// Wrap with intro and outro
+		$intro = '<p>' . esc_html__('We aim for thoughtful, engaged conversation.', 'respectify') . '</p>';
+		$outro = '<p>' . esc_html__('Can you edit your comment to take the above feedback into account, please?', 'respectify') . '</p>';
+
+		return $intro . $feedback_content . $outro;
+	}
+
+	/**
+	 * Convert text with newlines into HTML paragraphs.
+	 * Each line becomes a separate <p> tag, empty lines are skipped.
+	 *
+	 * @param string $text The text to convert.
+	 * @return string HTML with <p> tags.
+	 */
+	private function text_to_paragraphs($text) {
+		$lines = preg_split('/\r\n|\r|\n/', $text);
+		$paragraphs = array();
+		foreach ($lines as $line) {
+			$line = trim($line);
+			if (!empty($line)) {
+				$paragraphs[] = '<p>' . esc_html($line) . '</p>';
+			}
+		}
+		return implode('', $paragraphs);
+	}
+
+	/**
+	 * Get the feedback content for a comment (without intro/outro wrapper).
+	 * Checks are ordered by priority: most actionable/severe first, banned topics last.
+	 *
+	 * @param MegaCallResult $megaResult The comment evaluation result.
+	 * @return string (HTML) feedback content, or empty string if no issues.
+	 */
+	private function get_feedback_content(MegaCallResult $megaResult) {
 		// Get assessment settings
 		$assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
 
-		// Check for spam first if spam checking is enabled
+		// 1. Check for spam first (most severe)
 		if ($assessment_settings['check_spam'] && isset($megaResult->spamCheck) && $megaResult->spamCheck->isSpam) {
-			$feedback = "<p>This looks like spam.</p>";
+			$feedback = '<ul><li>';
+			$feedback .= '<p>' . esc_html__('This looks like spam.', 'respectify') . '</p>';
 			if (!empty($megaResult->spamCheck->reasoning)) {
-				$feedback .= "<p>" . esc_html($megaResult->spamCheck->reasoning) . "</p>";
+				$feedback .= $this->text_to_paragraphs($megaResult->spamCheck->reasoning);
 			}
+			$feedback .= '</li></ul>';
 			return $feedback;
 		}
 
-		// Check for relevance issues if relevance checking is enabled
-		if ($assessment_settings['check_relevance'] && isset($megaResult->relevanceCheck)) {
-			$relevance_settings = get_option(\Respectify\OPTION_RELEVANCE_SETTINGS, \Respectify\RELEVANCE_DEFAULT_SETTINGS);
+		// Get health assessment settings for checks below
+		$revise_settings = get_option(\Respectify\OPTION_REVISE_SETTINGS, \Respectify\REVISE_DEFAULT_SETTINGS);
 
-			// Check if comment is off-topic (only show feedback if not set to allow)
-			if ($megaResult->relevanceCheck->onTopic->onTopic === false) {
-				if ($relevance_settings['off_topic_handling'] !== \Respectify\ACTION_PUBLISH) {
-					return "<p>Your comment appears to be off-topic. " . esc_html($megaResult->relevanceCheck->onTopic->reasoning) . "</p>";
+		// 2. Check for toxicity (high priority - explains overall tone issues)
+		if ($assessment_settings['assess_health'] && isset($megaResult->commentScore)) {
+			$comment_score = $megaResult->commentScore;
+			if (($revise_settings['toxicity'] ?? true) && isset($comment_score->toxicityScore)) {
+				$toxicity_threshold = $revise_settings['toxicity_threshold'] ?? \Respectify\REVISE_DEFAULT_TOXICITY_THRESHOLD;
+				if (!is_numeric($toxicity_threshold) || $toxicity_threshold < 0.1 || $toxicity_threshold > 1) {
+					$toxicity_threshold = \Respectify\REVISE_DEFAULT_TOXICITY_THRESHOLD;
+				}
+				if ($comment_score->toxicityScore >= $toxicity_threshold) {
+					$feedback = '<ul><li>';
+					$feedback .= '<p>' . esc_html__('Your comment may come across as hostile to others.', 'respectify') . '</p>';
+					if (!empty($comment_score->toxicityExplanation)) {
+						$feedback .= $this->text_to_paragraphs($comment_score->toxicityExplanation);
+					}
+					$feedback .= '</li></ul>';
+					return $feedback;
 				}
 			}
+		}
 
-			// Check for banned topics only if we have banned topics configured
+		// 3. Check for objectionable phrases (has suggested rewrites)
+		if ($assessment_settings['assess_health'] && isset($megaResult->commentScore)) {
+			$comment_score = $megaResult->commentScore;
+			if ($revise_settings['objectionable_phrases'] && !empty($comment_score->objectionablePhrases)) {
+				$feedback = '<p>' . esc_html__('Your comment will be read by others as rude.', 'respectify') . '</p><ul>';
+				foreach ($comment_score->objectionablePhrases as $phrase) {
+					$feedback .= '<li><em>' . esc_html($phrase->quotedObjectionablePhrase) . '</em>';
+					$feedback .= $this->text_to_paragraphs($phrase->explanation);
+					if (!empty($phrase->suggestedRewrite)) {
+						$feedback .= '<div class="respectify-suggestion">' . esc_html($phrase->suggestedRewrite) . '</div>';
+					}
+					$feedback .= '</li>';
+				}
+				$feedback .= '</ul>';
+				return $feedback;
+			}
+		}
+
+		// 4. Check for negative tone (has suggested rewrites)
+		if ($assessment_settings['assess_health'] && isset($megaResult->commentScore)) {
+			$comment_score = $megaResult->commentScore;
+			if ($revise_settings['negative_tone'] && !empty($comment_score->negativeTonePhrases)) {
+				$feedback = '<p>' . esc_html__('Your comment may discourage others from engaging.', 'respectify') . '</p><ul>';
+				foreach ($comment_score->negativeTonePhrases as $tone) {
+					$feedback .= '<li><em>' . esc_html($tone->quotedNegativeTonePhrase) . '</em>';
+					$feedback .= $this->text_to_paragraphs($tone->explanation);
+					if (!empty($tone->suggestedRewrite)) {
+						$feedback .= '<div class="respectify-suggestion">' . esc_html($tone->suggestedRewrite) . '</div>';
+					}
+					$feedback .= '</li>';
+				}
+				$feedback .= '</ul>';
+				return $feedback;
+			}
+		}
+
+		// 5. Check for logical fallacies (has suggested rewrites)
+		if ($assessment_settings['assess_health'] && isset($megaResult->commentScore)) {
+			$comment_score = $megaResult->commentScore;
+			if ($revise_settings['logical_fallacies'] && !empty($comment_score->logicalFallacies)) {
+				$feedback = '<p>' . esc_html__('Your comment contains reasoning that may not hold up.', 'respectify') . '</p><ul>';
+				foreach ($comment_score->logicalFallacies as $fallacy) {
+					$feedback .= '<li><em>' . esc_html($fallacy->quotedLogicalFallacyExample) . '</em>';
+					$feedback .= $this->text_to_paragraphs($fallacy->explanation);
+					if (!empty($fallacy->suggestedRewrite)) {
+						$feedback .= '<div class="respectify-suggestion">' . esc_html($fallacy->suggestedRewrite) . '</div>';
+					}
+					$feedback .= '</li>';
+				}
+				$feedback .= '</ul>';
+				return $feedback;
+			}
+		}
+
+		// 6. Check for low effort
+		if ($assessment_settings['assess_health'] && isset($megaResult->commentScore)) {
+			$comment_score = $megaResult->commentScore;
+			if ($revise_settings['low_effort'] && isset($comment_score->appearsLowEffort) && $comment_score->appearsLowEffort) {
+				return '<ul><li><p>' . esc_html__('Your comment doesn\'t add much to the discussion.', 'respectify') . '</p></li></ul>';
+			}
+		}
+
+		// 7. Check for dogwhistles
+		if (isset($assessment_settings['check_dogwhistle']) && $assessment_settings['check_dogwhistle'] && isset($megaResult->dogwhistleCheck)) {
+			$dogwhistle_settings = get_option(\Respectify\OPTION_DOGWHISTLE_SETTINGS, array('handling' => \Respectify\DOGWHISTLE_DEFAULT_HANDLING));
+			if ($megaResult->dogwhistleCheck->detection->dogwhistlesDetected &&
+				$dogwhistle_settings['handling'] !== \Respectify\ACTION_PUBLISH) {
+				$feedback = '<ul><li>';
+				$feedback .= '<p>' . esc_html__('Your comment contains language that may carry unintended meanings.', 'respectify') . '</p>';
+				$feedback .= $this->text_to_paragraphs($megaResult->dogwhistleCheck->detection->reasoning);
+				if (isset($megaResult->dogwhistleCheck->details) && !empty($megaResult->dogwhistleCheck->details->dogwhistleTerms)) {
+					$feedback .= '<p><strong>' . esc_html__('Detected terms:', 'respectify') . '</strong> ' . esc_html(implode(', ', $megaResult->dogwhistleCheck->details->dogwhistleTerms)) . '</p>';
+				}
+				$feedback .= '</li></ul>';
+				return $feedback;
+			}
+		}
+
+		// 8. Check if comment is off-topic
+		if ($assessment_settings['check_relevance'] && isset($megaResult->relevanceCheck)) {
+			$relevance_settings = get_option(\Respectify\OPTION_RELEVANCE_SETTINGS, \Respectify\RELEVANCE_DEFAULT_SETTINGS);
+			if ($megaResult->relevanceCheck->onTopic->onTopic === false) {
+				if ($relevance_settings['off_topic_handling'] !== \Respectify\ACTION_PUBLISH) {
+					$feedback = '<ul><li>';
+					$feedback .= '<p>' . esc_html__('Your comment doesn\'t seem to relate to the article.', 'respectify') . '</p>';
+					$feedback .= $this->text_to_paragraphs($megaResult->relevanceCheck->onTopic->reasoning);
+					$feedback .= '</li></ul>';
+					return $feedback;
+				}
+			}
+		}
+
+		// 9. Check for banned topics (last priority)
+		if ($assessment_settings['check_relevance'] && isset($megaResult->relevanceCheck)) {
+			$relevance_settings = get_option(\Respectify\OPTION_RELEVANCE_SETTINGS, \Respectify\RELEVANCE_DEFAULT_SETTINGS);
 			$banned_topics = get_option(\Respectify\OPTION_BANNED_TOPICS, '');
 			if (!empty($banned_topics) && !empty($megaResult->relevanceCheck->bannedTopics->bannedTopics)) {
 				$banned_topics_percentage = $megaResult->relevanceCheck->bannedTopics->quantityOnBannedTopics ?? 0;
-
-				// Only show feedback if the percentage exceeds the threshold and not set to allow
 				if ($banned_topics_percentage >= $relevance_settings['banned_topics_threshold'] &&
 					$relevance_settings['banned_topics_handling'] !== \Respectify\ACTION_PUBLISH) {
-					return "<p>Your comment contains topics that the site owner does not want discussed. " .
-						   esc_html($megaResult->relevanceCheck->bannedTopics->reasoning) . "</p>";
+					$feedback = '<ul><li>';
+					$feedback .= '<p>' . esc_html__('Your comment touches on topics that the site owner prefers not to have discussed here.', 'respectify') . '</p>';
+					$feedback .= $this->text_to_paragraphs($megaResult->relevanceCheck->bannedTopics->reasoning);
+					$feedback .= '</li></ul>';
+					return $feedback;
 				}
 			}
 		}
 
-		// Check for dogwhistles if dogwhistle checking is enabled
-		if (isset($assessment_settings['check_dogwhistle']) && $assessment_settings['check_dogwhistle'] && isset($megaResult->dogwhistleCheck)) {
-			$dogwhistle_settings = get_option(\Respectify\OPTION_DOGWHISTLE_SETTINGS, array('handling' => \Respectify\DOGWHISTLE_DEFAULT_HANDLING));
-			// Only show feedback if dogwhistles detected and not set to allow
-			if ($megaResult->dogwhistleCheck->detection->dogwhistlesDetected &&
-				$dogwhistle_settings['handling'] !== \Respectify\ACTION_PUBLISH) {
-				$feedback = "<p>" . esc_html($megaResult->dogwhistleCheck->detection->reasoning) . "</p>";
-				if (isset($megaResult->dogwhistleCheck->details) && !empty($megaResult->dogwhistleCheck->details->dogwhistleTerms)) {
-					$feedback .= "<p><strong>Detected terms:</strong> " . esc_html(implode(', ', $megaResult->dogwhistleCheck->details->dogwhistleTerms)) . "</p>";
-				}
-				return $feedback;
-			}
-		}
-
-		// Check health assessment if enabled
-		if ($assessment_settings['assess_health'] && isset($megaResult->commentScore)) {
-			$comment_score = $megaResult->commentScore;
-			$revise_settings = get_option(\Respectify\OPTION_REVISE_SETTINGS, \Respectify\REVISE_DEFAULT_SETTINGS);
-
-			// Add low effort feedback
-			if ($revise_settings['low_effort'] && isset($comment_score->appearsLowEffort) && $comment_score->appearsLowEffort) {
-				return "<p>Your comment appears to be low effort.</p>";
-			}
-
-			// Add logical fallacies feedback
-			if ($revise_settings['logical_fallacies'] && !empty($comment_score->logicalFallacies)) {
-				$feedback = "<p>Your comment contains a common mistep, a logical fallacy:</p><ul>";
-				foreach ($comment_score->logicalFallacies as $fallacy) {
-					$feedback .= "<li><em>" . esc_html($fallacy->quotedLogicalFallacyExample) . "</em>: ";
-					$feedback .= esc_html($fallacy->explanation);
-					if (!empty($fallacy->suggestedRewrite)) {
-						$feedback .= "<div class='respectify-suggestion'>" . esc_html($fallacy->suggestedRewrite) . "</div>";
-					}
-					$feedback .= "</li>";
-				}
-				$feedback .= "</ul>";
-				return $feedback;
-			}
-
-			// Add objectionable phrases feedback
-			if ($revise_settings['objectionable_phrases'] && !empty($comment_score->objectionablePhrases)) {
-				$feedback = "<p>Your comment contains objectionable phrases:</p><ul>";
-				foreach ($comment_score->objectionablePhrases as $phrase) {
-					$feedback .= "<li><em>" . esc_html($phrase->quotedObjectionablePhrase) . "</em>: ";
-					$feedback .= esc_html($phrase->explanation) . "</li>";
-				}
-				$feedback .= "</ul>";
-				return $feedback;
-			}
-
-			// Add negative tone feedback
-			if ($revise_settings['negative_tone'] && !empty($comment_score->negativeTonePhrases)) {
-				$feedback = "<p>Your comment is negative in a way that does not help the discussion:</p><ul>";
-				foreach ($comment_score->negativeTonePhrases as $tone) {
-					$feedback .= "<li><em>" . esc_html($tone->quotedNegativeTonePhrase) . "</em>: ";
-					$feedback .= esc_html($tone->explanation);
-					if (!empty($tone->suggestedRewrite)) {
-						$feedback .= "<div class='respectify-suggestion'>" . esc_html($tone->suggestedRewrite) . "</div>";
-					}
-					$feedback .= "</li>";
-				}
-				$feedback .= "</ul>";
-				return $feedback;
-			}
-		}
-
-		// No issues found, return empty string
+		// No issues found
 		return '';
 	}
 
@@ -978,6 +1061,21 @@ class RespectifyWordpressPlugin {
                     'type' => 'negative_tone',
                     'action' => \Respectify\ACTION_REVISE
                 );
+            }
+
+            // Check for toxicity
+            if (($revise_settings['toxicity'] ?? true) && isset($megaResult->commentScore->toxicityScore)) {
+                // Validate toxicity threshold
+                $toxicity_threshold = $revise_settings['toxicity_threshold'] ?? \Respectify\REVISE_DEFAULT_TOXICITY_THRESHOLD;
+                if (!is_numeric($toxicity_threshold) || $toxicity_threshold < 0.1 || $toxicity_threshold > 1) {
+                    $toxicity_threshold = \Respectify\REVISE_DEFAULT_TOXICITY_THRESHOLD;
+                }
+                if ($megaResult->commentScore->toxicityScore >= $toxicity_threshold) {
+                    $issues[] = array(
+                        'type' => 'toxicity',
+                        'action' => \Respectify\ACTION_REVISE
+                    );
+                }
             }
         }
 

@@ -263,9 +263,17 @@ function respectify_sanitize_revise_settings($input) {
     }
 
     // Sanitize checkboxes (assuming they are boolean values)
-    $checkboxes = array('low_effort', 'logical_fallacies', 'objectionable_phrases', 'negative_tone');
+    $checkboxes = array('low_effort', 'logical_fallacies', 'objectionable_phrases', 'negative_tone', 'toxicity');
     foreach ($checkboxes as $checkbox) {
         $sanitized_input[$checkbox] = isset($input[$checkbox]) && $input[$checkbox] === '1' ? '1' : '0';
+    }
+
+    // Sanitize toxicity threshold (float between 0.1 and 1)
+    if (isset($input['toxicity_threshold'])) {
+        $threshold = floatval($input['toxicity_threshold']);
+        $sanitized_input['toxicity_threshold'] = max(0.1, min(1, $threshold));
+    } else {
+        $sanitized_input['toxicity_threshold'] = \Respectify\REVISE_DEFAULT_TOXICITY_THRESHOLD;
     }
 
     return $sanitized_input;
@@ -302,9 +310,9 @@ function respectify_revise_settings_callback() {
         <label for="respectify_revise_min_score"><?php esc_html_e('Minimum Score:', 'respectify'); ?></label>
         <div class="respectify-slider-row">
             <div class="slider-controls">
-                <span class="emoji">😧</span>
-                <input type="range" id="respectify_revise_min_score" name="respectify_revise_settings[min_score]" value="<?php echo esc_attr($options['min_score']); ?>" min="1" max="5" step="1">
-                <span class="emoji">🤩</span>
+                <span class="emoji" aria-hidden="true">😧</span>
+                <input type="range" id="respectify_revise_min_score" name="respectify_revise_settings[min_score]" value="<?php echo esc_attr($options['min_score']); ?>" min="1" max="5" step="1" aria-label="<?php esc_attr_e('Minimum comment quality score', 'respectify'); ?>">
+                <span class="emoji" aria-hidden="true">🤩</span>
                 <span class="out-of description">
                     <span id="revise_min_score_value"><?php echo esc_html($options['min_score']); ?></span> 
                     <?php esc_html_e('out of 5.', 'respectify'); ?>
@@ -334,6 +342,17 @@ function respectify_revise_settings_callback() {
                 <input type="checkbox" name="respectify_revise_settings[negative_tone]" value="1" <?php checked($options['negative_tone'], true); ?> />
                 <?php esc_html_e('Negative Tone Indications', 'respectify'); ?>
             </label>
+            <label>
+                <input type="checkbox" name="respectify_revise_settings[toxicity]" value="1" id="respectify_toxicity_checkbox" <?php checked($options['toxicity'] ?? true, true); ?> />
+                <?php esc_html_e('Are Toxic', 'respectify'); ?>
+            </label>
+        </div>
+        <div id="toxicity-threshold-slider" class="respectify-slider-row respectify-toxicity-slider">
+            <div class="slider-controls">
+                <span class="emoji" aria-hidden="true">💚</span>
+                <input type="range" id="respectify_toxicity_threshold" name="respectify_revise_settings[toxicity_threshold]" value="<?php echo esc_attr($options['toxicity_threshold'] ?? \Respectify\REVISE_DEFAULT_TOXICITY_THRESHOLD); ?>" min="0.1" max="1" step="0.1" aria-label="<?php esc_attr_e('Toxicity threshold - lower values are stricter', 'respectify'); ?>">
+                <span class="emoji" aria-hidden="true">☢️</span>
+            </div>
         </div>
     </div>
     <?php
@@ -699,13 +718,14 @@ function respectify_banned_topics_settings_callback() {
                 
                 <div id="banned-topics-threshold-slider" class="respectify-slider-row" style="margin-top: 10px; <?php echo $relevance_settings['banned_topics_mode'] === 'threshold' ? '' : 'opacity: 0.5;'; ?>">
                     <div class="slider-controls">
-                        <span class="respectify-slider-indicator">○</span>
-                        <input type="range" id="respectify_banned_topics_threshold" 
-                               name="respectify_relevance_settings[banned_topics_threshold]" 
-                               value="<?php echo esc_attr($relevance_settings['banned_topics_threshold']); ?>" 
+                        <span class="respectify-slider-indicator" aria-hidden="true">○</span>
+                        <input type="range" id="respectify_banned_topics_threshold"
+                               name="respectify_relevance_settings[banned_topics_threshold]"
+                               value="<?php echo esc_attr($relevance_settings['banned_topics_threshold']); ?>"
                                min="0.1" max="1" step="0.1" class="regular-text"
+                               aria-label="<?php esc_attr_e('Banned topics threshold - how much of a comment can be about unwanted topics', 'respectify'); ?>"
                                <?php echo $relevance_settings['banned_topics_mode'] === 'threshold' ? '' : 'disabled'; ?>>
-                        <span class="respectify-slider-indicator">●</span>
+                        <span class="respectify-slider-indicator" aria-hidden="true">●</span>
                     </div>
                     <span class="description" style="margin-top: 10px; margin-left: 0.35rem;">
                         <?php 

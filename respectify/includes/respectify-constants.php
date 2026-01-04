@@ -6,7 +6,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit; // Exit if accessed directly
 }
 
-const RESPECTIFY_VERSION = '0.2.0';
+const RESPECTIFY_VERSION = '0.2.4';
 
 const OPTION_EMAIL = 'respectify_email';
 const OPTION_API_KEY_ENCRYPTED = 'respectify_api_key_encrypted';
@@ -33,6 +33,8 @@ const REVISE_DEFAULT_LOW_EFFORT = true; // Revise if low effort
 const REVISE_DEFAULT_LOGICAL_FALLACIES = true; // Revise if any number of logical fallacies
 const REVISE_DEFAULT_OBJECTIONABLE_PHRASES = true; // Revise if any number of objectionable phrases
 const REVISE_DEFAULT_NEGATIVE_TONE = true; // Revise if any number of negative tone phrases
+const REVISE_DEFAULT_TOXICITY = true; // Revise if toxicity exceeds threshold
+const REVISE_DEFAULT_TOXICITY_THRESHOLD = 0.3; // Revise if toxicity score >= this (0.0-1.0)
 const ASSESSMENT_DEFAULT_SETTINGS = array(
     'assess_health' => true,
     'check_relevance' => true,
@@ -61,6 +63,8 @@ const REVISE_DEFAULT_SETTINGS = array (
     'low_effort'            => REVISE_DEFAULT_LOW_EFFORT,
     'logical_fallacies'     => REVISE_DEFAULT_LOGICAL_FALLACIES,
     'objectionable_phrases' => REVISE_DEFAULT_OBJECTIONABLE_PHRASES,
-    'negative_tone'         => REVISE_DEFAULT_NEGATIVE_TONE,    
+    'negative_tone'         => REVISE_DEFAULT_NEGATIVE_TONE,
+    'toxicity'              => REVISE_DEFAULT_TOXICITY,
+    'toxicity_threshold'    => REVISE_DEFAULT_TOXICITY_THRESHOLD,
 );
 

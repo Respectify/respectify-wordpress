@@ -164,6 +164,18 @@
     --banned-topics-color-80: hsl(1, 77%, 58%);
     --banned-topics-color-90: hsl(0, 100%, 50%);
     --banned-topics-color-100: red;
+
+    /* Toxicity slider - smoother gradient, greener at low values, red only at high */
+    --toxicity-color-10: hsl(120, 60%, 50%);  /* Green - very strict */
+    --toxicity-color-20: hsl(100, 60%, 50%);  /* Yellow-green */
+    --toxicity-color-30: hsl(80, 65%, 50%);   /* Light yellow-green (default) */
+    --toxicity-color-40: hsl(60, 70%, 50%);   /* Yellow */
+    --toxicity-color-50: hsl(45, 80%, 50%);   /* Gold */
+    --toxicity-color-60: hsl(35, 90%, 50%);   /* Light orange */
+    --toxicity-color-70: hsl(25, 95%, 50%);   /* Orange */
+    --toxicity-color-80: hsl(15, 95%, 50%);   /* Dark orange */
+    --toxicity-color-90: hsl(5, 90%, 50%);    /* Orange-red */
+    --toxicity-color-100: hsl(0, 85%, 50%);   /* Red - very lenient */
 }
 
 /* WebKit browsers (Chrome, Safari) */
@@ -497,6 +509,176 @@ input[type="range"] {
 }
 
 /* Thumb styling will be inherited from the base input[type="range"] styles */
+
+/* Toxicity Threshold Slider */
+.respectify-toxicity-slider {
+    margin-left: 3.5rem; /* Align under checkbox text (2rem padding + checkbox width) */
+    margin-top: 0.25rem;
+    margin-bottom: 0;
+}
+
+#respectify_toxicity_threshold {
+    -webkit-appearance: none;
+    width: 150px;
+    background: transparent;
+    height: 8px;
+    border-radius: 4px;
+}
+
+#respectify_toxicity_threshold::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #2271b1;
+    border: none;
+    cursor: pointer;
+    margin-top: -4px;
+}
+
+#respectify_toxicity_threshold::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #2271b1;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    top: 2px;
+}
+
+/* Toxicity slider colors - smooth gradient from green (strict) to red (lenient) */
+#respectify_toxicity_threshold.slider-value-1::-webkit-slider-runnable-track {
+    background: var(--toxicity-color-10);
+    height: 8px;
+    border-radius: 4px;
+}
+
+#respectify_toxicity_threshold.slider-value-2::-webkit-slider-runnable-track {
+    background: var(--toxicity-color-20);
+    height: 8px;
+    border-radius: 4px;
+}
+
+#respectify_toxicity_threshold.slider-value-3::-webkit-slider-runnable-track {
+    background: var(--toxicity-color-30);
+    height: 8px;
+    border-radius: 4px;
+}
+
+#respectify_toxicity_threshold.slider-value-4::-webkit-slider-runnable-track {
+    background: var(--toxicity-color-40);
+    height: 8px;
+    border-radius: 4px;
+}
+
+#respectify_toxicity_threshold.slider-value-5::-webkit-slider-runnable-track {
+    background: var(--toxicity-color-50);
+    height: 8px;
+    border-radius: 4px;
+}
+
+#respectify_toxicity_threshold.slider-value-6::-webkit-slider-runnable-track {
+    background: var(--toxicity-color-60);
+    height: 8px;
+    border-radius: 4px;
+}
+
+#respectify_toxicity_threshold.slider-value-7::-webkit-slider-runnable-track {
+    background: var(--toxicity-color-70);
+    height: 8px;
+    border-radius: 4px;
+}
+
+#respectify_toxicity_threshold.slider-value-8::-webkit-slider-runnable-track {
+    background: var(--toxicity-color-80);
+    height: 8px;
+    border-radius: 4px;
+}
+
+#respectify_toxicity_threshold.slider-value-9::-webkit-slider-runnable-track {
+    background: var(--toxicity-color-90);
+    height: 8px;
+    border-radius: 4px;
+}
+
+#respectify_toxicity_threshold.slider-value-10::-webkit-slider-runnable-track {
+    background: var(--toxicity-color-100);
+    height: 8px;
+    border-radius: 4px;
+}
+
+/* Firefox support for toxicity slider */
+#respectify_toxicity_threshold.slider-value-1::-moz-range-track {
+    background: var(--toxicity-color-10);
+    height: 8px;
+    border: none;
+    border-radius: 4px;
+}
+
+#respectify_toxicity_threshold.slider-value-2::-moz-range-track {
+    background: var(--toxicity-color-20);
+    height: 8px;
+    border: none;
+    border-radius: 4px;
+}
+
+#respectify_toxicity_threshold.slider-value-3::-moz-range-track {
+    background: var(--toxicity-color-30);
+    height: 8px;
+    border: none;
+    border-radius: 4px;
+}
+
+#respectify_toxicity_threshold.slider-value-4::-moz-range-track {
+    background: var(--toxicity-color-40);
+    height: 8px;
+    border: none;
+    border-radius: 4px;
+}
+
+#respectify_toxicity_threshold.slider-value-5::-moz-range-track {
+    background: var(--toxicity-color-50);
+    height: 8px;
+    border: none;
+    border-radius: 4px;
+}
+
+#respectify_toxicity_threshold.slider-value-6::-moz-range-track {
+    background: var(--toxicity-color-60);
+    height: 8px;
+    border: none;
+    border-radius: 4px;
+}
+
+#respectify_toxicity_threshold.slider-value-7::-moz-range-track {
+    background: var(--toxicity-color-70);
+    height: 8px;
+    border: none;
+    border-radius: 4px;
+}
+
+#respectify_toxicity_threshold.slider-value-8::-moz-range-track {
+    background: var(--toxicity-color-80);
+    height: 8px;
+    border: none;
+    border-radius: 4px;
+}
+
+#respectify_toxicity_threshold.slider-value-9::-moz-range-track {
+    background: var(--toxicity-color-90);
+    height: 8px;
+    border: none;
+    border-radius: 4px;
+}
+
+#respectify_toxicity_threshold.slider-value-10::-moz-range-track {
+    background: var(--toxicity-color-100);
+    height: 8px;
+    border: none;
+    border-radius: 4px;
+}
 
 .respectify-radio-group {
     display: flex;

@@ -3,7 +3,7 @@ Contributors: vintagedave, respectify
 Tags: comments, moderation, community, user engagement, spam
 Tested up to: 6.9
 Requires PHP: 8.0
-Stable tag: 0.2.3
+Stable tag: 0.2.4
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -30,7 +30,7 @@ Respectify is available in the Wordpress plugins directory, so:
 
 == Changelog ==
 
-= 0.2.3 =
+= 0.2.4 =
 * Documents PHP 8.0+ requirement
 
 = 0.2.2 =
