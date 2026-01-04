@@ -467,7 +467,6 @@ function respectify_render_settings_page() {
     <div class="wrap">
         <?php // Hidden h1 for WordPress to target with notices - keeps notices out of our header ?>
         <h1 class="wp-heading-inline" style="display: none;"></h1>
-        <?php settings_errors(); ?>
 
         <div class="respectify-header">
             <img src="<?php echo esc_url(plugins_url('images/respectify.svg', dirname(__FILE__))); ?>" alt="<?php esc_attr_e('Respectify Logo', 'respectify'); ?>" class="respectify-logo">
