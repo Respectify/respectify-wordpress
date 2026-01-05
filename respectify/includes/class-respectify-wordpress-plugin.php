@@ -115,6 +115,10 @@ class RespectifyWordpressPlugin {
 		// and when the URL is changed!
 		add_action('update_option_respectify_base_url', array($this, 'update_respectify_client'));
 		add_action('update_option_respectify_api_version', array($this, 'update_respectify_client'));
+
+		// Clear cached article IDs when credentials change (they belong to the old account)
+		add_action('update_option_respectify_email', array($this, 'clear_all_article_ids'), 10, 2);
+		add_action('update_option_respectify_api_key_encrypted', array($this, 'clear_all_article_ids'), 10, 2);
 	}
 
     /**
@@ -124,6 +128,28 @@ class RespectifyWordpressPlugin {
 		\Respectify\respectify_log('Updating Respectify client');
         $this->respectify_client = \Respectify\respectify_create_client();
     }
+
+	/**
+	 * Clear all cached article IDs if the credential value actually changed.
+	 * Called when credentials change, since article IDs belong to specific accounts.
+	 *
+	 * @param mixed $old_value The old option value.
+	 * @param mixed $new_value The new option value.
+	 */
+	public function clear_all_article_ids($old_value, $new_value) {
+		// Only clear if the value actually changed
+		if ($old_value === $new_value) {
+			return;
+		}
+
+		global $wpdb;
+		$deleted = $wpdb->delete(
+			$wpdb->postmeta,
+			array('meta_key' => '_respectify_article_id'),
+			array('%s')
+		);
+		\Respectify\respectify_log('Cleared ' . $deleted . ' cached article IDs due to credential change');
+	}
 
 	/**
      * Adds a nonce field to the comment form for security.
