@@ -89,7 +89,11 @@ function respectify_register_settings() {
     register_setting('respectify_options_group', \Respectify\OPTION_RELEVANCE_SETTINGS);
     register_setting('respectify_options_group', \Respectify\OPTION_BANNED_TOPICS);
     register_setting('respectify_options_group', \Respectify\OPTION_SPAM_HANDLING);
-    register_setting('respectify_options_group', \Respectify\OPTION_ASSESSMENT_SETTINGS, 'respectify_sanitize_assessment_settings');
+    register_setting('respectify_options_group', \Respectify\OPTION_ASSESSMENT_SETTINGS, array(
+        'type' => 'array',
+        'sanitize_callback' => 'respectify_sanitize_assessment_settings',
+        'default' => \Respectify\ASSESSMENT_DEFAULT_SETTINGS,
+    ));
     register_setting('respectify_options_group', \Respectify\OPTION_DOGWHISTLE_SETTINGS, 'respectify_sanitize_dogwhistle_settings');
     register_setting('respectify_options_group', \Respectify\OPTION_SENSITIVE_TOPICS, 'respectify_sanitize_sensitive_topics');
     register_setting('respectify_options_group', \Respectify\OPTION_DOGWHISTLE_EXAMPLES, 'respectify_sanitize_dogwhistle_examples');
@@ -749,11 +753,27 @@ function respectify_banned_topics_settings_callback() {
 
 // Add sanitization function for assessment settings
 function respectify_sanitize_assessment_settings($input) {
+    // Check if this is a real form submission by checking $_POST directly.
+    // We can't rely on $input because WordPress's 'type' => 'array' preprocessing
+    // may filter out unexpected keys or modify the data.
+    // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified by Settings API
+    if (empty($_POST) || !isset($_POST['option_page']) || $_POST['option_page'] !== 'respectify_options_group') {
+        // Not a form submission to our settings page - preserve existing or use defaults.
+        // This prevents all checkboxes from being set to false during plugin upgrade
+        // or other WordPress internal operations that call sanitize callbacks.
+        return get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
+    }
+
+    // This IS a real form submission. Read checkbox values directly from $_POST
+    // to bypass any WordPress preprocessing that might filter $input.
+    // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce verified by Settings API
+    $post_data = isset($_POST['respectify_assessment_settings']) ? (array) $_POST['respectify_assessment_settings'] : array();
+
     $sanitized_input = array();
 
     $checkboxes = array('assess_health', 'check_relevance', 'check_spam', 'check_dogwhistle');
     foreach ($checkboxes as $checkbox) {
-        $sanitized_input[$checkbox] = isset($input[$checkbox]) && $input[$checkbox] === '1' ? true : false;
+        $sanitized_input[$checkbox] = isset($post_data[$checkbox]) && $post_data[$checkbox] === '1' ? true : false;
     }
 
     return $sanitized_input;

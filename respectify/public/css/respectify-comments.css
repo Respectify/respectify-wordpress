@@ -85,7 +85,13 @@
 
 .respectify-branding .respectify-logo {
     height: 32px;
-    width: auto;
+    width: 157px;  /* SVG aspect ratio: 564x115, so 32px height = 157px width */
+    max-height: 32px;
+    max-width: 157px;
+    min-height: 32px;
+    min-width: 157px;
+    flex-shrink: 0;
+    object-fit: contain;
 }
 
 .respectify-branding span {
