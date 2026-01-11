@@ -1,7 +1,16 @@
 (function($) {
     $(document).ready(function() {
+        // Track submission state to prevent double-submits
+        var isSubmitting = false;
+
         $('#commentform').on('submit', function(event) {
             event.preventDefault();
+
+            // Prevent duplicate submissions while AJAX is in flight
+            if (isSubmitting) {
+                return;
+            }
+            isSubmitting = true;
 
             var form = $(this);
             // Get the form data
@@ -56,15 +65,20 @@
                         if (response.data.comment_html) {
                             // Assuming the comments are in a <ol> or <ul> with class 'comment-list'
                             $('.comment-list').append(response.data.comment_html);
+                            // Allow new submissions for another comment
+                            isSubmitting = false;
                         } else {
                             // If comment HTML is not provided, reload the page
+                            // (isSubmitting will reset on reload)
                             location.reload();
                         }
                     } else {
-                        // Display error message
+                        // Display error message (e.g., revision requested)
                         var message = response.data.message || respectify_comments_i18n.error_occurred;
                         var errorMessage = $('<div class="respectify-message respectify-error">' + message + '</div>');
                         form.before(errorMessage);
+                        // Allow resubmission after user revises their comment
+                        isSubmitting = false;
                     }
                 },
                 error: function() {
@@ -72,6 +86,8 @@
                     loadingMessage.remove();
                     var errorMessage = $('<p class="respectify-message error">' + respectify_comments_i18n.error_try_again + '</p>');
                     form.before(errorMessage);
+                    // Allow retry after error
+                    isSubmitting = false;
                 }
             });
         });
