@@ -211,6 +211,13 @@ rm -rf "$TEMP_BUILD_DIR/scoper.inc.php"
 rm -rf "$TEMP_BUILD_DIR/composer.json"
 rm -rf "$TEMP_BUILD_DIR/composer.lock"
 
+# Strip vendor test directories — they should never ship in plugin distribution.
+# The .env.backup leak in versions 0.2.1-0.2.6 came from vendor/respectify/respectify-php/tests/
+find "$TEMP_BUILD_DIR" -type d -name "tests" -exec rm -rf {} + 2>/dev/null || true
+
+# Defense in depth: strip any env files in case a sibling library ever ships one
+find "$TEMP_BUILD_DIR" -type f \( -name ".env" -o -name ".env.*" \) -delete 2>/dev/null || true
+
 # Copy the prefixed files to the final build directory
 echo "Copying prefixed files to final build directory..."
 cp -r "$TEMP_BUILD_DIR/"* "$FINAL_BUILD_DIR/"
@@ -233,6 +240,17 @@ for pattern in "${UNWANTED_PATTERNS[@]}"; do
     exit 1
   fi
 done
+
+# Hard-fail if any test dirs or env files made it through. Regression check for the
+# leak incident — we never want vendor/*/tests/.env.backup or similar in a release.
+if find "$FINAL_BUILD_DIR" -type d -name "tests" | grep .; then
+    echo "Error: 'tests' directory found in final build — strip step is broken"
+    exit 1
+fi
+if find "$FINAL_BUILD_DIR" -type f \( -name ".env" -o -name ".env.*" \) | grep .; then
+    echo "Error: .env file found in final build — strip step is broken"
+    exit 1
+fi
 
 echo "No unwanted files found. Build is clean."
 
