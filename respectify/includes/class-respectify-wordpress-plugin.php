@@ -116,9 +116,10 @@ class RespectifyWordpressPlugin {
 		add_action('update_option_respectify_base_url', array($this, 'update_respectify_client'));
 		add_action('update_option_respectify_api_version', array($this, 'update_respectify_client'));
 
-		// Clear cached article IDs when credentials change (they belong to the old account)
-		add_action('update_option_respectify_email', array($this, 'clear_all_article_ids'), 10, 2);
-		add_action('update_option_respectify_api_key_encrypted', array($this, 'clear_all_article_ids'), 10, 2);
+		// Clear cached article IDs when credentials change. Article IDs are scoped on the
+		// server to a specific account AND API key, so a different email or key orphans them.
+		add_action('update_option_respectify_email', array($this, 'clear_article_ids_on_email_change'), 10, 2);
+		add_action('update_option_respectify_api_key_encrypted', array($this, 'clear_article_ids_on_api_key_change'), 10, 2);
 	}
 
     /**
@@ -130,18 +131,13 @@ class RespectifyWordpressPlugin {
     }
 
 	/**
-	 * Clear all cached article IDs if the credential value actually changed.
-	 * Called when credentials change, since article IDs belong to specific accounts.
+	 * Delete every cached Respectify article ID across all posts. Article IDs are scoped
+	 * on the server to a specific account + API key, so they must be regenerated after a
+	 * genuine credential change.
 	 *
-	 * @param mixed $old_value The old option value.
-	 * @param mixed $new_value The new option value.
+	 * @return int|false Number of rows deleted, or false on error.
 	 */
-	public function clear_all_article_ids($old_value, $new_value) {
-		// Only clear if the value actually changed
-		if ($old_value === $new_value) {
-			return;
-		}
-
+	private function delete_all_cached_article_ids() {
 		global $wpdb;
 		$deleted = $wpdb->delete(
 			$wpdb->postmeta,
@@ -149,6 +145,41 @@ class RespectifyWordpressPlugin {
 			array('%s')
 		);
 		\Respectify\respectify_log('Cleared ' . $deleted . ' cached article IDs due to credential change');
+		return $deleted;
+	}
+
+	/**
+	 * Clear cached article IDs when the account email actually changes.
+	 *
+	 * @param mixed $old_value The previous email.
+	 * @param mixed $new_value The new email.
+	 */
+	public function clear_article_ids_on_email_change($old_value, $new_value) {
+		if ($old_value === $new_value) {
+			return;
+		}
+		$this->delete_all_cached_article_ids();
+	}
+
+	/**
+	 * Clear cached article IDs when the API key actually changes.
+	 *
+	 * The key is stored encrypted with a random IV (see respectify_encrypt), so the stored
+	 * ciphertext differs on every save even when the underlying key is unchanged. Comparing
+	 * ciphertext would wipe every cached article ID on each settings save and force a costly
+	 * re-init (a paid initTopic call) on the next comment for every post. Compare the
+	 * DECRYPTED values instead, so we only clear on a real key change.
+	 *
+	 * @param mixed $old_value The previous encrypted API key.
+	 * @param mixed $new_value The new encrypted API key.
+	 */
+	public function clear_article_ids_on_api_key_change($old_value, $new_value) {
+		$old_plain = !empty($old_value) ? \Respectify\respectify_decrypt($old_value) : '';
+		$new_plain = !empty($new_value) ? \Respectify\respectify_decrypt($new_value) : '';
+		if ($old_plain === $new_plain) {
+			return;
+		}
+		$this->delete_all_cached_article_ids();
 	}
 
 	/**
@@ -342,9 +373,17 @@ class RespectifyWordpressPlugin {
 
         $this->respectify_client->run();
 
-        if ($caughtException) { 
+        if ($caughtException) {
             throw $caughtException;
         }
+
+		// Never return (and therefore never cache) an empty/invalid article ID. If the
+		// service resolved without an error but gave us nothing usable, treat that as a
+		// failure so the caller holds the comment rather than caching a blank ID that
+		// would trip the "article context must be provided" guard on every later comment.
+		if (empty($article_id)) {
+			throw new \Exception('Respectify did not return a valid article context ID');
+		}
 
 		\Respectify\respectify_log('In generate_respectify_article_id: Returning Respectify article ID: ' . $article_id);
 		return $article_id;
@@ -368,9 +407,13 @@ class RespectifyWordpressPlugin {
 			$post_content = get_post_field('post_content', $post_id);
 
             $article_id = $this->generate_respectify_article_id($post_content);
-            update_post_meta($post_id, '_respectify_article_id', $article_id);
+            // Only persist a non-empty ID. generate_respectify_article_id throws rather
+            // than returning empty, but guard here too so we never cache a blank value.
+            if (!empty($article_id)) {
+                update_post_meta($post_id, '_respectify_article_id', $article_id);
+            }
 			\Respectify\respectify_log('Got NEW article ID: ' . $article_id);
-        }	
+        }
 		// Checking it's a GUID
 		\Respectify\respectify_log('Returning Respectify article ID: ' . $article_id);
 		assert(!empty($article_id));
@@ -445,10 +488,12 @@ class RespectifyWordpressPlugin {
             $services[] = 'dogwhistle';
         }
 
-        // If no services are enabled, default to all available services
-        // The server will enforce plan limits and return PaymentRequiredException for unauthorized services
+        // If no services are explicitly enabled, fall back to a sensible default. Comment
+        // score and relevance require the article context, so only request them when we have
+        // one; otherwise fall back to spam, which works without context. (Under the
+        // credit-based billing model every service is available and charged per use.)
         if (empty($services)) {
-            $services = ['spam', 'commentscore', 'relevance'];
+            $services = $respectify_article_id ? ['spam', 'commentscore', 'relevance'] : ['spam'];
         }
 
         // Get banned topics if relevance checking is enabled and we have an article ID
@@ -575,10 +620,18 @@ class RespectifyWordpressPlugin {
 		// Get assessment settings to determine which services we need
 		$assessment_settings = get_option(\Respectify\OPTION_ASSESSMENT_SETTINGS, \Respectify\ASSESSMENT_DEFAULT_SETTINGS);
 
-		// Only get article ID if we need it for relevance checking
+		// Fetch the article context ID if ANY context-dependent check is enabled. Comment
+		// quality scoring (assess_health), relevance, and dogwhistle all require the article
+		// context on the server; spam does not. (Previously only relevance triggered this, so
+		// a score- or dogwhistle-only configuration sent no context and tripped the server's
+		// "article context must be provided" guard.) The ID is cached in post meta and only
+		// generated when missing, so this stays cheap for repeat comments on the same post.
+		$post_id = $commentdata['comment_post_ID'];
+		$needs_article_context = !empty($assessment_settings['assess_health'])
+			|| !empty($assessment_settings['check_relevance'])
+			|| !empty($assessment_settings['check_dogwhistle']);
 		$article_id = null;
-		if ($assessment_settings['check_relevance']) {
-			$post_id = $commentdata['comment_post_ID'];
+		if ($needs_article_context) {
 			try {
 				$article_id = $this->get_respectify_article_id($post_id);
 			} catch (\Exception $e) {
@@ -630,15 +683,35 @@ class RespectifyWordpressPlugin {
 		// Log evaluation attempt
 		\Respectify\respectify_log('Evaluating comment with Respectify API...');
 
-		// Evaluate the comment
+		// Evaluate the comment. If the cached article context is stale - e.g. it was created
+		// under a previous API key, so the server no longer resolves it - regenerate it once
+		// and retry. This is guarded against runaway regeneration: we retry AT MOST once, only
+		// on the specific "article context not found" signal (never on auth/billing/network
+		// errors, where regenerating would not help and would waste a paid initTopic call),
+		// and we re-cache the fresh ID so subsequent comments reuse it.
 		try {
 			$evaluation = $this->evaluate_comment($article_id, $comment_text, $reply_to_comment_text, $author_name, $author_email);
 		} catch (\Exception $e) {
-			\Respectify\respectify_log('Exception evaluating comment: ' . $e->getMessage());
-			// Handle API error: notify admin, hold comment for moderation
-			$held_comment = \Respectify\respectify_handle_api_error($e->getMessage(), $commentdata);
-			wp_insert_comment($held_comment);
-			return new \WP_Error('api_error', \Respectify\respectify_get_commenter_error_message());
+			if ($article_id && \Respectify\respectify_is_article_context_not_found($e)) {
+				\Respectify\respectify_log('Article context not found - regenerating once and retrying');
+				delete_post_meta($post_id, '_respectify_article_id');
+				try {
+					// Regenerates with the current credentials and re-caches in post meta.
+					$article_id = $this->get_respectify_article_id($post_id);
+					$evaluation = $this->evaluate_comment($article_id, $comment_text, $reply_to_comment_text, $author_name, $author_email);
+				} catch (\Exception $retry_e) {
+					\Respectify\respectify_log('Retry after regenerating article context failed: ' . $retry_e->getMessage());
+					$held_comment = \Respectify\respectify_handle_api_error($retry_e->getMessage(), $commentdata);
+					wp_insert_comment($held_comment);
+					return new \WP_Error('api_error', \Respectify\respectify_get_commenter_error_message());
+				}
+			} else {
+				\Respectify\respectify_log('Exception evaluating comment: ' . $e->getMessage());
+				// Handle API error: notify admin, hold comment for moderation
+				$held_comment = \Respectify\respectify_handle_api_error($e->getMessage(), $commentdata);
+				wp_insert_comment($held_comment);
+				return new \WP_Error('api_error', \Respectify\respectify_get_commenter_error_message());
+			}
 		}
 
 		if (is_wp_error($evaluation)) {

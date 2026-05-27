@@ -7,6 +7,28 @@ if (!function_exists('wp_salt')) {
     require_once(ABSPATH . 'wp-includes/pluggable.php');
 }
 
+/**
+ * Determine whether a caught exception represents the server's "article context not found"
+ * condition. The article context ID was well-formed but could not be resolved for the
+ * current account/API key - typically because it was created under a previous key - and
+ * should be regenerated before retrying.
+ *
+ * Prefers the typed exception from the (scoped) Respectify PHP library, but also matches the
+ * stable server message, so detection still works even if the bundled library predates the
+ * typed ArticleContextNotFoundException class.
+ *
+ * @param \Throwable $e The caught exception.
+ * @return bool True if it indicates an unresolvable article context.
+ */
+function respectify_is_article_context_not_found(\Throwable $e) {
+    $scoped_class = '\\RespectifyScoper\\Respectify\\Exceptions\\ArticleContextNotFoundException';
+    if (class_exists($scoped_class) && $e instanceof $scoped_class) {
+        return true;
+    }
+    // Stable cross-SDK marker (see backend ARTICLE_CONTEXT_NOT_FOUND_MESSAGE).
+    return stripos($e->getMessage(), 'Article context not found') !== false;
+}
+
 function respectify_create_client() {
     $email = get_option(\Respectify\OPTION_EMAIL, '');
     $api_key = \Respectify\respectify_get_decrypted_api_key();

@@ -67,6 +67,135 @@ function respectify_handle_notice_dismissal() {
     }
 }
 
+// Admin notice for incompatible WordPress settings and Jetpack
+add_action('admin_notices', 'respectify_compatibility_notices');
+function respectify_compatibility_notices() {
+    // Only show to users who can manage options
+    if (!current_user_can('manage_options')) {
+        return;
+    }
+
+    // Only show on Respectify settings page or plugins page
+    $screen = get_current_screen();
+    if (!$screen || !in_array($screen->id, array('settings_page_respectify', 'plugins'))) {
+        return;
+    }
+
+    $issues = array();
+
+    // Check Discussion settings
+    $comment_moderation = get_option('comment_moderation');
+    $comment_whitelist = get_option('comment_whitelist');
+
+    if ($comment_moderation) {
+        $issues['comment_moderation'] = array(
+            'message' => __('WordPress is set to hold <strong>all comments</strong> for manual approval. This means comments approved by Respectify will still require manual moderation.', 'respectify'),
+            'button_text' => __('Disable manual approval', 'respectify'),
+            'setting' => 'comment_moderation',
+        );
+    }
+
+    if ($comment_whitelist) {
+        $issues['comment_whitelist'] = array(
+            'message' => __('WordPress requires commenters to have a <strong>previously approved comment</strong> before auto-approval. First-time commenters will be held for moderation even if Respectify approves them.', 'respectify'),
+            'button_text' => __('Allow first-time commenters', 'respectify'),
+            'setting' => 'comment_whitelist',
+        );
+    }
+
+    // Check for Jetpack Comments
+    if (class_exists('Jetpack') && Jetpack::is_module_active('comments')) {
+        $issues['jetpack_comments'] = array(
+            'message' => __('<strong>Jetpack Comments is active.</strong> Respectify cannot moderate comments submitted through Jetpack\'s comment system because it bypasses WordPress hooks. Please disable Jetpack Comments to use Respectify.', 'respectify'),
+            'button_text' => __('Disable Jetpack Comments', 'respectify'),
+            'setting' => 'jetpack_comments',
+        );
+    }
+
+    if (empty($issues)) {
+        return;
+    }
+
+    $nonce = wp_create_nonce('respectify_fix_compatibility');
+
+    ?>
+    <div class="notice notice-warning respectify-compatibility-notice">
+        <p><strong><?php esc_html_e('Respectify Compatibility Notice', 'respectify'); ?></strong></p>
+        <?php foreach ($issues as $key => $issue) : ?>
+            <div class="respectify-compatibility-issue" data-issue="<?php echo esc_attr($key); ?>">
+                <p><?php echo wp_kses($issue['message'], array('strong' => array())); ?></p>
+                <p>
+                    <button type="button" class="button respectify-fix-button"
+                            data-setting="<?php echo esc_attr($issue['setting']); ?>"
+                            data-nonce="<?php echo esc_attr($nonce); ?>">
+                        <?php echo esc_html($issue['button_text']); ?>
+                    </button>
+                    <span class="respectify-fix-status"></span>
+                </p>
+            </div>
+        <?php endforeach; ?>
+    </div>
+    <style>
+        .respectify-compatibility-notice .respectify-compatibility-issue {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #ddd;
+        }
+        .respectify-compatibility-notice .respectify-compatibility-issue:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+        .respectify-fix-status {
+            margin-left: 10px;
+            font-style: italic;
+        }
+        .respectify-fix-status.success {
+            color: #46b450;
+        }
+        .respectify-fix-status.error {
+            color: #dc3232;
+        }
+    </style>
+    <?php
+}
+
+// AJAX handler for fixing compatibility settings
+add_action('wp_ajax_respectify_fix_compatibility', 'respectify_ajax_fix_compatibility');
+function respectify_ajax_fix_compatibility() {
+    check_ajax_referer('respectify_fix_compatibility', 'nonce');
+
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(array('message' => __('Permission denied.', 'respectify')));
+    }
+
+    $setting = isset($_POST['setting']) ? sanitize_text_field($_POST['setting']) : '';
+
+    switch ($setting) {
+        case 'comment_moderation':
+            update_option('comment_moderation', 0);
+            wp_send_json_success(array('message' => __('Manual approval disabled. Comments approved by Respectify will now be published automatically.', 'respectify')));
+            break;
+
+        case 'comment_whitelist':
+            update_option('comment_whitelist', 0);
+            wp_send_json_success(array('message' => __('First-time commenters can now be auto-approved by Respectify.', 'respectify')));
+            break;
+
+        case 'jetpack_comments':
+            if (class_exists('Jetpack')) {
+                Jetpack::deactivate_module('comments');
+                wp_send_json_success(array('message' => __('Jetpack Comments disabled. WordPress native comments are now active and Respectify can moderate them.', 'respectify')));
+            } else {
+                wp_send_json_error(array('message' => __('Jetpack not found.', 'respectify')));
+            }
+            break;
+
+        default:
+            wp_send_json_error(array('message' => __('Unknown setting.', 'respectify')));
+    }
+}
+
 // Add settings page to the admin menu
 add_action('admin_menu', 'respectify_add_settings_page');
 function respectify_add_settings_page() {
@@ -386,9 +515,9 @@ function respectify_api_key_callback() {
         </div>
         <div class="respectify-credentials-right">
             <div id="respectify-subscription-status" class="respectify-subscription-status" style="display: none;">
-                <h4><?php esc_html_e('Subscription Status', 'respectify'); ?></h4>
+                <h4><?php esc_html_e('Account Status', 'respectify'); ?></h4>
                 <p id="respectify-plan-name"></p>
-                <div id="respectify-features-list" class="respectify-features-list"></div>
+                <p class="description"><?php esc_html_e('Every Respectify feature is available; usage is billed against your credit balance.', 'respectify'); ?></p>
             </div>
         </div>
     </div>
@@ -514,17 +643,19 @@ function respectify_render_settings_page() {
 // Enqueue admin scripts and styles
 add_action('admin_enqueue_scripts', 'respectify_enqueue_admin_scripts');
 function respectify_enqueue_admin_scripts($hook_suffix) {
-    if ($hook_suffix != 'settings_page_respectify') {
+    // Load on settings page and plugins page (for compatibility notices)
+    if (!in_array($hook_suffix, array('settings_page_respectify', 'plugins.php'))) {
         return;
     }
     wp_enqueue_script('respectify-admin-js', plugin_dir_url(__FILE__) . '../js/respectify-admin.js', array('jquery'), '1.0.0', true);
-    
+
     // Add localization data
     // Note: Use __() not esc_html__() because JS uses .text() which handles escaping
     wp_localize_script('respectify-admin-js', 'respectify_admin_i18n', array(
         'testing' => __('Testing...', 'respectify'),
         'success_no_message' => '✅ ' . __('Success, but no message provided. Try using Respectify but if you get errors, contact Support.', 'respectify'),
         'error_prefix' => '❌ ' . __('An error occurred: ', 'respectify'),
+        'fixing' => __('Applying fix...', 'respectify'),
     ));
 
     wp_localize_script('respectify-admin-js', 'respectify_ajax_object', array(
@@ -562,7 +693,8 @@ function respectify_test_credentials() {
 
     $promise->then(
         function ($userCheckResponse) use ($base_url, $api_version) {
-            // UserCheckResponse object has: active, status, expires, planName, allowedEndpoints, error
+            // UserCheckResponse has: active, status, expires, planName, error. (planName carries
+            // the credit balance, e.g. "Credit Balance: $12.34"; allowedEndpoints is unused now.)
             $which_client = \Respectify\get_friendly_message_which_client($base_url, $api_version);
             error_log('Base url ' . $base_url . ' and API version ' . (!empty($api_version) ? $api_version : 'default') . ' give: which client ' . $which_client);
             // Note: Use __() not esc_html__() because JS uses .text() which handles escaping
@@ -570,24 +702,24 @@ function respectify_test_credentials() {
                 $which_client = ' (' . $which_client . ')';
             }
 
-            // Prepare subscription data for JS
+            // Prepare account status data for JS. Respectify is credit-based: there is no
+            // per-feature plan gating, so allowed_endpoints is no longer sent or used.
             $subscription_data = array(
                 'active' => $userCheckResponse->active,
                 'plan_name' => $userCheckResponse->planName,
-                'allowed_endpoints' => $userCheckResponse->allowedEndpoints,
             );
 
-            // Check if there's an active subscription
-            $has_active_subscription = $subscription_data['active'] && !empty($subscription_data['plan_name']);
+            // "active" means the account has usable credit (a positive balance).
+            $has_credit = $subscription_data['active'] && !empty($subscription_data['plan_name']);
 
-            if ($has_active_subscription) {
+            if ($has_credit) {
                 $message = '✅ ' . __('Authorization successful - click Save Changes, and then you\'re good to go!', 'respectify') . $which_client;
             } else {
-                // Auth works but no subscription - show warning
+                // Auth works but the account has no credit - prompt to add funds.
                 $billing_url = 'https://respectify.ai/dashboard/billing';
                 $message = '⚠️ ' . sprintf(
                     /* translators: %s: URL to billing page */
-                    __('Authorization successful, but no active plan found. Please visit <a href="%s" target="_blank">your billing page</a> to subscribe.<br>Click Save Changes to save this email and API key.', 'respectify'),
+                    __('Authorization successful, but your account has no credit. Please visit <a href="%s" target="_blank">your billing page</a> to add funds.<br>Click Save Changes to save this email and API key.', 'respectify'),
                     esc_url($billing_url)
                 );
             }
@@ -595,7 +727,7 @@ function respectify_test_credentials() {
             wp_send_json_success(array(
                 'message' => $message,
                 'subscription' => $subscription_data,
-                'has_subscription' => $has_active_subscription,
+                'has_subscription' => $has_credit,
             ));
         },
         function ($ex) {

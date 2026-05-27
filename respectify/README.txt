@@ -3,7 +3,7 @@ Contributors: vintagedave, respectify
 Tags: comments, moderation, community, user engagement, spam
 Tested up to: 6.9
 Requires PHP: 8.0
-Stable tag: 0.2.6
+Stable tag: 0.2.7
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -29,6 +29,12 @@ Respectify is available in the Wordpress plugins directory, so:
 4. That's it!
 
 == Changelog ==
+
+= 0.2.7 =
+* Fixed an API error that could block comments when comment scoring or dogwhistle checks were enabled without relevance checking; the article context is now fetched whenever any check needs it
+* Comments are no longer held for moderation when a cached article context stops working after an API key change -- the context is regenerated automatically and the comment is re-evaluated
+* Saving settings no longer discards cached article contexts unnecessarily (previously every save forced each post to re-initialise on its next comment)
+* Updated the account panel for credit-based billing: it now shows your credit balance and no longer displays obsolete per-feature "in your plan" labels
 
 = 0.2.6 =
 * Fixed bug where assessment checkboxes could become unchecked during plugin upgrades
