@@ -29,92 +29,42 @@
 	 * practising this, we should strive to set a better example in our own work.
 	 */
 
-	// Feature names mapping (internal name -> display name)
-    var featureNames = {
-        'commentscore': 'Comment Quality Scoring',
-        'commentrelevance': 'Relevance Checking',
-        'dogwhistle': 'Dogwhistle Detection',
-        'antispam': 'Spam Detection'
-    };
-
-    // All features to display (in order - spam last)
-    var allFeatures = ['commentscore', 'commentrelevance', 'dogwhistle', 'antispam'];
-
-    // Mapping from endpoint names to checkbox setting names
-    var endpointToCheckbox = {
-        'commentscore': 'assess_health',
-        'commentrelevance': 'check_relevance',
-        'dogwhistle': 'check_dogwhistle',
-        'antispam': 'check_spam'
-    };
-
-    // Function to update subscription status display
+    // Show the account's credit status from the usercheck endpoint.
+    //
+    // Respectify uses credit-based billing: every feature is available and charged per use,
+    // so there is no per-feature "in your plan" gating to display. We just show the current
+    // credit balance / status. (Earlier versions rendered a features table and per-checkbox
+    // "In your plan / Not in your plan" indicators from an allowed_endpoints list the server
+    // no longer returns; that is intentionally gone.)
     function updateSubscriptionStatus(subscription) {
         var $container = $('#respectify-subscription-status');
         var $planName = $('#respectify-plan-name');
         var $featuresList = $('#respectify-features-list');
 
+        // Remove any legacy per-checkbox plan indicators left by older plugin versions.
+        $('.respectify-feature-indicator').remove();
+        if ($featuresList.length) {
+            $featuresList.empty();
+        }
+
         if (!subscription) {
             $container.hide();
-            // Clear checkbox indicators
-            $('.respectify-feature-indicator').remove();
             return;
         }
 
         $container.show();
 
-        // Show plan name or "No active subscription" with colored indicator
+        // plan_name from the server already carries the balance, e.g. "Credit Balance: $12.34"
+        // (or "Internal Unlimited"). Show it directly; flag a depleted balance in red.
         if (subscription.active && subscription.plan_name) {
-            $planName.html('<span style="color: #46b450;">●</span> <strong>Plan:</strong> ' + $('<div>').text(subscription.plan_name).html());
+            $planName.html('<span style="color: #46b450;">●</span> ' + $('<div>').text(subscription.plan_name).html());
             $container.css('border-left', '4px solid #46b450');
         } else {
-            $planName.html('<span style="color: #d63638;">●</span> <em>No active subscription</em>');
+            var label = subscription.plan_name
+                ? $('<div>').text(subscription.plan_name).html() + ' — add funds to continue'
+                : 'No credit — add funds to continue';
+            $planName.html('<span style="color: #d63638;">●</span> <em>' + label + '</em>');
             $container.css('border-left', '4px solid #d63638');
-        }
-
-        // Build features list with checkmarks/crosses
-        var allowedEndpoints = subscription.allowed_endpoints || [];
-        var html = '<table class="respectify-features-table">';
-
-        for (var i = 0; i < allFeatures.length; i++) {
-            var feature = allFeatures[i];
-            var displayName = featureNames[feature] || feature;
-            var isAllowed = allowedEndpoints.indexOf(feature) !== -1;
-            var icon = isAllowed ? '<span style="color: green;">✓</span>' : '<span style="color: #999;">✗</span>';
-            var textStyle = isAllowed ? '' : 'color: #999;';
-
-            html += '<tr><td style="padding: 2px 10px 2px 0;">' + icon + '</td>';
-            html += '<td style="padding: 2px 0; ' + textStyle + '">' + displayName + '</td></tr>';
-        }
-
-        html += '</table>';
-        $featuresList.html(html);
-
-        // Update indicators next to checkboxes
-        updateCheckboxIndicators(allowedEndpoints);
-    }
-
-    // Function to update indicators next to each feature checkbox
-    function updateCheckboxIndicators(allowedEndpoints) {
-        // Remove existing indicators
-        $('.respectify-feature-indicator').remove();
-
-        for (var endpoint in endpointToCheckbox) {
-            var checkboxName = endpointToCheckbox[endpoint];
-            var isAllowed = allowedEndpoints && allowedEndpoints.indexOf(endpoint) !== -1;
-            var icon = isAllowed ? '✓' : '✗';
-            var text = isAllowed ? 'In your plan' : 'Not in your plan';
-            var color = isAllowed ? '#46b450' : '#999';
-
-            // Find the checkbox and add indicator inline after the label text
-            var $checkbox = $('input[name="respectify_assessment_settings[' + checkboxName + ']"]');
-            if ($checkbox.length) {
-                var $label = $checkbox.closest('label');
-                if ($label.length) {
-                    // Append the indicator inside the label, after the text
-                    $label.append('<span class="respectify-feature-indicator" style="color: ' + color + '; margin-left: 10px; font-size: 12px; font-weight: normal;">' + icon + ' ' + text + '</span>');
-                }
-            }
         }
     }
 
@@ -308,6 +258,47 @@
             }
 
             //$(this).css('display', 'none'); // Hides the button once expanded
+        });
+
+        // Compatibility fix buttons
+        $(document).on('click', '.respectify-fix-button', function() {
+            var $button = $(this);
+            var $status = $button.siblings('.respectify-fix-status');
+            var $issue = $button.closest('.respectify-compatibility-issue');
+            var setting = $button.data('setting');
+            var nonce = $button.data('nonce');
+
+            // Disable button and show progress
+            $button.prop('disabled', true);
+            $status.removeClass('success error').text(respectify_admin_i18n.fixing || 'Applying fix...');
+
+            $.post(respectify_ajax_object.ajax_url, {
+                action: 'respectify_fix_compatibility',
+                setting: setting,
+                nonce: nonce
+            }, function(response) {
+                if (response.success) {
+                    $status.addClass('success').text(response.data.message);
+                    // Fade out the issue after a delay
+                    setTimeout(function() {
+                        $issue.fadeOut(400, function() {
+                            $(this).remove();
+                            // If no more issues, remove the entire notice
+                            if ($('.respectify-compatibility-issue').length === 0) {
+                                $('.respectify-compatibility-notice').fadeOut(400, function() {
+                                    $(this).remove();
+                                });
+                            }
+                        });
+                    }, 2000);
+                } else {
+                    $status.addClass('error').text(response.data.message || 'An error occurred.');
+                    $button.prop('disabled', false);
+                }
+            }).fail(function() {
+                $status.addClass('error').text('Request failed. Please try again.');
+                $button.prop('disabled', false);
+            });
         });
     });
 
