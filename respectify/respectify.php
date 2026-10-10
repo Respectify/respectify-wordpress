@@ -18,7 +18,7 @@
  * Description:       Healthy internet comments! Use Respectify to help your commenters post in a way that builds community.
  * Version:           0.3.0
  * Requires at least: 6.6
- * Requires PHP:      8.0
+ * Requires PHP:      8.1
  * Author:            Respectify Inc
  * Author URI:        https://respectify.ai/
  * License:           GPL-3.0+

@@ -3,6 +3,7 @@
     "description": "Wordpress comment evaluation via the Respectify API",
     "type": "wordpress-plugin",
     "require": {
+        "php": ">=8.1",
         "respectify/respectify-php": "^0.6.0"
     },
     "autoload": {
