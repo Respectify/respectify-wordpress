@@ -118,10 +118,56 @@ function respectify_get_decrypted_api_key() {
     return '';
 }
 
+/**
+ * Write a message to the PHP error log.
+ *
+ * PRIVACY: never pass comment text, post content, commenter details (name, email, URL, IP, user agent),
+ * request input, or whole comment arrays or evaluation results. Log metadata only - IDs, lengths, booleans,
+ * action names, counts - using respectify_comment_log_summary() and respectify_describe_exception().
+ * tests/Unit/SourceLogCallPrivacyTest.php enforces this.
+ *
+ * @param string $message The message to log.
+ */
 function respectify_log($message) {
     //if (defined('WP_DEBUG') && WP_DEBUG) {
         error_log($message);
     //}
+}
+
+/**
+ * Describe a comment for the log without any of its private contents: IDs, lengths and flags only.
+ *
+ * @param array $commentdata The WordPress comment data array.
+ * @return string JSON summary that is safe to log.
+ */
+function respectify_comment_log_summary($commentdata) {
+    $summary = array(
+        'post_id' => isset($commentdata['comment_post_ID']) ? (int) $commentdata['comment_post_ID'] : null,
+        'parent_id' => isset($commentdata['comment_parent']) ? (int) $commentdata['comment_parent'] : null,
+        'content_length' => isset($commentdata['comment_content']) ? strlen((string) $commentdata['comment_content']) : 0,
+        'has_author' => !empty($commentdata['comment_author']),
+        'has_email' => !empty($commentdata['comment_author_email']),
+        'has_url' => !empty($commentdata['comment_author_url']),
+        'approved' => $commentdata['comment_approved'] ?? null,
+        'type' => $commentdata['comment_type'] ?? null,
+    );
+    return (string) wp_json_encode($summary);
+}
+
+/**
+ * Describe an exception for the log by its type and code only.
+ *
+ * The message is deliberately left out: Respectify library exceptions carry server error details and, for
+ * some failures, the raw response body, either of which can echo the submitted comment or post text. The
+ * full message still reaches the site admin through respectify_handle_api_error().
+ *
+ * @param \Throwable $e The caught exception.
+ * @return string The exception's short class name and code.
+ */
+function respectify_describe_exception(\Throwable $e) {
+    $class_name = get_class($e);
+    $short_class_name = substr($class_name, (int) strrpos('\\' . $class_name, '\\'));
+    return $short_class_name . ' (code ' . $e->getCode() . ')';
 }
 
 /**

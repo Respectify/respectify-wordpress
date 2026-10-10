@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    PHPUnit configuration for the Respectify WordPress plugin.
+
+    Tests run outside WordPress: tests/bootstrap.php supplies minimal WordPress function stubs and maps the
+    scoped RespectifyScoper\ library namespace (created by PHP-Scoper only at build time) onto the unscoped
+    library in vendor/. Neither this file nor tests/ is copied into the released plugin by build.sh.
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="tests/bootstrap.php"
+         colors="true"
+         cacheDirectory=".phpunit.cache"
+         failOnWarning="true"
+         failOnNotice="true"
+         failOnDeprecation="true"
+         failOnRisky="true"
+         beStrictAboutOutputDuringTests="true">
+    <testsuites>
+        <testsuite name="unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory>includes</directory>
+            <directory>admin</directory>
+            <directory>public</directory>
+        </include>
+    </source>
+</phpunit>

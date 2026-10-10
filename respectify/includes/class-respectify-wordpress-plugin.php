@@ -356,8 +356,6 @@ class RespectifyWordpressPlugin {
 		// Generate a custom ID for the post
 		$article_id = null;
 
-		//\Respectify\respectify_log('Creating article ID for content: ' . substr($post_content, 0, 50) . '...');
-
         $promise = $this->respectify_client->initTopicFromText($post_content);
         $caughtException = null;
 
@@ -367,7 +365,7 @@ class RespectifyWordpressPlugin {
 				$article_id = $id;
             },
             function ($e) use (&$caughtException) {
-				\Respectify\respectify_log('Exception in initTopicFromText: ' . $e->getMessage());
+				\Respectify\respectify_log('Exception in initTopicFromText: ' . \Respectify\respectify_describe_exception($e));
                 $caughtException = $e;
             }
         );
@@ -449,7 +447,7 @@ class RespectifyWordpressPlugin {
 	 * @return MegaCallResult The evaluated information for the comment
 	 */
 	public function evaluate_comment($respectify_article_id, $comment_text, $reply_to_comment_text = null, $author_name = null, $author_email = null) {
-		\Respectify\respectify_log('Evaluating comment: article id: ' . $respectify_article_id . ', comment: ' . substr($comment_text, 0, 50) . '...');
+		\Respectify\respectify_log('Evaluating comment: article id: ' . $respectify_article_id . ', comment length: ' . strlen($comment_text) . ', has reply-to: ' . (empty($reply_to_comment_text) ? 'no' : 'yes'));
 
         // Prepend author information to the comment text - email addresses can be used for spam, for example
 		// Should look like this:
@@ -637,7 +635,7 @@ class RespectifyWordpressPlugin {
 			try {
 				$article_id = $this->get_respectify_article_id($post_id);
 			} catch (\Exception $e) {
-				\Respectify\respectify_log('Exception getting article ID: ' . $e->getMessage());
+				\Respectify\respectify_log('Exception getting article ID: ' . \Respectify\respectify_describe_exception($e));
 				// Handle API error: notify admin, hold comment for moderation
 				$held_comment = \Respectify\respectify_handle_api_error($e->getMessage(), $commentdata);
 				wp_insert_comment($held_comment);
@@ -671,7 +669,7 @@ class RespectifyWordpressPlugin {
 					\Respectify\respectify_log('Parent comment belongs to different post - ignoring parent context');
 				} else {
 					$reply_to_comment_text = sanitize_textarea_field(wp_unslash($parent_comment->comment_content));
-					\Respectify\respectify_log('Found comment being replied to: ' . substr($reply_to_comment_text, 0, 50) . '...');
+					\Respectify\respectify_log('Found comment being replied to: parent ID ' . (int) $commentdata['comment_parent'] . ', length ' . strlen($reply_to_comment_text));
 				}
 			} else {
 				\Respectify\respectify_log('Parent comment not found - ignoring parent context');
@@ -702,13 +700,13 @@ class RespectifyWordpressPlugin {
 					$article_id = $this->get_respectify_article_id($post_id);
 					$evaluation = $this->evaluate_comment($article_id, $comment_text, $reply_to_comment_text, $author_name, $author_email);
 				} catch (\Exception $retry_e) {
-					\Respectify\respectify_log('Retry after regenerating article context failed: ' . $retry_e->getMessage());
+					\Respectify\respectify_log('Retry after regenerating article context failed: ' . \Respectify\respectify_describe_exception($retry_e));
 					$held_comment = \Respectify\respectify_handle_api_error($retry_e->getMessage(), $commentdata);
 					wp_insert_comment($held_comment);
 					return new \WP_Error('api_error', \Respectify\respectify_get_commenter_error_message());
 				}
 			} else {
-				\Respectify\respectify_log('Exception evaluating comment: ' . $e->getMessage());
+				\Respectify\respectify_log('Exception evaluating comment: ' . \Respectify\respectify_describe_exception($e));
 				// Handle API error: notify admin, hold comment for moderation
 				$held_comment = \Respectify\respectify_handle_api_error($e->getMessage(), $commentdata);
 				wp_insert_comment($held_comment);
@@ -717,7 +715,7 @@ class RespectifyWordpressPlugin {
 		}
 
 		if (is_wp_error($evaluation)) {
-			\Respectify\respectify_log('Error evaluating comment: ' . $evaluation->get_error_message());
+			\Respectify\respectify_log('Error evaluating comment: ' . $evaluation->get_error_code());
 			$commentdata['comment_approved'] = 0; // Set to pending rather than spam
 			$commentdata['comment_type'] = 'respectify_error';
 			$commentdata['comment_meta'] = array(
@@ -739,7 +737,7 @@ class RespectifyWordpressPlugin {
 			
 			\Respectify\respectify_log('Comment evaluation result: ' . $action);
 			if ($feedback_html) {
-				\Respectify\respectify_log('Feedback: ' . substr($feedback_html, 0, 150) . '...');
+				\Respectify\respectify_log('Feedback length: ' . strlen($feedback_html));
 			}
 
 			// Log the final decision
@@ -761,7 +759,7 @@ class RespectifyWordpressPlugin {
 					'respectify_action' => $action,
 					'respectify_evaluated_at' => current_time('mysql')
 				);
-				\Respectify\respectify_log('Comment result before insertion: ' . wp_json_encode($commentdata));
+				\Respectify\respectify_log('Comment result before insertion: ' . \Respectify\respectify_comment_log_summary($commentdata));
 				return $commentdata;
 			} elseif ($action === \Respectify\ACTION_REVISE) {
 				// Comment needs revision - we will NOT store it in the database
@@ -1268,7 +1266,7 @@ class RespectifyWordpressPlugin {
 		);
 
 		// Log the comment data for debugging
-		\Respectify\respectify_log('Comment data prepared: ' . wp_json_encode($commentdata));
+		\Respectify\respectify_log('Comment data prepared: ' . \Respectify\respectify_comment_log_summary($commentdata));
 
 		// Intercept and process the comment
 		$result = $this->intercept_comment($commentdata);
@@ -1280,7 +1278,7 @@ class RespectifyWordpressPlugin {
 			]);
 		} else {
 			// Log the result before inserting
-			\Respectify\respectify_log('Comment result before insertion: ' . wp_json_encode($result));
+			\Respectify\respectify_log('Comment result before insertion: ' . \Respectify\respectify_comment_log_summary($result));
 			
 			// Insert the comment into the database directly
 			$comment_id = wp_insert_comment($result);
@@ -1300,17 +1298,17 @@ class RespectifyWordpressPlugin {
 	// For when Javascript is turned off
 	public function respectify_preprocess_comment_no_js($commentdata) {
 		// Intercept and evaluate the comment
-		\Respectify\respectify_log('Intercepting comment with JS turned off: ' . $commentdata['comment_content']);
+		\Respectify\respectify_log('Intercepting comment with JS turned off: ' . \Respectify\respectify_comment_log_summary($commentdata));
 
 		// Verify nonce
 		$this->verify_comment_nonce();
 
 		$result = $this->intercept_comment($commentdata);
 
-		\Respectify\respectify_log('Result of the comment interception: ' . wp_json_encode($result));
+		\Respectify\respectify_log('Result of the comment interception: ' . (is_wp_error($result) ? 'error ' . $result->get_error_code() : 'allowed'));
 
 		if (is_wp_error($result)) {
-			\Respectify\respectify_log('Comment rejected: ' . $result->get_error_message());
+			\Respectify\respectify_log('Comment rejected: ' . $result->get_error_code());
 			
 			// Create a properly formatted HTML error page
 			$html = '<!DOCTYPE html>
@@ -1335,7 +1333,7 @@ class RespectifyWordpressPlugin {
 			wp_die($html, esc_html__('Please revise your comment', 'respectify'), array('back_link' => false));
 		}
 	
-		\Respectify\respectify_log('Comment allowed: ' . $result['comment_content']);
+		\Respectify\respectify_log('Comment allowed: ' . \Respectify\respectify_comment_log_summary($result));
 		// Return processed comment data
 		return $result;
 	}
