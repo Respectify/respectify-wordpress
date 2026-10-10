@@ -2,6 +2,8 @@
 
 namespace Respectify\Tests\Unit;
 
+use PHPUnit\Framework\Attributes\PreserveGlobalState;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use PHPUnit\Framework\TestCase;
 use Respectify\RespectifyWordpressPlugin;
 use Respectify\Tests\Support\FakeRespectifyClient;
@@ -15,7 +17,13 @@ use RespectifyScoper\Respectify\Schemas\MegaCallResult;
  * comment's text, the post's content, or the commenter's name, email, IP, URL or user agent to the PHP error
  * log. Each test submits data carrying unique marker strings, captures everything error_log() writes, and
  * asserts that no marker appears.
+ *
+ * respectify_log() writes only when WP_DEBUG is true, so each test turns WP_DEBUG on - the case where logging
+ * happens and privacy matters. WP_DEBUG is a constant, so each test runs in its own PHP process to keep it from
+ * leaking into other tests.
  */
+#[RunTestsInSeparateProcesses]
+#[PreserveGlobalState(false)]
 final class CommentLogPrivacyTest extends TestCase {
 
     private const POST_ID = 42;
@@ -46,6 +54,7 @@ final class CommentLogPrivacyTest extends TestCase {
 
 
     protected function setUp(): void {
+        define('WP_DEBUG', true);
         WordPressStubState::reset();
         $_POST = [];
         $_SERVER['REMOTE_ADDR'] = self::MARKER_AUTHOR_IP;

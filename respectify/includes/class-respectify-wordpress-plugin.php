@@ -381,7 +381,7 @@ class RespectifyWordpressPlugin {
 		// failure so the caller holds the comment rather than caching a blank ID that
 		// would trip the "article context must be provided" guard on every later comment.
 		if (empty($article_id)) {
-			throw new \Exception('Respectify did not return a valid article context ID');
+			throw new \UnexpectedValueException('Respectify did not return a valid article context ID');
 		}
 
 		\Respectify\respectify_log('In generate_respectify_article_id: Returning Respectify article ID: ' . $article_id);
@@ -548,7 +548,7 @@ class RespectifyWordpressPlugin {
                 if ($megaResult instanceof MegaCallResult) {
                     $res = $megaResult;
                 } else {
-                    $caughtException = new \Exception('Mega call result is not an instance of MegaCallResult');
+                    $caughtException = new \UnexpectedValueException('Mega call result is not an instance of MegaCallResult');
                 }
             },
             function ($e) use (&$caughtException) {
@@ -637,7 +637,7 @@ class RespectifyWordpressPlugin {
 			} catch (\Exception $e) {
 				\Respectify\respectify_log('Exception getting article ID: ' . \Respectify\respectify_describe_exception($e));
 				// Handle API error: notify admin, hold comment for moderation
-				$held_comment = \Respectify\respectify_handle_api_error($e->getMessage(), $commentdata);
+				$held_comment = \Respectify\respectify_handle_api_error($e, $commentdata);
 				wp_insert_comment($held_comment);
 				return new \WP_Error('api_error', \Respectify\respectify_get_commenter_error_message());
 			}
@@ -701,14 +701,14 @@ class RespectifyWordpressPlugin {
 					$evaluation = $this->evaluate_comment($article_id, $comment_text, $reply_to_comment_text, $author_name, $author_email);
 				} catch (\Exception $retry_e) {
 					\Respectify\respectify_log('Retry after regenerating article context failed: ' . \Respectify\respectify_describe_exception($retry_e));
-					$held_comment = \Respectify\respectify_handle_api_error($retry_e->getMessage(), $commentdata);
+					$held_comment = \Respectify\respectify_handle_api_error($retry_e, $commentdata);
 					wp_insert_comment($held_comment);
 					return new \WP_Error('api_error', \Respectify\respectify_get_commenter_error_message());
 				}
 			} else {
 				\Respectify\respectify_log('Exception evaluating comment: ' . \Respectify\respectify_describe_exception($e));
 				// Handle API error: notify admin, hold comment for moderation
-				$held_comment = \Respectify\respectify_handle_api_error($e->getMessage(), $commentdata);
+				$held_comment = \Respectify\respectify_handle_api_error($e, $commentdata);
 				wp_insert_comment($held_comment);
 				return new \WP_Error('api_error', \Respectify\respectify_get_commenter_error_message());
 			}
@@ -719,7 +719,8 @@ class RespectifyWordpressPlugin {
 			$commentdata['comment_approved'] = 0; // Set to pending rather than spam
 			$commentdata['comment_type'] = 'respectify_error';
 			$commentdata['comment_meta'] = array(
-				'respectify_error' => $evaluation->get_error_message(),
+				// The code, not the message: a WP_Error message can carry text quoting the comment.
+				'respectify_error' => $evaluation->get_error_code(),
 				'respectify_evaluated_at' => current_time('mysql')
 			);
 			// Return error to prevent comment from being posted
@@ -727,7 +728,7 @@ class RespectifyWordpressPlugin {
 		} elseif ($evaluation === null) {
 			// Evaluation returned null (unexpected error) - hold for moderation
 			\Respectify\respectify_log('Evaluation returned null - holding comment for moderation');
-			$held_comment = \Respectify\respectify_handle_api_error('Evaluation returned null unexpectedly', $commentdata);
+			$held_comment = \Respectify\respectify_handle_api_error(new \UnexpectedValueException('Evaluation returned null unexpectedly'), $commentdata);
 			wp_insert_comment($held_comment);
 			return new \WP_Error('evaluation_error', 'Respectify encountered an error while processing your comment. Please try again later.');
 		} else {

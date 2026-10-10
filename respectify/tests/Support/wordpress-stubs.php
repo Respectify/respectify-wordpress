@@ -61,6 +61,33 @@ function get_option(string $option, mixed $default_value = false): mixed {
 }
 
 
+function update_option(string $option, mixed $value, bool|string|null $autoload = null): bool {
+    WordPressStubState::$options[$option] = $value;
+    return true;
+}
+
+
+function add_option(string $option, mixed $value = '', string $deprecated = '', bool|string|null $autoload = null): bool {
+    if (array_key_exists($option, WordPressStubState::$options)) {
+        return false;
+    }
+    WordPressStubState::$options[$option] = $value;
+    return true;
+}
+
+
+function add_comment_meta(int $comment_id, string $meta_key, mixed $meta_value, bool $unique = false): int|false {
+    WordPressStubState::$comment_meta[$comment_id][$meta_key] = $meta_value;
+    return 1;
+}
+
+
+function update_comment_meta(int $comment_id, string $meta_key, mixed $meta_value): bool {
+    WordPressStubState::$comment_meta[$comment_id][$meta_key] = $meta_value;
+    return true;
+}
+
+
 function get_post_meta(int $post_id, string $key = '', bool $single = false): mixed {
     return WordPressStubState::$post_meta[$post_id][$key] ?? '';
 }
@@ -139,7 +166,12 @@ function wp_die(mixed $message = '', mixed $title = '', mixed $args = []): never
 }
 
 
-function wp_mail(string $to, string $subject, string $message): bool {
+/**
+ * @param string|array<int, string> $headers
+ * @param string|array<int, string> $attachments
+ */
+function wp_mail(string $to, string $subject, string $message, string|array $headers = '', string|array $attachments = []): bool {
+    WordPressStubState::$sent_mail[] = ['to' => $to, 'subject' => $subject, 'message' => $message];
     return true;
 }
 

@@ -188,6 +188,7 @@ class RespectifyException extends \Exception {}
 class UnauthorizedException extends RespectifyException {}
 class PaymentRequiredException extends RespectifyException {}
 class BadRequestException extends RespectifyException {}
+class ArticleContextNotFoundException extends BadRequestException {}
 class ServerException extends RespectifyException {}
 class JsonDecodingException extends RespectifyException {}
 class UnsupportedMediaTypeException extends RespectifyException {}

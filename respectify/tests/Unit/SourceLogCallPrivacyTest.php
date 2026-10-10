@@ -74,6 +74,34 @@ final class SourceLogCallPrivacyTest extends TestCase {
     }
 
 
+    public function testErrorLogCalls_PluginSource_OnlyInsideRespectifyLog(): void {
+        // respectify_log() writes only when WP_DEBUG is on; a direct error_log() call would bypass that and
+        // write on production sites.
+        $direct_calls = [];
+        foreach ($this->pluginSourceFiles() as $source_file) {
+            $tokens = \PhpToken::tokenize((string) file_get_contents($source_file));
+            $enclosing_function = null;
+            foreach ($tokens as $index => $token) {
+                if ($token->is(T_FUNCTION)) {
+                    $name_index = $this->nextSignificantIndex($tokens, $index);
+                    $enclosing_function = $name_index === null ? null : $tokens[$name_index]->text;
+                    continue;
+                }
+                if (!$token->is([T_STRING, T_NAME_FULLY_QUALIFIED]) || ltrim($token->text, '\\') !== 'error_log') {
+                    continue;
+                }
+                $open_index = $this->nextSignificantIndex($tokens, $index);
+                if ($open_index === null || $tokens[$open_index]->text !== '(' || $enclosing_function === 'respectify_log') {
+                    continue;
+                }
+                $direct_calls[] = sprintf('%s:%d', $this->relativePath($source_file), $token->line);
+            }
+        }
+
+        $this->assertSame([], $direct_calls, "Log through respectify_log(), not error_log():\n" . implode("\n", $direct_calls));
+    }
+
+
     /**
      * @return list<string>
      */

@@ -25,6 +25,12 @@ final class WordPressStubState {
     /** @var array<string, mixed> Transients keyed by name. */
     public static array $transients = [];
 
+    /** @var array<int, array<string, mixed>> Comment meta keyed by comment ID then meta key. */
+    public static array $comment_meta = [];
+
+    /** @var array<int, array{to: string, subject: string, message: string}> Mail passed to wp_mail(), in order. */
+    public static array $sent_mail = [];
+
     /** Whether wp_doing_ajax() reports an AJAX request. */
     public static bool $is_doing_ajax = false;
 
@@ -36,6 +42,8 @@ final class WordPressStubState {
         self::$comments = [];
         self::$inserted_comments = [];
         self::$transients = [];
+        self::$comment_meta = [];
+        self::$sent_mail = [];
         self::$is_doing_ajax = false;
     }
 }

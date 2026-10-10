@@ -449,7 +449,7 @@ function respectify_revise_settings_callback() {
 
     // Ensure $options is an array
     if (!is_array($options)) {
-        error_log('Respectify: Invalid revise settings of type ' . gettype($options) . ' - using defaults');
+        \Respectify\respectify_log('Respectify: Invalid revise settings of type ' . gettype($options) . ' - using defaults');
         $options = \Respectify\REVISE_DEFAULT_SETTINGS;
     }
     ?>
@@ -698,7 +698,7 @@ function respectify_test_credentials() {
         wp_send_json_error(array('message' => __('Class not found.', 'respectify')));
     }
     $which_client = \Respectify\get_friendly_message_which_client($base_url, $api_version);
-    error_log('Testing credentials (email ' . (empty($email) ? 'missing' : 'provided') . ') - ' . $which_client);
+    \Respectify\respectify_log('Testing credentials (email ' . (empty($email) ? 'missing' : 'provided') . ') - ' . $which_client);
     
     // Choose the test client creation method based on advanced settings values
     $client = \Respectify\respectify_create_test_client($email, $api_key, $base_url, $api_version);
@@ -710,7 +710,7 @@ function respectify_test_credentials() {
             // UserCheckResponse has: active, status, expires, planName, error. (planName carries
             // the credit balance, e.g. "Credit Balance: $12.34"; allowedEndpoints is unused now.)
             $which_client = \Respectify\get_friendly_message_which_client($base_url, $api_version);
-            error_log('Base url ' . $base_url . ' and API version ' . (!empty($api_version) ? $api_version : 'default') . ' give: which client ' . $which_client);
+            \Respectify\respectify_log('Base url ' . $base_url . ' and API version ' . (!empty($api_version) ? $api_version : 'default') . ' give: which client ' . $which_client);
             // Note: Use __() not esc_html__() because JS uses .text() which handles escaping
             if (!empty($which_client)) {
                 $which_client = ' (' . $which_client . ')';

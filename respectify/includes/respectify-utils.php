@@ -2,7 +2,14 @@
 
 namespace Respectify;
 use RespectifyScoper\Respectify\RespectifyClientAsync;
+use RespectifyScoper\Respectify\Exceptions\ArticleContextNotFoundException;
 use RespectifyScoper\Respectify\Exceptions\BadRequestException;
+use RespectifyScoper\Respectify\Exceptions\JsonDecodingException;
+use RespectifyScoper\Respectify\Exceptions\PaymentRequiredException;
+use RespectifyScoper\Respectify\Exceptions\RespectifyException;
+use RespectifyScoper\Respectify\Exceptions\ServerException;
+use RespectifyScoper\Respectify\Exceptions\UnauthorizedException;
+use RespectifyScoper\Respectify\Exceptions\UnsupportedMediaTypeException;
 use RespectifyScoper\Respectify\Moderation\ModerationCategory;
 use RespectifyScoper\Respectify\Moderation\ModerationTolerances;
 use RespectifyScoper\Respectify\Moderation\ToleranceLevel;
@@ -119,7 +126,14 @@ function respectify_get_decrypted_api_key() {
 }
 
 /**
- * Write a message to the PHP error log.
+ * Write a message to the PHP error log, only when WP_DEBUG is true.
+ *
+ * This follows the WordPress convention for debug output: nothing is written on a production site, where
+ * WP_DEBUG is off. With WP_DEBUG_LOG also on, WordPress points the PHP error log at wp-content/debug.log (or
+ * the path WP_DEBUG_LOG names); otherwise messages go to the server's PHP error log. API failures reach the
+ * site admin regardless, through the admin notice and email in respectify_handle_api_error().
+ *
+ * Plugin code logs only through this function; tests/Unit/SourceLogCallPrivacyTest.php enforces that.
  *
  * PRIVACY: never pass comment text, post content, commenter details (name, email, URL, IP, user agent),
  * request input, or whole comment arrays or evaluation results. Log metadata only - IDs, lengths, booleans,
@@ -129,9 +143,9 @@ function respectify_get_decrypted_api_key() {
  * @param string $message The message to log.
  */
 function respectify_log($message) {
-    //if (defined('WP_DEBUG') && WP_DEBUG) {
+    if (defined('WP_DEBUG') && WP_DEBUG) {
         error_log($message);
-    //}
+    }
 }
 
 /**
@@ -158,8 +172,8 @@ function respectify_comment_log_summary($commentdata) {
  * Describe an exception for the log by its type and code only.
  *
  * The message is deliberately left out: Respectify library exceptions carry server error details and, for
- * some failures, the raw response body, either of which can echo the submitted comment or post text. The
- * full message still reaches the site admin through respectify_handle_api_error().
+ * some failures, the raw response body, either of which can echo the submitted comment or post text. The site
+ * admin is told what went wrong through respectify_handle_api_error(), which also never uses the message.
  *
  * @param \Throwable $e The caught exception.
  * @return string The exception's short class name and code.
@@ -228,13 +242,73 @@ function respectify_get_commenter_error_message() {
 }
 
 /**
- * Store an API error for admin notification.
+ * Explain an API failure to the site admin without repeating the exception's message.
  *
- * @param string $error_message The error message from the API.
+ * PRIVACY: Respectify library exception messages carry server error details and, for some failures, the raw
+ * response body, either of which can echo the submitted comment, the commenter's details or the post content.
+ * Error reports are stored (transient, comment meta) and emailed, so they are built only from the exception's
+ * class and code, which never carry user content. tests/Unit/ApiErrorReportingPrivacyTest.php enforces this.
+ *
+ * @param \Throwable $e The caught exception.
+ * @return array{message: string, error_type: string, status_code: int|null} A translated, actionable
+ *     explanation that already names the error type and status; the short exception class name; and the HTTP
+ *     status, when the failure came from an HTTP response.
  */
-function respectify_store_api_error($error_message) {
+function respectify_describe_api_error(\Throwable $e) {
+    $class_name = get_class($e);
+    $error_type = substr($class_name, (int) strrpos('\\' . $class_name, '\\'));
+
+    // Library exceptions carry the HTTP status as their code (0 when there was no response). Other
+    // exceptions' codes are unrelated values, eg a socket errno, so they are never presented as a status.
+    $status_code = ($e instanceof RespectifyException && $e->getCode() >= 100) ? (int) $e->getCode() : null;
+
+    // Most specific first: ArticleContextNotFoundException is a BadRequestException, and every library
+    // exception is a RespectifyException.
+    if ($e instanceof ArticleContextNotFoundException) {
+        $explanation = __('Respectify could not find the article context for this post, even after creating a new one. Check that the email address and API key in Respectify settings are correct; if they are, this is usually temporary.', 'respectify');
+    } elseif ($e instanceof UnauthorizedException) {
+        $explanation = __('Respectify rejected the email address or API key. Check them in Respectify settings and use Test to confirm they work.', 'respectify');
+    } elseif ($e instanceof PaymentRequiredException) {
+        $explanation = __('Your Respectify account has no credit left or no active plan. Add credit or check your plan in the Respectify dashboard.', 'respectify');
+    } elseif ($e instanceof BadRequestException) {
+        $explanation = __('Respectify rejected the request as invalid. Check the topics and tolerance settings in Respectify settings; if they look right, update the plugin or contact Respectify support.', 'respectify');
+    } elseif ($e instanceof UnsupportedMediaTypeException) {
+        $explanation = __('Respectify did not accept the request format. Update the plugin, and check the API version under Advanced settings.', 'respectify');
+    } elseif ($e instanceof ServerException) {
+        $explanation = __('The Respectify service had an internal error. This is usually temporary; if it continues, contact Respectify support.', 'respectify');
+    } elseif ($e instanceof JsonDecodingException) {
+        $explanation = __('Respectify sent a response the plugin could not read. If you set a custom server URL or API version under Advanced settings, check them; otherwise this is usually temporary.', 'respectify');
+    } elseif ($e instanceof RespectifyException) {
+        $explanation = __('Respectify returned an unexpected error. If it continues, contact Respectify support.', 'respectify');
+    } elseif ($e instanceof \UnexpectedValueException) {
+        $explanation = __('Respectify returned an incomplete or unexpected result. This is usually temporary; if it continues, update the plugin or contact Respectify support.', 'respectify');
+    } else {
+        $explanation = __('The plugin could not get a response from Respectify: a network problem, a timeout, or an unexpected error. Check that your server can reach the Respectify service, and any custom server URL under Advanced settings.', 'respectify');
+    }
+
+    $identification = $status_code !== null
+        /* translators: 1: exception class name, eg ServerException; 2: HTTP status code, eg 500 */
+        ? sprintf(__('%1$s, HTTP %2$d', 'respectify'), $error_type, $status_code)
+        : $error_type;
+
+    return array(
+        'message' => $explanation . ' (' . $identification . ')',
+        'error_type' => $error_type,
+        'status_code' => $status_code,
+    );
+}
+
+/**
+ * Store an API error for the admin notice.
+ *
+ * @param array{message: string, error_type: string, status_code: int|null} $error_description From
+ *     respectify_describe_api_error(); never a raw exception message, which can carry comment text.
+ */
+function respectify_store_api_error($error_description) {
     $error_data = [
-        'message' => $error_message,
+        'message' => $error_description['message'],
+        'error_type' => $error_description['error_type'],
+        'status_code' => $error_description['status_code'],
         'timestamp' => current_time('timestamp'),
         'formatted_time' => current_time('mysql')
     ];
@@ -244,10 +318,20 @@ function respectify_store_api_error($error_message) {
 /**
  * Get the stored API error, if any.
  *
+ * An error stored by an earlier plugin version holds the raw exception message, which can carry comment
+ * text. Its message is replaced, and the replacement stored, so it is neither shown nor kept.
+ *
  * @return array|false The error data, or false if none.
  */
 function respectify_get_api_error() {
-    return get_transient('respectify_api_error');
+    $error_data = get_transient('respectify_api_error');
+    if (is_array($error_data) && !array_key_exists('error_type', $error_data)) {
+        $error_data['message'] = __('Respectify could not process a comment. Check Respectify settings and your account; details of this error were not kept.', 'respectify');
+        $error_data['error_type'] = '';
+        $error_data['status_code'] = null;
+        set_transient('respectify_api_error', $error_data, DAY_IN_SECONDS);
+    }
+    return $error_data;
 }
 
 /**
@@ -261,10 +345,11 @@ function respectify_clear_api_error() {
  * Send a rate-limited email to the admin about an API error.
  * Only sends one email per day to avoid spamming.
  *
- * @param string $error_message The error message from the API.
+ * @param array{message: string, error_type: string, status_code: int|null} $error_description From
+ *     respectify_describe_api_error(); never a raw exception message, which can carry comment text.
  * @return bool Whether the email was sent.
  */
-function respectify_notify_admin_of_error($error_message) {
+function respectify_notify_admin_of_error($error_description) {
     // Check if we've already sent an email today
     $last_email_time = get_transient('respectify_last_error_email');
     if ($last_email_time !== false) {
@@ -280,20 +365,15 @@ function respectify_notify_admin_of_error($error_message) {
 
     $body = sprintf(__('Hello,
 
-Respectify encountered an error while processing a comment on your site "%s".
+Respectify encountered an error while processing a comment on your site "%1$s".
 
-Error details:
-%s
-
-This may mean:
-- Your Respectify subscription has expired
-- You\'re using features not available on your current plan
-- There\'s a temporary API issue
+What went wrong:
+%2$s
 
 What to do:
-1. Check your Respectify settings: %s
-2. Verify your subscription status at https://respectify.org
-3. If the problem persists, contact Respectify support
+1. Check your Respectify settings: %3$s
+2. Check your account and credit in the Respectify dashboard: https://respectify.ai/dashboard
+3. If the problem persists, contact Respectify support and quote the error type above
 
 Note: Comments that couldn\'t be processed are being held for manual moderation.
 
@@ -302,7 +382,7 @@ This is an automated message. You will only receive one notification per day.
 --
 Respectify WordPress Plugin', 'respectify'),
         $site_name,
-        $error_message,
+        $error_description['message'],
         $settings_url
     );
 
@@ -322,22 +402,27 @@ Respectify WordPress Plugin', 'respectify'),
 /**
  * Handle an API error: store it, notify admin, and return appropriate response.
  *
- * @param string $error_message The error message from the API.
+ * Takes the exception itself rather than its message, so no caller can hand a raw message - which can echo the
+ * comment - to the stored or emailed error report. See respectify_describe_api_error().
+ *
+ * @param \Throwable $api_error The exception the API call failed with.
  * @param array $commentdata The comment data.
  * @return array The modified comment data (held for moderation).
  */
-function respectify_handle_api_error($error_message, $commentdata) {
+function respectify_handle_api_error(\Throwable $api_error, $commentdata) {
+    $error_description = respectify_describe_api_error($api_error);
+
     // Store error for admin notice
-    respectify_store_api_error($error_message);
+    respectify_store_api_error($error_description);
 
     // Send rate-limited email notification
-    respectify_notify_admin_of_error($error_message);
+    respectify_notify_admin_of_error($error_description);
 
     // Hold the comment for moderation instead of rejecting
     $commentdata['comment_approved'] = 0;
     $commentdata['comment_type'] = '';
     $commentdata['comment_meta'] = [
-        'respectify_error' => $error_message,
+        'respectify_error' => $error_description['message'],
         'respectify_held_reason' => 'api_error',
         'respectify_held_at' => current_time('mysql')
     ];
