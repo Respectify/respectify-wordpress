@@ -228,6 +228,11 @@ function respectify_register_settings() {
     register_setting('respectify_options_group', \Respectify\OPTION_DOGWHISTLE_EXAMPLES, 'respectify_sanitize_dogwhistle_examples');
     register_setting('respectify_options_group', \Respectify\OPTION_BASE_URL, 'respectify_sanitize_base_url');
     register_setting('respectify_options_group', \Respectify\OPTION_API_VERSION, 'sanitize_text_field');
+    register_setting('respectify_options_group', \Respectify\OPTION_TOLERANCES, array(
+        'type' => 'array',
+        'sanitize_callback' => 'respectify_sanitize_tolerances',
+        'default' => \Respectify\respectify_default_tolerance_settings(),
+    ));
 
     // Add settings sections
     add_settings_section(
@@ -337,6 +342,15 @@ function respectify_register_settings() {
         \Respectify\OPTION_SPAM_HANDLING,
         esc_html__('How to Handle Spam', 'respectify'),
         'respectify_spam_handling_callback',
+        'respectify',
+        'respectify_behavior_settings_section'
+    );
+
+    // Last in the section: the admin CSS styles some earlier rows by position, so adding it here moves none of them
+    add_settings_field(
+        \Respectify\OPTION_TOLERANCES,
+        esc_html__('Moderation Tolerances', 'respectify'),
+        'respectify_tolerances_settings_callback',
         'respectify',
         'respectify_behavior_settings_section'
     );
@@ -1050,6 +1064,123 @@ function respectify_dogwhistle_settings_callback() {
         </div>
     </div>
     <?php
+}
+
+/**
+ * Human-readable labels for each moderation tolerance category, in the order the API documents them.
+ *
+ * @return array<string, string> Map of category to translated label.
+ */
+function respectify_get_tolerance_category_labels() {
+    return array(
+        \RespectifyScoper\Respectify\Moderation\ModerationCategory::THREAT => __('Threats of violence or harm', 'respectify'),
+        \RespectifyScoper\Respectify\Moderation\ModerationCategory::IDENTITY_ATTACK => __('Identity attacks and slurs', 'respectify'),
+        \RespectifyScoper\Respectify\Moderation\ModerationCategory::SEXUAL_CONTENT => __('Sexual content', 'respectify'),
+        \RespectifyScoper\Respectify\Moderation\ModerationCategory::HARASSMENT => __('Harassment', 'respectify'),
+        \RespectifyScoper\Respectify\Moderation\ModerationCategory::INSULT => __('Insults and put-downs', 'respectify'),
+        \RespectifyScoper\Respectify\Moderation\ModerationCategory::PROFANITY => __('Profanity', 'respectify'),
+        \RespectifyScoper\Respectify\Moderation\ModerationCategory::DISMISSIVE_TONE => __('Dismissive or sarcastic tone', 'respectify'),
+        \RespectifyScoper\Respectify\Moderation\ModerationCategory::LOGICAL_FALLACY => __('Logical fallacies', 'respectify'),
+        \RespectifyScoper\Respectify\Moderation\ModerationCategory::LOW_EFFORT => __('Low effort posts', 'respectify'),
+    );
+}
+
+/**
+ * Human-readable labels for each tolerance level, from most to least accepting.
+ *
+ * @return array<string, string> Map of level to translated label.
+ */
+function respectify_get_tolerance_level_labels() {
+    return array(
+        \RespectifyScoper\Respectify\Moderation\ToleranceLevel::RELAXED => __('Relaxed', 'respectify'),
+        \RespectifyScoper\Respectify\Moderation\ToleranceLevel::STANDARD => __('Standard', 'respectify'),
+        \RespectifyScoper\Respectify\Moderation\ToleranceLevel::STRICT => __('Strict', 'respectify'),
+        \RespectifyScoper\Respectify\Moderation\ToleranceLevel::ZERO_TOLERANCE => __('Zero tolerance', 'respectify'),
+    );
+}
+
+// Callback to render the moderation tolerance settings: one level per category
+function respectify_tolerances_settings_callback() {
+    $tolerances = \Respectify\respectify_get_tolerance_settings();
+    $level_labels = respectify_get_tolerance_level_labels();
+    ?>
+    <div class="respectify-settings-column">
+        <p class="description"><?php esc_html_e('How much of each kind of problem your site accepts. Relaxed ignores minor instances; Strict and Zero tolerance look harder for borderline comments. Standard is Respectify\'s normal behaviour.', 'respectify'); ?></p>
+        <p class="description"><?php esc_html_e('Threats, identity attacks, sexual content and harassment can be made stricter but never relaxed.', 'respectify'); ?></p>
+        <p class="description"><?php esc_html_e('Categories left at Standard use the tolerances saved for your API key in the Respectify dashboard.', 'respectify'); ?></p>
+        <table class="respectify-tolerances-table" role="presentation">
+            <tbody>
+            <?php foreach (respectify_get_tolerance_category_labels() as $category => $category_label) :
+                $is_floored = \RespectifyScoper\Respectify\Moderation\ModerationCategory::isFloored($category);
+                $field_id = 'respectify_tolerance_' . $category;
+                ?>
+                <tr>
+                    <td class="respectify-tolerance-label">
+                        <label for="<?php echo esc_attr($field_id); ?>"><?php echo esc_html($category_label); ?></label>
+                    </td>
+                    <td class="respectify-tolerance-control">
+                        <select name="<?php echo esc_attr(\Respectify\OPTION_TOLERANCES . '[' . $category . ']'); ?>" id="<?php echo esc_attr($field_id); ?>">
+                            <?php foreach ($level_labels as $level => $level_label) :
+                                // Floored categories never offer relaxed; the sanitize callback rejects it too
+                                if ($is_floored && $level === \RespectifyScoper\Respectify\Moderation\ToleranceLevel::RELAXED) {
+                                    continue;
+                                }
+                                ?>
+                                <option value="<?php echo esc_attr($level); ?>" <?php selected($tolerances[$category], $level); ?>><?php echo esc_html($level_label); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+    <?php
+}
+
+/**
+ * Sanitize the moderation tolerance settings. Only known categories are kept, each with a whitelisted
+ * level. A disallowed value (an unknown level, or 'relaxed' on a floored category) is rejected: that
+ * category keeps its previously saved level and the admin is shown an error.
+ *
+ * @param mixed $input The submitted value (untrusted).
+ * @return array<string, string> Map of every tolerance category to an allowed level.
+ */
+function respectify_sanitize_tolerances($input) {
+    // Start from what is saved, so a rejected value never changes (and never relaxes) a category
+    $sanitized = \Respectify\respectify_get_tolerance_settings();
+    if (!is_array($input)) {
+        return $sanitized;
+    }
+
+    $category_labels = respectify_get_tolerance_category_labels();
+    $rejected_labels = array();
+    foreach (array_keys($sanitized) as $category) {
+        if (!array_key_exists($category, $input)) {
+            continue;
+        }
+        $level = $input[$category];
+        if (\Respectify\respectify_is_allowed_tolerance_level($category, $level)) {
+            $sanitized[$category] = $level;
+        } else {
+            $rejected_labels[] = $category_labels[$category] ?? $category;
+        }
+    }
+
+    if (!empty($rejected_labels)) {
+        add_settings_error(
+            \Respectify\OPTION_TOLERANCES,
+            'respectify_invalid_tolerances',
+            esc_html(sprintf(
+                /* translators: %s: comma-separated list of moderation categories */
+                __('These tolerance levels are not allowed and were not changed: %s. Threats, identity attacks, sexual content and harassment cannot be relaxed.', 'respectify'),
+                implode(', ', $rejected_labels)
+            )),
+            'error'
+        );
+    }
+
+    return $sanitized;
 }
 
 // Sanitization function for dogwhistle settings

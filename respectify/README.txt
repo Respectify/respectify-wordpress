@@ -3,7 +3,7 @@ Contributors: vintagedave, respectify
 Tags: comments, moderation, community, user engagement, spam
 Tested up to: 6.9
 Requires PHP: 8.0
-Stable tag: 0.2.7
+Stable tag: 0.3.0
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -29,6 +29,13 @@ Respectify is available in the Wordpress plugins directory, so:
 4. That's it!
 
 == Changelog ==
+
+= 0.3.0 =
+* New Moderation Tolerances settings: choose Relaxed, Standard, Strict or Zero tolerance for each kind of problem (threats, identity attacks, sexual content, harassment, insults, profanity, dismissive tone, logical fallacies and low effort posts). Every category defaults to Standard, so existing sites behave as before
+* Threats, identity attacks, sexual content and harassment can be made stricter but never relaxed
+* Categories left at Standard follow the tolerances saved for your API key in the Respectify dashboard
+* When any category is relaxed, a comment's toxicity only triggers a revision request if Respectify also judges it beyond your site's tolerances, so relaxing a category (eg profanity) is not undone by the toxicity score. With no category relaxed, the toxicity threshold works exactly as before
+* Requires respectify-php 0.6.0
 
 = 0.2.7 =
 * Fixed an API error that could block comments when comment scoring or dogwhistle checks were enabled without relevance checking; the article context is now fetched whenever any check needs it

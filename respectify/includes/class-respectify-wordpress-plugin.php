@@ -4,6 +4,7 @@ use RespectifyScoper\Respectify\RespectifyClientAsync;
 use RespectifyScoper\Respectify\Schemas\CommentScore;
 use RespectifyScoper\Respectify\Schemas\MegaCallResult;
 use RespectifyScoper\Respectify\Schemas\DogwhistleResult;
+use RespectifyScoper\Respectify\Moderation\ToleranceLevel;
 
 
 /**
@@ -537,7 +538,8 @@ class RespectifyWordpressPlugin {
             bannedTopics: $banned_topics,
             replyToComment: $reply_to_comment_text,
             sensitiveTopics: $sensitive_topics,
-            dogwhistleExamples: $dogwhistle_examples
+            dogwhistleExamples: $dogwhistle_examples,
+            tolerances: \Respectify\respectify_build_tolerances_override()
         ); 
         $caughtException = null;
 
@@ -874,20 +876,14 @@ class RespectifyWordpressPlugin {
 		// 2. Check for toxicity (high priority - explains overall tone issues)
 		if ($assessment_settings['assess_health'] && isset($megaResult->commentScore)) {
 			$comment_score = $megaResult->commentScore;
-			if (($revise_settings['toxicity'] ?? true) && isset($comment_score->toxicityScore)) {
-				$toxicity_threshold = $revise_settings['toxicity_threshold'] ?? \Respectify\REVISE_DEFAULT_TOXICITY_THRESHOLD;
-				if (!is_numeric($toxicity_threshold) || $toxicity_threshold < 0.1 || $toxicity_threshold > 1) {
-					$toxicity_threshold = \Respectify\REVISE_DEFAULT_TOXICITY_THRESHOLD;
+			if ($this->is_toxicity_issue($comment_score, $revise_settings)) {
+				$feedback = '<ul><li>';
+				$feedback .= '<p>' . esc_html__('Your comment may come across as hostile to others.', 'respectify') . '</p>';
+				if (!empty($comment_score->toxicityExplanation)) {
+					$feedback .= $this->text_to_paragraphs($comment_score->toxicityExplanation);
 				}
-				if ($comment_score->toxicityScore >= $toxicity_threshold) {
-					$feedback = '<ul><li>';
-					$feedback .= '<p>' . esc_html__('Your comment may come across as hostile to others.', 'respectify') . '</p>';
-					if (!empty($comment_score->toxicityExplanation)) {
-						$feedback .= $this->text_to_paragraphs($comment_score->toxicityExplanation);
-					}
-					$feedback .= '</li></ul>';
-					return $feedback;
-				}
+				$feedback .= '</li></ul>';
+				return $feedback;
 			}
 		}
 
@@ -1002,6 +998,63 @@ class RespectifyWordpressPlugin {
 
 		// No issues found
 		return '';
+	}
+
+	/**
+	 * Decide whether a comment's toxicity should send it back for revision.
+	 *
+	 * The finding lists (objectionable phrases, negative tone, logical fallacies, low effort) arrive
+	 * already filtered by the site's tolerances, so their existing checkboxes need no change. The
+	 * toxicity score is not: the API never adjusts it for tolerances. So:
+	 *
+	 * - The "Are Toxic" checkbox and threshold slider still decide whether, and from what score,
+	 *   toxicity counts. An admin's explicit threshold stays meaningful in both directions.
+	 * - When no category is relaxed (the default, and every install before tolerances), nothing was
+	 *   set aside, so the score is judged against the threshold exactly as before.
+	 * - When any category is relaxed, the score may come from content the site chose to accept (eg
+	 *   relaxed profanity). Toxicity then counts only if the API also reports exceeds_tolerance, so
+	 *   relaxing a category is not undone by the raw score.
+	 *
+	 * The relaxed check uses the tolerances the API reports it judged under, which include any set
+	 * for the API key in the Respectify dashboard, not only those this plugin sent.
+	 *
+	 * @param CommentScore $comment_score The comment score from the API.
+	 * @param mixed $revise_settings The saved OPTION_REVISE_SETTINGS value.
+	 * @return bool True if toxicity should trigger a revision request.
+	 */
+	private function is_toxicity_issue(CommentScore $comment_score, $revise_settings) {
+		if (!is_array($revise_settings)) {
+			$revise_settings = \Respectify\REVISE_DEFAULT_SETTINGS;
+		}
+		if (!($revise_settings['toxicity'] ?? true) || !isset($comment_score->toxicityScore)) {
+			return false;
+		}
+
+		$toxicity_threshold = $revise_settings['toxicity_threshold'] ?? \Respectify\REVISE_DEFAULT_TOXICITY_THRESHOLD;
+		if (!is_numeric($toxicity_threshold) || $toxicity_threshold < 0.1 || $toxicity_threshold > 1) {
+			$toxicity_threshold = \Respectify\REVISE_DEFAULT_TOXICITY_THRESHOLD;
+		}
+		if ($comment_score->toxicityScore < $toxicity_threshold) {
+			return false;
+		}
+
+		if (!$this->has_relaxed_tolerance($comment_score)) {
+			return true;
+		}
+		return $comment_score->exceedsTolerance;
+	}
+
+	/**
+	 * Whether the comment was judged with any category relaxed.
+	 *
+	 * @param CommentScore $comment_score The comment score from the API.
+	 * @return bool True if at least one category's tolerance was 'relaxed'.
+	 */
+	private function has_relaxed_tolerance(CommentScore $comment_score) {
+		if (!isset($comment_score->tolerances)) {
+			return false;
+		}
+		return in_array(ToleranceLevel::RELAXED, $comment_score->tolerances->allLevels(), true);
 	}
 
 	/**
@@ -1162,19 +1215,12 @@ class RespectifyWordpressPlugin {
                 );
             }
 
-            // Check for toxicity
-            if (($revise_settings['toxicity'] ?? true) && isset($megaResult->commentScore->toxicityScore)) {
-                // Validate toxicity threshold
-                $toxicity_threshold = $revise_settings['toxicity_threshold'] ?? \Respectify\REVISE_DEFAULT_TOXICITY_THRESHOLD;
-                if (!is_numeric($toxicity_threshold) || $toxicity_threshold < 0.1 || $toxicity_threshold > 1) {
-                    $toxicity_threshold = \Respectify\REVISE_DEFAULT_TOXICITY_THRESHOLD;
-                }
-                if ($megaResult->commentScore->toxicityScore >= $toxicity_threshold) {
-                    $issues[] = array(
-                        'type' => 'toxicity',
-                        'action' => \Respectify\ACTION_REVISE
-                    );
-                }
+            // Check for toxicity (tolerance-aware; see is_toxicity_issue)
+            if ($this->is_toxicity_issue($megaResult->commentScore, $revise_settings)) {
+                $issues[] = array(
+                    'type' => 'toxicity',
+                    'action' => \Respectify\ACTION_REVISE
+                );
             }
         }
 

@@ -947,3 +947,18 @@ body.settings_page_respectify .wrap h2:not(:first-child) {
 }
 
 
+
+/* Moderation tolerances: one row per category, label beside its level */
+body.settings_page_respectify .respectify-tolerances-table {
+	border-collapse: collapse;
+	margin-top: 0.5em;
+}
+
+body.settings_page_respectify .respectify-tolerances-table td {
+	padding: 0.25em 1em 0.25em 0;
+	vertical-align: middle;
+}
+
+body.settings_page_respectify .respectify-tolerances-table .respectify-tolerance-label {
+	min-width: 16em;
+}

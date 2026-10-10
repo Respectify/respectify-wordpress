@@ -6,7 +6,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit; // Exit if accessed directly
 }
 
-const RESPECTIFY_VERSION = '0.2.7';
+const RESPECTIFY_VERSION = '0.3.0';
 
 const OPTION_EMAIL = 'respectify_email';
 const OPTION_API_KEY_ENCRYPTED = 'respectify_api_key_encrypted';
@@ -20,6 +20,9 @@ const OPTION_SENSITIVE_TOPICS = 'respectify_sensitive_topics';
 const OPTION_DOGWHISTLE_EXAMPLES = 'respectify_dogwhistle_examples';
 const OPTION_BASE_URL = 'respectify_base_url';
 const OPTION_API_VERSION = 'respectify_api_version';
+// Per-category moderation tolerances: category => level. Categories and levels come from the bundled
+// respectify-php library (Moderation\ModerationCategory and Moderation\ToleranceLevel). Default is all 'standard'.
+const OPTION_TOLERANCES = 'respectify_tolerances';
 
 // Action Constants
 const ACTION_DELETE = 'trash';

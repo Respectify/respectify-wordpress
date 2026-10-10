@@ -2,6 +2,10 @@
 
 namespace Respectify;
 use RespectifyScoper\Respectify\RespectifyClientAsync;
+use RespectifyScoper\Respectify\Exceptions\BadRequestException;
+use RespectifyScoper\Respectify\Moderation\ModerationCategory;
+use RespectifyScoper\Respectify\Moderation\ModerationTolerances;
+use RespectifyScoper\Respectify\Moderation\ToleranceLevel;
 
 if (!function_exists('wp_salt')) {
     require_once(ABSPATH . 'wp-includes/pluggable.php');
@@ -312,3 +316,88 @@ function respectify_get_branding_footer() {
            '</a></div>';
 }
 
+
+/**
+ * The default moderation tolerance settings: every category at 'standard', which is Respectify's
+ * normal behaviour and what the plugin did before tolerances existed.
+ *
+ * @return array<string, string> Map of every tolerance category to 'standard'.
+ */
+function respectify_default_tolerance_settings() {
+    $defaults = array();
+    foreach (ModerationCategory::ALL as $category) {
+        $defaults[$category] = ToleranceLevel::STANDARD;
+    }
+    return $defaults;
+}
+
+/**
+ * Whether a tolerance level may be saved for a category. Mirrors the API's rules: the level must be a
+ * known one, and the floored categories (threat, identity_attack, sexual_content, harassment) can never
+ * be 'relaxed'.
+ *
+ * @param string $category The tolerance category, eg 'insult'.
+ * @param mixed $level The candidate level (untrusted input).
+ * @return bool True if the level is allowed for that category.
+ */
+function respectify_is_allowed_tolerance_level($category, $level) {
+    if (!is_string($category) || !is_string($level)) {
+        return false;
+    }
+    if (!ModerationCategory::isValid($category) || !ToleranceLevel::isValid($level)) {
+        return false;
+    }
+    return !($level === ToleranceLevel::RELAXED && ModerationCategory::isFloored($category));
+}
+
+/**
+ * The saved moderation tolerance settings, with every category present. A missing or invalid saved
+ * entry (including a floored category somehow saved as 'relaxed') reads as 'standard'.
+ *
+ * @return array<string, string> Map of every tolerance category to its level.
+ */
+function respectify_get_tolerance_settings() {
+    $saved = get_option(\Respectify\OPTION_TOLERANCES, array());
+    if (!is_array($saved)) {
+        $saved = array();
+    }
+
+    $settings = respectify_default_tolerance_settings();
+    foreach (array_keys($settings) as $category) {
+        if (isset($saved[$category]) && respectify_is_allowed_tolerance_level($category, $saved[$category])) {
+            $settings[$category] = $saved[$category];
+        }
+    }
+    return $settings;
+}
+
+/**
+ * Build the per-call tolerance override to send with each comment evaluation.
+ *
+ * Only categories set to something other than 'standard' are sent. A category left at 'standard' keeps
+ * whatever level the API key has saved in the Respectify dashboard (which is 'standard' unless changed
+ * there), so the plugin never silently overrides dashboard settings with its defaults.
+ *
+ * @return ModerationTolerances|null The override, or null when every category is 'standard'.
+ */
+function respectify_build_tolerances_override() {
+    $overrides = array();
+    foreach (respectify_get_tolerance_settings() as $category => $level) {
+        if ($level !== ToleranceLevel::STANDARD) {
+            $overrides[$category] = $level;
+        }
+    }
+
+    if (empty($overrides)) {
+        return null;
+    }
+
+    try {
+        return new ModerationTolerances($overrides);
+    } catch (BadRequestException $e) {
+        // Saved values are validated on save and again on read, so this indicates a mismatch between the
+        // plugin and the bundled library. Evaluate under the API key's saved tolerances rather than fail.
+        respectify_log('Respectify: ignoring saved moderation tolerances the library rejected: ' . $e->getMessage());
+        return null;
+    }
+}
