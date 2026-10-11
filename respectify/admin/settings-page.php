@@ -1105,7 +1105,7 @@ function respectify_tolerances_settings_callback() {
     $level_labels = respectify_get_tolerance_level_labels();
     ?>
     <div class="respectify-settings-column">
-        <p class="description"><?php esc_html_e('How much of each kind of problem your site accepts. Relaxed ignores minor instances; Strict and Zero tolerance look harder for borderline comments. Standard is Respectify\'s normal behaviour.', 'respectify'); ?></p>
+        <p class="description"><?php esc_html_e('How much of each kind of problem your site accepts. Relaxed ignores minor instances; Strict and Zero tolerance make sure borderline comments always get Respectify\'s full review. Standard is Respectify\'s normal behaviour.', 'respectify'); ?></p>
         <p class="description"><?php esc_html_e('Threats, identity attacks, sexual content and harassment can be made stricter but never relaxed.', 'respectify'); ?></p>
         <p class="description"><?php esc_html_e('Categories left at Standard use the tolerances saved for your API key in the Respectify dashboard.', 'respectify'); ?></p>
         <table class="respectify-tolerances-table" role="presentation">
