@@ -214,7 +214,6 @@ function respectify_register_settings() {
     // Register settings
     register_setting('respectify_options_group', \Respectify\OPTION_EMAIL);
     register_setting('respectify_options_group', \Respectify\OPTION_API_KEY_ENCRYPTED);
-    register_setting('respectify_options_group', \Respectify\OPTION_REVISE_SETTINGS);
     register_setting('respectify_options_group', \Respectify\OPTION_RELEVANCE_SETTINGS);
     register_setting('respectify_options_group', \Respectify\OPTION_BANNED_TOPICS);
     register_setting('respectify_options_group', \Respectify\OPTION_SPAM_HANDLING);
@@ -231,7 +230,7 @@ function respectify_register_settings() {
     register_setting('respectify_options_group', \Respectify\OPTION_TOLERANCES, array(
         'type' => 'array',
         'sanitize_callback' => 'respectify_sanitize_tolerances',
-        'default' => \Respectify\respectify_default_tolerance_settings(),
+        'default' => \Respectify\respectify_default_comment_health_settings(),
     ));
 
     // Add settings sections
@@ -282,10 +281,12 @@ function respectify_register_settings() {
         'respectify_behavior_settings_section'
     );
 
+    // Directly under the Assess Comment Health checkbox. The admin CSS styles some rows by position, so this
+    // takes the place of the earlier Healthy Comments row and moves none of the others.
     add_settings_field(
-        \Respectify\OPTION_REVISE_SETTINGS,
-        esc_html__('Healthy Comments', 'respectify'),
-        'respectify_revise_settings_callback',
+        \Respectify\OPTION_TOLERANCES,
+        esc_html__('Comment Health', 'respectify'),
+        'respectify_comment_health_settings_callback',
         'respectify',
         'respectify_behavior_settings_section'
     );
@@ -346,15 +347,6 @@ function respectify_register_settings() {
         'respectify_behavior_settings_section'
     );
 
-    // Last in the section: the admin CSS styles some earlier rows by position, so adding it here moves none of them
-    add_settings_field(
-        \Respectify\OPTION_TOLERANCES,
-        esc_html__('Moderation Tolerances', 'respectify'),
-        'respectify_tolerances_settings_callback',
-        'respectify',
-        'respectify_behavior_settings_section'
-    );
-
     add_settings_field(
         \Respectify\OPTION_BASE_URL,
         esc_html__('Base URL', 'respectify'),
@@ -395,37 +387,6 @@ function respectify_sanitize_base_url($url) {
     return sanitize_text_field($url);
 }
 
-// Custom sanitization function for OPTION_REVISE_SETTINGS
-function respectify_sanitize_revise_settings($input) {
-    $sanitized_input = array();
-
-    // Sanitize trackbar value (an integer between 1 and 5)
-    if (isset($input['min_score']) && is_numeric($input['min_score'])) {
-        $min_score_value = intval($input['min_score']);
-        if ($min_score_value >= 1 && $min_score_value <= 5) {
-            $sanitized_input['min_score'] = $min_score_value;
-        } else {
-            $sanitized_input['min_score'] = 3; // Default value
-        }
-    }
-
-    // Sanitize checkboxes (assuming they are boolean values)
-    $checkboxes = array('low_effort', 'logical_fallacies', 'objectionable_phrases', 'negative_tone', 'toxicity');
-    foreach ($checkboxes as $checkbox) {
-        $sanitized_input[$checkbox] = isset($input[$checkbox]) && $input[$checkbox] === '1' ? '1' : '0';
-    }
-
-    // Sanitize toxicity threshold (float between 0.1 and 1)
-    if (isset($input['toxicity_threshold'])) {
-        $threshold = floatval($input['toxicity_threshold']);
-        $sanitized_input['toxicity_threshold'] = max(0.1, min(1, $threshold));
-    } else {
-        $sanitized_input['toxicity_threshold'] = \Respectify\REVISE_DEFAULT_TOXICITY_THRESHOLD;
-    }
-
-    return $sanitized_input;
-}
-
 // Callback to render behavior section
 function respectify_behavior_section_callback() {
     echo '<p class="description description-match-font-size respectify-section-description">' . esc_html__('Configure how Respectify handles comments, especially the criteria for requesting a comment be revised before being posted.', 'respectify') . '</p>';
@@ -440,68 +401,6 @@ function respectify_spam_handling_callback() {
         <option value="<?php echo \Respectify\ACTION_REVISE; ?>" <?php selected($options, \Respectify\ACTION_REVISE); ?>><?php esc_html_e('Give Opportunity to Revise', 'respectify'); ?></option>
     </select>
     <p class="description"><?php esc_html_e('By default spam is deleted, but you can treat them as normal comments and send them back for revision.', 'respectify'); ?></p>
-    <?php
-}
-
-// Callback to render revise settings field
-function respectify_revise_settings_callback() {
-    $options = get_option(\Respectify\OPTION_REVISE_SETTINGS, \Respectify\REVISE_DEFAULT_SETTINGS);
-
-    // Ensure $options is an array
-    if (!is_array($options)) {
-        \Respectify\respectify_log('Respectify: Invalid revise settings of type ' . gettype($options) . ' - using defaults');
-        $options = \Respectify\REVISE_DEFAULT_SETTINGS;
-    }
-    ?>
-    <div class="respectify-settings-column">
-        <label for="respectify_revise_min_score"><?php esc_html_e('Minimum Score:', 'respectify'); ?></label>
-        <div class="respectify-slider-row">
-            <div class="slider-controls">
-                <span class="emoji" aria-hidden="true">😧</span>
-                <input type="range" id="respectify_revise_min_score" name="respectify_revise_settings[min_score]" value="<?php echo esc_attr($options['min_score']); ?>" min="1" max="5" step="1" aria-label="<?php esc_attr_e('Minimum comment quality score', 'respectify'); ?>">
-                <span class="emoji" aria-hidden="true">🤩</span>
-                <span class="out-of description">
-                    <span id="revise_min_score_value"><?php echo esc_html($options['min_score']); ?></span> 
-                    <?php esc_html_e('out of 5.', 'respectify'); ?>
-                </span>
-            </div>
-            <span class="description">
-                <?php esc_html_e('A score of 3 out of 5 is a normal, good quality comment. 4 and 5 are outstanding and unusual.', 'respectify'); ?>
-            </span>
-        </div>
-        <p class="description" style="margin-bottom: -0.5rem;">
-            <?php esc_html_e('Revise comments which:', 'respectify'); ?>
-        </p>
-        <div class="respectify-checkbox-group">
-            <label>
-                <input type="checkbox" name="respectify_revise_settings[low_effort]" value="1" <?php checked($options['low_effort'], true); ?> />
-                <?php esc_html_e('Seem Low Effort', 'respectify'); ?>
-            </label>
-            <label>
-                <input type="checkbox" name="respectify_revise_settings[logical_fallacies]" value="1" <?php checked($options['logical_fallacies'], true); ?> />
-                <?php esc_html_e('Contain Logical Fallacies', 'respectify'); ?>
-            </label>
-            <label>
-                <input type="checkbox" name="respectify_revise_settings[objectionable_phrases]" value="1" <?php checked($options['objectionable_phrases'], true); ?> />
-                <?php esc_html_e('Contain Objectionable Phrases', 'respectify'); ?>
-            </label>
-            <label>
-                <input type="checkbox" name="respectify_revise_settings[negative_tone]" value="1" <?php checked($options['negative_tone'], true); ?> />
-                <?php esc_html_e('Negative Tone Indications', 'respectify'); ?>
-            </label>
-            <label>
-                <input type="checkbox" name="respectify_revise_settings[toxicity]" value="1" id="respectify_toxicity_checkbox" <?php checked($options['toxicity'] ?? true, true); ?> />
-                <?php esc_html_e('Are Toxic', 'respectify'); ?>
-            </label>
-        </div>
-        <div id="toxicity-threshold-slider" class="respectify-slider-row respectify-toxicity-slider">
-            <div class="slider-controls">
-                <span class="emoji" aria-hidden="true">💚</span>
-                <input type="range" id="respectify_toxicity_threshold" name="respectify_revise_settings[toxicity_threshold]" value="<?php echo esc_attr($options['toxicity_threshold'] ?? \Respectify\REVISE_DEFAULT_TOXICITY_THRESHOLD); ?>" min="0.1" max="1" step="0.1" aria-label="<?php esc_attr_e('Toxicity threshold - lower values are stricter', 'respectify'); ?>">
-                <span class="emoji" aria-hidden="true">☢️</span>
-            </div>
-        </div>
-    </div>
     <?php
 }
 
@@ -1067,11 +966,12 @@ function respectify_dogwhistle_settings_callback() {
 }
 
 /**
- * Human-readable labels for each moderation tolerance category, in the order the API documents them.
+ * Human-readable labels for each comment health item, in the order the API documents them: the nine problem
+ * categories, then quality.
  *
- * @return array<string, string> Map of category to translated label.
+ * @return array<string, string> Map of health item to translated label.
  */
-function respectify_get_tolerance_category_labels() {
+function respectify_get_comment_health_item_labels() {
     return array(
         \RespectifyScoper\Respectify\Moderation\ModerationCategory::THREAT => __('Threats of violence or harm', 'respectify'),
         \RespectifyScoper\Respectify\Moderation\ModerationCategory::IDENTITY_ATTACK => __('Identity attacks and slurs', 'respectify'),
@@ -1082,16 +982,18 @@ function respectify_get_tolerance_category_labels() {
         \RespectifyScoper\Respectify\Moderation\ModerationCategory::DISMISSIVE_TONE => __('Dismissive or sarcastic tone', 'respectify'),
         \RespectifyScoper\Respectify\Moderation\ModerationCategory::LOGICAL_FALLACY => __('Logical fallacies', 'respectify'),
         \RespectifyScoper\Respectify\Moderation\ModerationCategory::LOW_EFFORT => __('Low effort posts', 'respectify'),
+        \RespectifyScoper\Respectify\Moderation\HealthItem::QUALITY => __('Comment quality', 'respectify'),
     );
 }
 
 /**
- * Human-readable labels for each tolerance level, from most to least accepting.
+ * Human-readable labels for each comment health level, from most to least accepting.
  *
  * @return array<string, string> Map of level to translated label.
  */
-function respectify_get_tolerance_level_labels() {
+function respectify_get_comment_health_level_labels() {
     return array(
+        \RespectifyScoper\Respectify\Moderation\ToleranceLevel::OFF => __('Off', 'respectify'),
         \RespectifyScoper\Respectify\Moderation\ToleranceLevel::RELAXED => __('Relaxed', 'respectify'),
         \RespectifyScoper\Respectify\Moderation\ToleranceLevel::STANDARD => __('Standard', 'respectify'),
         \RespectifyScoper\Respectify\Moderation\ToleranceLevel::STRICT => __('Strict', 'respectify'),
@@ -1099,36 +1001,35 @@ function respectify_get_tolerance_level_labels() {
     );
 }
 
-// Callback to render the moderation tolerance settings: one level per category
-function respectify_tolerances_settings_callback() {
-    $tolerances = \Respectify\respectify_get_tolerance_settings();
-    $level_labels = respectify_get_tolerance_level_labels();
+// Callback to render the comment health settings: one level per health item
+function respectify_comment_health_settings_callback() {
+    $levels = \Respectify\respectify_get_comment_health_settings();
+    $level_labels = respectify_get_comment_health_level_labels();
     ?>
     <div class="respectify-settings-column">
-        <p class="description"><?php esc_html_e('How much of each kind of problem your site accepts. Relaxed ignores minor instances; Strict and Zero tolerance make sure borderline comments always get Respectify\'s full review. Standard is Respectify\'s normal behaviour.', 'respectify'); ?></p>
-        <p class="description"><?php esc_html_e('Threats, identity attacks, sexual content and harassment can be made stricter but never relaxed.', 'respectify'); ?></p>
-        <p class="description"><?php esc_html_e('Categories left at Standard use the tolerances saved for your API key in the Respectify dashboard.', 'respectify'); ?></p>
+        <p class="description"><?php esc_html_e('How much of each problem your site accepts, and how good a comment must be. Comments that fall short are sent back to the commenter with feedback so they can revise them.', 'respectify'); ?></p>
+        <p class="description"><?php esc_html_e('Off: not checked. Relaxed: only severe problems are sent back. Standard (recommended): minor problems are accepted, clear ones are sent back. Strict: any problem is sent back. Zero tolerance: any problem is sent back, and any hint of one gets Respectify\'s full review.', 'respectify'); ?></p>
+        <p class="description"><?php esc_html_e('For comment quality, the level sets the quality needed: Relaxed accepts most comments, Standard accepts normal good-quality comments, Strict and Zero tolerance accept only outstanding ones.', 'respectify'); ?></p>
         <table class="respectify-tolerances-table" role="presentation">
             <tbody>
-            <?php foreach (respectify_get_tolerance_category_labels() as $category => $category_label) :
-                $is_floored = \RespectifyScoper\Respectify\Moderation\ModerationCategory::isFloored($category);
-                $field_id = 'respectify_tolerance_' . $category;
+            <?php foreach (respectify_get_comment_health_item_labels() as $item => $item_label) :
+                $is_floored = \RespectifyScoper\Respectify\Moderation\HealthItem::isFloored($item);
+                $field_id = 'respectify_tolerance_' . $item;
+                $note_id = $field_id . '_note';
                 ?>
                 <tr>
                     <td class="respectify-tolerance-label">
-                        <label for="<?php echo esc_attr($field_id); ?>"><?php echo esc_html($category_label); ?></label>
+                        <label for="<?php echo esc_attr($field_id); ?>"><?php echo esc_html($item_label); ?></label>
                     </td>
                     <td class="respectify-tolerance-control">
-                        <select name="<?php echo esc_attr(\Respectify\OPTION_TOLERANCES . '[' . $category . ']'); ?>" id="<?php echo esc_attr($field_id); ?>">
-                            <?php foreach ($level_labels as $level => $level_label) :
-                                // Floored categories never offer relaxed; the sanitize callback rejects it too
-                                if ($is_floored && $level === \RespectifyScoper\Respectify\Moderation\ToleranceLevel::RELAXED) {
-                                    continue;
-                                }
-                                ?>
-                                <option value="<?php echo esc_attr($level); ?>" <?php selected($tolerances[$category], $level); ?>><?php echo esc_html($level_label); ?></option>
+                        <select name="<?php echo esc_attr(\Respectify\OPTION_TOLERANCES . '[' . $item . ']'); ?>" id="<?php echo esc_attr($field_id); ?>"<?php if ($is_floored) : ?> aria-describedby="<?php echo esc_attr($note_id); ?>"<?php endif; ?>>
+                            <?php foreach (\RespectifyScoper\Respectify\Moderation\HealthItem::allowedLevels($item) as $level) : ?>
+                                <option value="<?php echo esc_attr($level); ?>" <?php selected($levels[$item], $level); ?>><?php echo esc_html($level_labels[$level] ?? $level); ?></option>
                             <?php endforeach; ?>
                         </select>
+                        <?php if ($is_floored) : ?>
+                            <span class="description respectify-tolerance-note" id="<?php echo esc_attr($note_id); ?>"><?php esc_html_e('Can be made stricter, but not relaxed or turned off.', 'respectify'); ?></span>
+                        <?php endif; ?>
                     </td>
                 </tr>
             <?php endforeach; ?>
@@ -1139,48 +1040,36 @@ function respectify_tolerances_settings_callback() {
 }
 
 /**
- * Sanitize the moderation tolerance settings. Only known categories are kept, each with a whitelisted
- * level. A disallowed value (an unknown level, or 'relaxed' on a floored category) is rejected: that
- * category keeps its previously saved level and the admin is shown an error.
+ * Sanitize the comment health settings. Only known items are kept, each with an allowed level. A disallowed value
+ * (an unknown level, or 'relaxed' or 'off' on a floored category) is rejected: that item keeps its previously
+ * saved level and the admin is shown an error.
  *
  * @param mixed $input The submitted value (untrusted).
- * @return array<string, string> Map of every tolerance category to an allowed level.
+ * @return array<string, string> Map of every health item to an allowed level.
  */
 function respectify_sanitize_tolerances($input) {
-    // Start from what is saved, so a rejected value never changes (and never relaxes) a category
-    $sanitized = \Respectify\respectify_get_tolerance_settings();
-    if (!is_array($input)) {
-        return $sanitized;
-    }
+    // Start from what is saved, so a rejected value never changes (and never relaxes) an item
+    $outcome = \Respectify\respectify_sanitize_comment_health_levels($input, \Respectify\respectify_get_comment_health_settings());
 
-    $category_labels = respectify_get_tolerance_category_labels();
-    $rejected_labels = array();
-    foreach (array_keys($sanitized) as $category) {
-        if (!array_key_exists($category, $input)) {
-            continue;
+    if (!empty($outcome['rejected'])) {
+        $item_labels = respectify_get_comment_health_item_labels();
+        $rejected_labels = array();
+        foreach ($outcome['rejected'] as $item) {
+            $rejected_labels[] = $item_labels[$item] ?? $item;
         }
-        $level = $input[$category];
-        if (\Respectify\respectify_is_allowed_tolerance_level($category, $level)) {
-            $sanitized[$category] = $level;
-        } else {
-            $rejected_labels[] = $category_labels[$category] ?? $category;
-        }
-    }
-
-    if (!empty($rejected_labels)) {
         add_settings_error(
             \Respectify\OPTION_TOLERANCES,
             'respectify_invalid_tolerances',
             esc_html(sprintf(
-                /* translators: %s: comma-separated list of moderation categories */
-                __('These tolerance levels are not allowed and were not changed: %s. Threats, identity attacks, sexual content and harassment cannot be relaxed.', 'respectify'),
+                /* translators: %s: comma-separated list of comment health items */
+                __('These comment health levels are not allowed and were not changed: %s. Threats, identity attacks, sexual content and harassment cannot be relaxed or turned off.', 'respectify'),
                 implode(', ', $rejected_labels)
             )),
             'error'
         );
     }
 
-    return $sanitized;
+    return $outcome['levels'];
 }
 
 // Sanitization function for dogwhistle settings

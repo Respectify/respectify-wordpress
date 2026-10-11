@@ -12,13 +12,18 @@ use function React\Promise\resolve;
  * Stands in for the Respectify API client so no network call is made. Each call settles immediately with the
  * outcome the test configured: a value to resolve with, or a Throwable to reject with.
  *
- * Parameters are left untyped so the overrides stay compatible with both respectify-php 0.5.0 and 0.6.0
- * (0.6.0 adds the $tolerances parameter to megacall).
+ * Parameters are left untyped so the override stays compatible with the library's signature.
  */
 final class FakeRespectifyClient extends RespectifyClientAsync {
 
     /** @var array<int, string> Comment text sent to megacall, in call order. */
     public array $megacall_comments = [];
+
+    /** @var array<int, array<int, string>> Services requested from megacall, in call order. */
+    public array $megacall_services = [];
+
+    /** @var array<int, mixed> The tolerances argument passed to megacall, in call order. */
+    public array $megacall_tolerances = [];
 
 
     /**
@@ -50,6 +55,8 @@ final class FakeRespectifyClient extends RespectifyClientAsync {
         $tolerances = null
     ): PromiseInterface {
         $this->megacall_comments[] = $comment;
+        $this->megacall_services[] = $services;
+        $this->megacall_tolerances[] = $tolerances;
         return self::settle($this->megacall_outcome);
     }
 

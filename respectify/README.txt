@@ -3,7 +3,7 @@ Contributors: vintagedave, respectify
 Tags: comments, moderation, community, user engagement, spam
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 0.3.0
+Stable tag: 0.4.0
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -29,6 +29,15 @@ Respectify is available in the Wordpress plugins directory, so:
 4. That's it!
 
 == Changelog ==
+
+= 0.4.0 =
+* Comment health is now one setting per item: threats, identity attacks, sexual content, harassment, insults, profanity, dismissive tone, logical fallacies, low effort posts, and comment quality. Each is Off, Relaxed, Standard, Strict or Zero tolerance, and every item defaults to Standard
+* Threats, identity attacks, sexual content and harassment can be made stricter but never relaxed or turned off
+* Replaces the minimum score slider (now the comment quality level), the per-check checkboxes (now Off for that item), the toxicity threshold, and the separate Moderation Tolerances panel. Existing settings are migrated automatically: a minimum score of 1-2 becomes Relaxed quality, 3 Standard, 4 Strict and 5 Zero tolerance; tolerance levels carry over; a switched-off check turns its items off (objectionable phrases: insults and profanity; negative tone: dismissive tone)
+* Every comment is evaluated under your site's levels, sent with each request. Tolerances are no longer saved for your API key in the Respectify dashboard
+* Respectify decides whether a comment falls short of your site's levels (including when it is severely toxic); the plugin follows that verdict and sends the comment back with feedback. Spam, topic relevance, undesired topics and dogwhistles are separate checks and work as before
+* Each evaluated comment's per-item results (score, minimum and whether it was acceptable) are kept in the comment's `respectify_health` meta, without any comment text
+* Requires respectify-php 0.7.0
 
 = 0.3.0 =
 * New Moderation Tolerances settings: choose Relaxed, Standard, Strict or Zero tolerance for each kind of problem (threats, identity attacks, sexual content, harassment, insults, profanity, dismissive tone, logical fallacies and low effort posts). Every category defaults to Standard, so existing sites behave as before

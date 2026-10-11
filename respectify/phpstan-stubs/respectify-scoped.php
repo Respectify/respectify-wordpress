@@ -44,6 +44,16 @@ class CommentScore {
     public string $toxicityExplanation;
     public bool $exceedsTolerance;
     public \RespectifyScoper\Respectify\Moderation\ModerationTolerances $tolerances;
+    public ?float $healthScore;
+    /** @var array<string, HealthItemScore> */
+    public array $healthItems;
+    public function __construct(array $data) {}
+}
+
+class HealthItemScore {
+    public int $score;
+    public int $minimum;
+    public bool $isAcceptable;
     public function __construct(array $data) {}
 }
 
@@ -155,15 +165,29 @@ final class ModerationCategory {
     public static function isFloored(string $category): bool {}
 }
 
+final class HealthItem {
+    public const QUALITY = 'quality';
+    /** @var string[] */
+    public const ALL = [ModerationCategory::THREAT, ModerationCategory::IDENTITY_ATTACK, ModerationCategory::SEXUAL_CONTENT, ModerationCategory::HARASSMENT, ModerationCategory::INSULT, ModerationCategory::PROFANITY, ModerationCategory::DISMISSIVE_TONE, ModerationCategory::LOGICAL_FALLACY, ModerationCategory::LOW_EFFORT, self::QUALITY];
+    public static function isValid(string $item): bool {}
+    public static function isFloored(string $item): bool {}
+    /** @return string[] */
+    public static function allowedLevels(string $item): array {}
+}
+
 final class ToleranceLevel {
+    public const OFF = 'off';
     public const RELAXED = 'relaxed';
     public const STANDARD = 'standard';
     public const STRICT = 'strict';
     public const ZERO_TOLERANCE = 'zero_tolerance';
     public const DEFAULT_LEVEL = self::STANDARD;
     /** @var string[] */
-    public const ALL = [self::RELAXED, self::STANDARD, self::STRICT, self::ZERO_TOLERANCE];
+    public const ALL = [self::OFF, self::RELAXED, self::STANDARD, self::STRICT, self::ZERO_TOLERANCE];
+    /** @var string[] */
+    public const BELOW_FLOOR = [self::OFF, self::RELAXED];
     public static function isValid(string $level): bool {}
+    public static function isBelowFloor(string $level): bool {}
 }
 
 final class ModerationTolerances {
@@ -174,7 +198,8 @@ final class ModerationTolerances {
     public function __construct(array $levels = []) {}
     /** @param array<mixed> $data */
     public static function fromApiResponse(array $data): self {}
-    public function levelFor(string $category): string {}
+    public function levelFor(string $item): string {}
+    public function isOff(string $item): bool {}
     public function isEmpty(): bool {}
     /** @return array<string, string> */
     public function toArray(): array {}

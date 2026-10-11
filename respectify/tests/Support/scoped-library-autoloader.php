@@ -4,11 +4,8 @@
  *
  * The plugin refers to RespectifyScoper\Respectify\..., a namespace PHP-Scoper only creates at build time.
  * In development vendor/ holds the library under its own Respectify\ namespace, so each scoped class is
- * aliased to its unscoped original on first use.
- *
- * The one exception is the Moderation namespace, which arrived in respectify-php 0.6.0. Until 0.6.0 is tagged
- * and installed, vendor/ holds 0.5.0, which lacks it, so a minimal stand-in is loaded instead. Once the real
- * classes are installed they are always preferred, and Fallback/moderation-classes.php can be deleted.
+ * aliased to its unscoped original. The tests need respectify-php 0.7.0 or later (comment health:
+ * HealthItem, the `off` level and CommentScore::$healthItems); see the repository README.md for testing against a local checkout.
  */
 
 spl_autoload_register(static function (string $scoped_class): void {
@@ -20,10 +17,24 @@ spl_autoload_register(static function (string $scoped_class): void {
     $unscoped_class = substr($scoped_class, strlen($scoped_prefix));
     if (class_exists($unscoped_class) || interface_exists($unscoped_class)) {
         class_alias($unscoped_class, $scoped_class);
-        return;
-    }
-
-    if (str_starts_with($unscoped_class, 'Respectify\\Moderation\\')) {
-        require_once __DIR__ . '/Fallback/moderation-classes.php';
     }
 });
+
+
+// Alias every library class up front. A parameter type such as `CommentScore $comment_score` does not trigger
+// autoloading, so a class the library builds internally (eg the CommentScore inside a MegaCallResult) would fail
+// the plugin's scoped type check if its alias had not yet been made. In the built plugin both names are the same.
+(static function (): void {
+    $library_source = __DIR__ . '/../../vendor/respectify/respectify-php/src';
+    if (!is_dir($library_source)) {
+        return;
+    }
+    $source_files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($library_source, \FilesystemIterator::SKIP_DOTS));
+    foreach ($source_files as $source_file) {
+        if ($source_file->getExtension() !== 'php') {
+            continue;
+        }
+        $relative_path = substr($source_file->getPathname(), strlen($library_source) + 1, -strlen('.php'));
+        class_exists('RespectifyScoper\\Respectify\\' . str_replace('/', '\\', $relative_path));
+    }
+})();

@@ -140,38 +140,6 @@
         });
 
 
-        /* Settings slider */
-
-        // Select the slider and the element to display its value
-        var $slider = $('#respectify_revise_min_score');
-        var $valueDisplay = $('#revise_min_score_value');
-        var $sliderRow = $slider.closest('.respectify-slider-row');
-
-        // Function to update the slider value display and color
-        function updateSlider() {
-            var value = $slider.val();
-            $valueDisplay.text(value);
-
-            // Remove existing slider-value-* classes
-            $slider.removeClass('slider-value-1 slider-value-2 slider-value-3 slider-value-4 slider-value-5');
-
-            // Add the class corresponding to the current slider value
-            $slider.addClass('slider-value-' + value);
-        }
-
-        // Initialize the slider on page load
-        updateSlider();
-
-        // Update the slider when its value changes
-        $slider.on('input change', function() {
-            updateSlider();
-        });
-
-        // Update the minimum score value display when the slider changes
-        $('#respectify_revise_min_score').on('input', function() {
-            $('#revise_min_score_value').text($(this).val());
-        });
-
         // Banned topics threshold slider
         document.getElementById('respectify_banned_topics_threshold')?.addEventListener('input', function(e) {
             const value = parseFloat(e.target.value);
@@ -194,43 +162,6 @@
         if (bannedTopicsSlider) {
             bannedTopicsSlider.dispatchEvent(new Event('input'));
         }
-
-        // Toxicity threshold slider - update color based on value
-        document.getElementById('respectify_toxicity_threshold')?.addEventListener('input', function(e) {
-            const value = parseFloat(e.target.value);
-            const percentage = Math.round(value * 100);
-
-            // Update color class (1-10 scale based on percentage)
-            const step = Math.floor(percentage / 10);
-            e.target.classList.remove('slider-value-0', 'slider-value-1', 'slider-value-2', 'slider-value-3',
-                                    'slider-value-4', 'slider-value-5', 'slider-value-6', 'slider-value-7',
-                                    'slider-value-8', 'slider-value-9', 'slider-value-10');
-            e.target.classList.add('slider-value-' + step);
-        });
-
-        // Set initial toxicity slider value
-        const toxicitySlider = document.getElementById('respectify_toxicity_threshold');
-        if (toxicitySlider) {
-            toxicitySlider.dispatchEvent(new Event('input'));
-        }
-
-        // Handle the toxicity checkbox to enable/disable the slider
-        $('#respectify_toxicity_checkbox').on('change', function() {
-            var isChecked = $(this).is(':checked');
-            var $sliderRow = $('#toxicity-threshold-slider');
-            var $sliderInput = $('#respectify_toxicity_threshold');
-
-            if (isChecked) {
-                $sliderRow.css('opacity', '1');
-                $sliderInput.prop('disabled', false);
-            } else {
-                $sliderRow.css('opacity', '0.5');
-                $sliderInput.prop('disabled', true);
-            }
-        });
-
-        // Set initial state based on checkbox
-        $('#respectify_toxicity_checkbox').trigger('change');
 
         // Handle the banned topics mode radio buttons
         $('input[name="respectify_relevance_settings[banned_topics_mode]"]').on('change', function() {

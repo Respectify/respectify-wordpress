@@ -4,7 +4,8 @@ use RespectifyScoper\Respectify\RespectifyClientAsync;
 use RespectifyScoper\Respectify\Schemas\CommentScore;
 use RespectifyScoper\Respectify\Schemas\MegaCallResult;
 use RespectifyScoper\Respectify\Schemas\DogwhistleResult;
-use RespectifyScoper\Respectify\Moderation\ToleranceLevel;
+use RespectifyScoper\Respectify\Moderation\HealthItem;
+use RespectifyScoper\Respectify\Moderation\ModerationCategory;
 
 
 /**
@@ -96,6 +97,9 @@ class RespectifyWordpressPlugin {
 		$this->define_public_hooks();
 
 		$this->update_respectify_client();
+
+		// Settings saved by versions before 0.4.0 become comment health levels, once
+		\Respectify\respectify_migrate_comment_health_settings();
 
 	    // Hook the AJAX handler for logged-in users
 		add_action('wp_ajax_respectify_submit_comment', array($this, 'ajax_submit_comment'));
@@ -537,7 +541,8 @@ class RespectifyWordpressPlugin {
             replyToComment: $reply_to_comment_text,
             sensitiveTopics: $sensitive_topics,
             dogwhistleExamples: $dogwhistle_examples,
-            tolerances: \Respectify\respectify_build_tolerances_override()
+            // Every comment health level, on every call: nothing is stored per API key. Only used with commentscore.
+            tolerances: \Respectify\respectify_build_comment_health_tolerances()
         ); 
         $caughtException = null;
 
@@ -758,6 +763,7 @@ class RespectifyWordpressPlugin {
 				$commentdata['comment_meta'] = array(
 					'respectify_evaluation' => $evaluation,
 					'respectify_action' => $action,
+					'respectify_health' => $this->get_health_summary($evaluation),
 					'respectify_evaluated_at' => current_time('mysql')
 				);
 				\Respectify\respectify_log('Comment result before insertion: ' . \Respectify\respectify_comment_log_summary($commentdata));
@@ -780,6 +786,7 @@ class RespectifyWordpressPlugin {
 					'respectify_evaluation' => $evaluation,
 					'respectify_action' => $action,
 					'respectify_feedback' => $feedback_html,
+					'respectify_health' => $this->get_health_summary($evaluation),
 					'respectify_evaluated_at' => current_time('mysql')
 				);
 				return new \WP_Error(\Respectify\ACTION_REVISE, '<div class="respectify-feedback">' . $feedback_html . \Respectify\respectify_get_branding_footer() . '</div>');
@@ -800,6 +807,7 @@ class RespectifyWordpressPlugin {
 					'respectify_evaluation' => $evaluation,
 					'respectify_action' => $action,
 					'respectify_feedback' => $feedback_html,
+					'respectify_health' => $this->get_health_summary($evaluation),
 					'respectify_evaluated_at' => current_time('mysql')
 				);
 				return new \WP_Error(\Respectify\ACTION_DELETE, '<div class="respectify-feedback">' . $feedback_html . \Respectify\respectify_get_branding_footer() . '</div>');
@@ -869,82 +877,12 @@ class RespectifyWordpressPlugin {
 			return $feedback;
 		}
 
-		// Get health assessment settings for checks below
-		$revise_settings = get_option(\Respectify\OPTION_REVISE_SETTINGS, \Respectify\REVISE_DEFAULT_SETTINGS);
-
-		// 2. Check for toxicity (high priority - explains overall tone issues)
-		if ($assessment_settings['assess_health'] && isset($megaResult->commentScore)) {
-			$comment_score = $megaResult->commentScore;
-			if ($this->is_toxicity_issue($comment_score, $revise_settings)) {
-				$feedback = '<ul><li>';
-				$feedback .= '<p>' . esc_html__('Your comment may come across as hostile to others.', 'respectify') . '</p>';
-				if (!empty($comment_score->toxicityExplanation)) {
-					$feedback .= $this->text_to_paragraphs($comment_score->toxicityExplanation);
-				}
-				$feedback .= '</li></ul>';
-				return $feedback;
-			}
-		}
-
-		// 3. Check for objectionable phrases (has suggested rewrites)
-		if ($assessment_settings['assess_health'] && isset($megaResult->commentScore)) {
-			$comment_score = $megaResult->commentScore;
-			if ($revise_settings['objectionable_phrases'] && !empty($comment_score->objectionablePhrases)) {
-				$feedback = '<p>' . esc_html__('Your comment will be read by others as rude.', 'respectify') . '</p><ul>';
-				foreach ($comment_score->objectionablePhrases as $phrase) {
-					$feedback .= '<li><em>' . esc_html($phrase->quotedObjectionablePhrase) . '</em>';
-					$feedback .= $this->text_to_paragraphs($phrase->explanation);
-					if (!empty($phrase->suggestedRewrite)) {
-						$feedback .= '<div class="respectify-suggestion">' . esc_html($phrase->suggestedRewrite) . '</div>';
-					}
-					$feedback .= '</li>';
-				}
-				$feedback .= '</ul>';
-				return $feedback;
-			}
-		}
-
-		// 4. Check for negative tone (has suggested rewrites)
-		if ($assessment_settings['assess_health'] && isset($megaResult->commentScore)) {
-			$comment_score = $megaResult->commentScore;
-			if ($revise_settings['negative_tone'] && !empty($comment_score->negativeTonePhrases)) {
-				$feedback = '<p>' . esc_html__('Your comment may discourage others from engaging.', 'respectify') . '</p><ul>';
-				foreach ($comment_score->negativeTonePhrases as $tone) {
-					$feedback .= '<li><em>' . esc_html($tone->quotedNegativeTonePhrase) . '</em>';
-					$feedback .= $this->text_to_paragraphs($tone->explanation);
-					if (!empty($tone->suggestedRewrite)) {
-						$feedback .= '<div class="respectify-suggestion">' . esc_html($tone->suggestedRewrite) . '</div>';
-					}
-					$feedback .= '</li>';
-				}
-				$feedback .= '</ul>';
-				return $feedback;
-			}
-		}
-
-		// 5. Check for logical fallacies (has suggested rewrites)
-		if ($assessment_settings['assess_health'] && isset($megaResult->commentScore)) {
-			$comment_score = $megaResult->commentScore;
-			if ($revise_settings['logical_fallacies'] && !empty($comment_score->logicalFallacies)) {
-				$feedback = '<p>' . esc_html__('Your comment contains reasoning that may not hold up.', 'respectify') . '</p><ul>';
-				foreach ($comment_score->logicalFallacies as $fallacy) {
-					$feedback .= '<li><em>' . esc_html($fallacy->quotedLogicalFallacyExample) . '</em>';
-					$feedback .= $this->text_to_paragraphs($fallacy->explanation);
-					if (!empty($fallacy->suggestedRewrite)) {
-						$feedback .= '<div class="respectify-suggestion">' . esc_html($fallacy->suggestedRewrite) . '</div>';
-					}
-					$feedback .= '</li>';
-				}
-				$feedback .= '</ul>';
-				return $feedback;
-			}
-		}
-
-		// 6. Check for low effort
-		if ($assessment_settings['assess_health'] && isset($megaResult->commentScore)) {
-			$comment_score = $megaResult->commentScore;
-			if ($revise_settings['low_effort'] && isset($comment_score->appearsLowEffort) && $comment_score->appearsLowEffort) {
-				return '<ul><li><p>' . esc_html__('Your comment doesn\'t add much to the discussion.', 'respectify') . '</p></li></ul>';
+		// 2-6. Comment health, only when the API says the comment exceeds the site's tolerances. The finding lists
+		// arrive already filtered: findings an item accepts, and items turned off, have been removed.
+		if ($assessment_settings['assess_health'] && isset($megaResult->commentScore) && $megaResult->commentScore->exceedsTolerance) {
+			$health_feedback = $this->get_health_feedback_content($megaResult->commentScore);
+			if ($health_feedback !== '') {
+				return $health_feedback;
 			}
 		}
 
@@ -1000,60 +938,85 @@ class RespectifyWordpressPlugin {
 	}
 
 	/**
-	 * Decide whether a comment's toxicity should send it back for revision.
+	 * Feedback for a comment that exceeds the site's comment health tolerances, most actionable first: quoted
+	 * findings with suggested rewrites, then low effort, then quality, then overall hostility.
 	 *
-	 * The finding lists (objectionable phrases, negative tone, logical fallacies, low effort) arrive
-	 * already filtered by the site's tolerances, so their existing checkboxes need no change. The
-	 * toxicity score is not: the API never adjusts it for tolerances. So:
-	 *
-	 * - The "Are Toxic" checkbox and threshold slider still decide whether, and from what score,
-	 *   toxicity counts. An admin's explicit threshold stays meaningful in both directions.
-	 * - When no category is relaxed (the default, and every install before tolerances), nothing was
-	 *   set aside, so the score is judged against the threshold exactly as before.
-	 * - When any category is relaxed, the score may come from content the site chose to accept (eg
-	 *   relaxed profanity). Toxicity then counts only if the API also reports exceeds_tolerance, so
-	 *   relaxing a category is not undone by the raw score.
-	 *
-	 * The relaxed check uses the tolerances the API reports it judged under, which include any set
-	 * for the API key in the Respectify dashboard, not only those this plugin sent.
-	 *
-	 * @param CommentScore $comment_score The comment score from the API.
-	 * @param mixed $revise_settings The saved OPTION_REVISE_SETTINGS value.
-	 * @return bool True if toxicity should trigger a revision request.
+	 * @param CommentScore $comment_score The comment score from the API, with exceedsTolerance true.
+	 * @return string (HTML) feedback content.
 	 */
-	private function is_toxicity_issue(CommentScore $comment_score, $revise_settings) {
-		if (!is_array($revise_settings)) {
-			$revise_settings = \Respectify\REVISE_DEFAULT_SETTINGS;
-		}
-		if (!($revise_settings['toxicity'] ?? true) || !isset($comment_score->toxicityScore)) {
-			return false;
+	private function get_health_feedback_content(CommentScore $comment_score) {
+		if (!empty($comment_score->objectionablePhrases)) {
+			$feedback = '<p>' . esc_html__('Your comment will be read by others as rude.', 'respectify') . '</p><ul>';
+			foreach ($comment_score->objectionablePhrases as $phrase) {
+				$feedback .= '<li><em>' . esc_html($phrase->quotedObjectionablePhrase) . '</em>';
+				$feedback .= $this->text_to_paragraphs($phrase->explanation);
+				if (!empty($phrase->suggestedRewrite)) {
+					$feedback .= '<div class="respectify-suggestion">' . esc_html($phrase->suggestedRewrite) . '</div>';
+				}
+				$feedback .= '</li>';
+			}
+			$feedback .= '</ul>';
+			return $feedback;
 		}
 
-		$toxicity_threshold = $revise_settings['toxicity_threshold'] ?? \Respectify\REVISE_DEFAULT_TOXICITY_THRESHOLD;
-		if (!is_numeric($toxicity_threshold) || $toxicity_threshold < 0.1 || $toxicity_threshold > 1) {
-			$toxicity_threshold = \Respectify\REVISE_DEFAULT_TOXICITY_THRESHOLD;
-		}
-		if ($comment_score->toxicityScore < $toxicity_threshold) {
-			return false;
+		if (!empty($comment_score->negativeTonePhrases)) {
+			$feedback = '<p>' . esc_html__('Your comment may discourage others from engaging.', 'respectify') . '</p><ul>';
+			foreach ($comment_score->negativeTonePhrases as $tone) {
+				$feedback .= '<li><em>' . esc_html($tone->quotedNegativeTonePhrase) . '</em>';
+				$feedback .= $this->text_to_paragraphs($tone->explanation);
+				if (!empty($tone->suggestedRewrite)) {
+					$feedback .= '<div class="respectify-suggestion">' . esc_html($tone->suggestedRewrite) . '</div>';
+				}
+				$feedback .= '</li>';
+			}
+			$feedback .= '</ul>';
+			return $feedback;
 		}
 
-		if (!$this->has_relaxed_tolerance($comment_score)) {
-			return true;
+		if (!empty($comment_score->logicalFallacies)) {
+			$feedback = '<p>' . esc_html__('Your comment contains reasoning that may not hold up.', 'respectify') . '</p><ul>';
+			foreach ($comment_score->logicalFallacies as $fallacy) {
+				$feedback .= '<li><em>' . esc_html($fallacy->quotedLogicalFallacyExample) . '</em>';
+				$feedback .= $this->text_to_paragraphs($fallacy->explanation);
+				if (!empty($fallacy->suggestedRewrite)) {
+					$feedback .= '<div class="respectify-suggestion">' . esc_html($fallacy->suggestedRewrite) . '</div>';
+				}
+				$feedback .= '</li>';
+			}
+			$feedback .= '</ul>';
+			return $feedback;
 		}
-		return $comment_score->exceedsTolerance;
+
+		// appears_low_effort is reported even when low effort is accepted or off, so the item's verdict decides
+		if (\Respectify\respectify_is_health_item_unacceptable($comment_score, ModerationCategory::LOW_EFFORT)) {
+			return '<ul><li><p>' . esc_html__('Your comment doesn\'t add much to the discussion.', 'respectify') . '</p></li></ul>';
+		}
+
+		if (\Respectify\respectify_is_health_item_unacceptable($comment_score, HealthItem::QUALITY)) {
+			return '<ul><li><p>' . esc_html__('Your comment could add more to the discussion. Explaining your reasoning, or engaging with the article or other comments, would help.', 'respectify') . '</p></li></ul>';
+		}
+
+		// Nothing item-specific to show, so the comment exceeds tolerance on overall hostility
+		$feedback = '<ul><li>';
+		$feedback .= '<p>' . esc_html__('Your comment may come across as hostile to others.', 'respectify') . '</p>';
+		if (!empty($comment_score->toxicityExplanation)) {
+			$feedback .= $this->text_to_paragraphs($comment_score->toxicityExplanation);
+		}
+		$feedback .= '</li></ul>';
+		return $feedback;
 	}
 
 	/**
-	 * Whether the comment was judged with any category relaxed.
+	 * The comment health summary to keep with a comment, or null if comment health was not assessed.
 	 *
-	 * @param CommentScore $comment_score The comment score from the API.
-	 * @return bool True if at least one category's tolerance was 'relaxed'.
+	 * @param MegaCallResult $megaResult The comment evaluation result.
+	 * @return array<string, mixed>|null See respectify_comment_health_summary(). Numbers, booleans and item names only.
 	 */
-	private function has_relaxed_tolerance(CommentScore $comment_score) {
-		if (!isset($comment_score->tolerances)) {
-			return false;
+	private function get_health_summary(MegaCallResult $megaResult) {
+		if (!isset($megaResult->commentScore)) {
+			return null;
 		}
-		return in_array(ToleranceLevel::RELAXED, $comment_score->tolerances->allLevels(), true);
+		return \Respectify\respectify_comment_health_summary($megaResult->commentScore);
 	}
 
 	/**
@@ -1162,65 +1125,13 @@ class RespectifyWordpressPlugin {
             }
         }
 
-        // Only check health assessment if it's enabled
-        if ($assessment_settings['assess_health'] && isset($megaResult->commentScore)) {
-            $revise_settings = get_option(\Respectify\OPTION_REVISE_SETTINGS, \Respectify\REVISE_DEFAULT_SETTINGS);
-            
-            // Validate revise settings
-            if (!isset($revise_settings['min_score']) || 
-                !is_numeric($revise_settings['min_score']) ||
-                $revise_settings['min_score'] < 1 || 
-                $revise_settings['min_score'] > 5) {
-                $revise_settings['min_score'] = \Respectify\REVISE_DEFAULT_MIN_SCORE;
-            }
-            
-            // Check if the comment score is below the minimum
-            if ($megaResult->commentScore->overallScore < $revise_settings['min_score']) {
-                $issues[] = array(
-                    'type' => 'low_score',
-                    'action' => \Respectify\ACTION_REVISE
-                );
-            }
-
-            // Check for low effort
-            if ($revise_settings['low_effort'] && isset($megaResult->commentScore->appearsLowEffort) && $megaResult->commentScore->appearsLowEffort) {
-                $issues[] = array(
-                    'type' => 'low_effort',
-                    'action' => \Respectify\ACTION_REVISE
-                );
-            }
-
-            // Check for logical fallacies
-            if ($revise_settings['logical_fallacies'] && !empty($megaResult->commentScore->logicalFallacies)) {
-                $issues[] = array(
-                    'type' => 'logical_fallacies',
-                    'action' => \Respectify\ACTION_REVISE
-                );
-            }
-
-            // Check for objectionable phrases
-            if ($revise_settings['objectionable_phrases'] && !empty($megaResult->commentScore->objectionablePhrases)) {
-                $issues[] = array(
-                    'type' => 'objectionable_phrases',
-                    'action' => \Respectify\ACTION_REVISE
-                );
-            }
-
-            // Check for negative tone
-            if ($revise_settings['negative_tone'] && !empty($megaResult->commentScore->negativeTonePhrases)) {
-                $issues[] = array(
-                    'type' => 'negative_tone',
-                    'action' => \Respectify\ACTION_REVISE
-                );
-            }
-
-            // Check for toxicity (tolerance-aware; see is_toxicity_issue)
-            if ($this->is_toxicity_issue($megaResult->commentScore, $revise_settings)) {
-                $issues[] = array(
-                    'type' => 'toxicity',
-                    'action' => \Respectify\ACTION_REVISE
-                );
-            }
+        // Comment health: the API judges every health item against the levels sent with the call, and reports
+        // the verdict as exceeds_tolerance. A comment over tolerance is sent back for revision.
+        if ($assessment_settings['assess_health'] && isset($megaResult->commentScore) && $megaResult->commentScore->exceedsTolerance) {
+            $issues[] = array(
+                'type' => 'comment_health',
+                'action' => \Respectify\ACTION_REVISE
+            );
         }
 
         // If no issues were found, publish the comment
