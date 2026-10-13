@@ -3,7 +3,7 @@
  * Comment health settings: one level per health item, sent with every evaluation.
  *
  * The health items are the nine problem categories and quality (respectify-php's Moderation\HealthItem). Each
- * has one level: off, relaxed, standard, strict or zero_tolerance. The four floored categories (threats, identity
+ * has one level: off, permissive, relaxed, standard, strict or zero_tolerance. The four floored categories (threats, identity
  * attacks, sexual content, harassment) allow only standard, strict and zero_tolerance. Nothing is stored per API
  * key, so every evaluation sends all ten levels, and the API's exceeds_tolerance decides whether to coach.
  */
@@ -34,7 +34,7 @@ function respectify_default_comment_health_settings(): array {
 
 /**
  * Whether a level may be saved for a health item. Mirrors the API's rules: the item and level must be known, and
- * floored categories can never be 'relaxed' or 'off'.
+ * floored categories can never be 'permissive', 'relaxed' or 'off'.
  *
  * @param mixed $item The health item, eg 'insult' or 'quality' (untrusted input).
  * @param mixed $level The candidate level (untrusted input).
@@ -50,7 +50,7 @@ function respectify_is_allowed_comment_health_level($item, $level): bool {
 
 /**
  * The saved comment health settings, with every item present. A missing or invalid saved entry (including a
- * floored category somehow saved as 'relaxed' or 'off') reads as 'standard'.
+ * floored category somehow saved as 'permissive', 'relaxed' or 'off') reads as 'standard'.
  *
  * @return array<string, string> Map of every health item to its level, in the API's order.
  */

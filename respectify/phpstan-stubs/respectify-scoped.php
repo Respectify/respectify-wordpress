@@ -177,15 +177,16 @@ final class HealthItem {
 
 final class ToleranceLevel {
     public const OFF = 'off';
+    public const PERMISSIVE = 'permissive';
     public const RELAXED = 'relaxed';
     public const STANDARD = 'standard';
     public const STRICT = 'strict';
     public const ZERO_TOLERANCE = 'zero_tolerance';
     public const DEFAULT_LEVEL = self::STANDARD;
     /** @var string[] */
-    public const ALL = [self::OFF, self::RELAXED, self::STANDARD, self::STRICT, self::ZERO_TOLERANCE];
+    public const ALL = [self::OFF, self::PERMISSIVE, self::RELAXED, self::STANDARD, self::STRICT, self::ZERO_TOLERANCE];
     /** @var string[] */
-    public const BELOW_FLOOR = [self::OFF, self::RELAXED];
+    public const BELOW_FLOOR = [self::OFF, self::PERMISSIVE, self::RELAXED];
     public static function isValid(string $level): bool {}
     public static function isBelowFloor(string $level): bool {}
 }

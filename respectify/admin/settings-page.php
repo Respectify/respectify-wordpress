@@ -994,6 +994,7 @@ function respectify_get_comment_health_item_labels() {
 function respectify_get_comment_health_level_labels() {
     return array(
         \RespectifyScoper\Respectify\Moderation\ToleranceLevel::OFF => __('Off', 'respectify'),
+        \RespectifyScoper\Respectify\Moderation\ToleranceLevel::PERMISSIVE => __('Permissive', 'respectify'),
         \RespectifyScoper\Respectify\Moderation\ToleranceLevel::RELAXED => __('Relaxed', 'respectify'),
         \RespectifyScoper\Respectify\Moderation\ToleranceLevel::STANDARD => __('Standard', 'respectify'),
         \RespectifyScoper\Respectify\Moderation\ToleranceLevel::STRICT => __('Strict', 'respectify'),
@@ -1008,8 +1009,8 @@ function respectify_comment_health_settings_callback() {
     ?>
     <div class="respectify-settings-column">
         <p class="description"><?php esc_html_e('How much of each problem your site accepts, and how good a comment must be. Comments that fall short are sent back to the commenter with feedback so they can revise them.', 'respectify'); ?></p>
-        <p class="description"><?php esc_html_e('Off: not checked. Relaxed: only severe problems are sent back. Standard (recommended): minor problems are accepted, clear ones are sent back. Strict: any problem is sent back. Zero tolerance: any problem is sent back, and any hint of one gets Respectify\'s full review.', 'respectify'); ?></p>
-        <p class="description"><?php esc_html_e('For comment quality, the level sets the quality needed: Relaxed accepts most comments, Standard accepts normal good-quality comments, Strict and Zero tolerance accept only outstanding ones.', 'respectify'); ?></p>
+        <p class="description"><?php esc_html_e('Off: not checked. Permissive: filters only the very worst; only extreme problems are sent back. Relaxed: severe problems are sent back. Standard (recommended): minor problems are accepted, clear ones are sent back. Strict: any problem is sent back. Zero tolerance: any problem is sent back, and any hint of one gets Respectify\'s full review.', 'respectify'); ?></p>
+        <p class="description"><?php esc_html_e('For comment quality, the level sets the quality needed: Permissive and Relaxed accept most comments, Standard accepts normal good-quality comments, Strict and Zero tolerance accept only outstanding ones.', 'respectify'); ?></p>
         <table class="respectify-tolerances-table" role="presentation">
             <tbody>
             <?php foreach (respectify_get_comment_health_item_labels() as $item => $item_label) :
@@ -1041,7 +1042,7 @@ function respectify_comment_health_settings_callback() {
 
 /**
  * Sanitize the comment health settings. Only known items are kept, each with an allowed level. A disallowed value
- * (an unknown level, or 'relaxed' or 'off' on a floored category) is rejected: that item keeps its previously
+ * (an unknown level, or 'permissive', 'relaxed' or 'off' on a floored category) is rejected: that item keeps its previously
  * saved level and the admin is shown an error.
  *
  * @param mixed $input The submitted value (untrusted).

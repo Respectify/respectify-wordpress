@@ -5,7 +5,7 @@
  * The plugin refers to RespectifyScoper\Respectify\..., a namespace PHP-Scoper only creates at build time.
  * In development vendor/ holds the library under its own Respectify\ namespace, so each scoped class is
  * aliased to its unscoped original. The tests need respectify-php 0.7.0 or later (comment health:
- * HealthItem, the `off` level and CommentScore::$healthItems); see the repository README.md for testing against a local checkout.
+ * HealthItem, the `off` and `permissive` levels and CommentScore::$healthItems); see the repository README.md for testing against a local checkout.
  */
 
 spl_autoload_register(static function (string $scoped_class): void {

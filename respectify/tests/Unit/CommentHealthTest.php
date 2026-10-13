@@ -57,7 +57,9 @@ final class CommentHealthTest extends TestCase {
         WordPressStubState::$options[\Respectify\OPTION_TOLERANCES] = [
             'threat' => 'off',
             'harassment' => 'relaxed',
+            'identity_attack' => 'permissive',
             'insult' => 'lenient',
+            'dismissive_tone' => 'permissive',
             'quality' => 'off',
             'profanity' => 'relaxed',
             'spam' => 'strict',
@@ -67,6 +69,8 @@ final class CommentHealthTest extends TestCase {
 
         $this->assertSame('standard', $settings['threat'], 'A floored category can never read as off');
         $this->assertSame('standard', $settings['harassment'], 'A floored category can never read as relaxed');
+        $this->assertSame('standard', $settings['identity_attack'], 'A floored category can never read as permissive');
+        $this->assertSame('permissive', $settings['dismissive_tone'], 'A non-floored item keeps a saved permissive level');
         $this->assertSame('standard', $settings['insult'], 'An unknown level reads as standard');
         $this->assertSame('off', $settings['quality']);
         $this->assertSame('relaxed', $settings['profanity']);
@@ -78,16 +82,42 @@ final class CommentHealthTest extends TestCase {
         foreach (self::FLOORED_ITEMS as $item) {
             $this->assertFalse(\Respectify\respectify_is_allowed_comment_health_level($item, 'off'), "$item cannot be off");
             $this->assertFalse(\Respectify\respectify_is_allowed_comment_health_level($item, 'relaxed'), "$item cannot be relaxed");
+            $this->assertFalse(\Respectify\respectify_is_allowed_comment_health_level($item, 'permissive'), "$item cannot be permissive");
             foreach (['standard', 'strict', 'zero_tolerance'] as $level) {
                 $this->assertTrue(\Respectify\respectify_is_allowed_comment_health_level($item, $level), "$item allows $level");
             }
         }
         foreach (array_diff(self::HEALTH_ITEMS, self::FLOORED_ITEMS) as $item) {
-            foreach (['off', 'relaxed', 'standard', 'strict', 'zero_tolerance'] as $level) {
+            foreach (['off', 'permissive', 'relaxed', 'standard', 'strict', 'zero_tolerance'] as $level) {
                 $this->assertTrue(\Respectify\respectify_is_allowed_comment_health_level($item, $level), "$item allows $level");
             }
         }
         $this->assertFalse(\Respectify\respectify_is_allowed_comment_health_level('quality', ['strict']), 'Non-string input is rejected');
+    }
+
+
+    public function testIsAllowedCommentHealthLevel_Permissive_OnlyForNonFlooredItems(): void {
+        foreach (self::HEALTH_ITEMS as $item) {
+            $is_floored = in_array($item, self::FLOORED_ITEMS, true);
+            $this->assertSame(!$is_floored, \Respectify\respectify_is_allowed_comment_health_level($item, 'permissive'),
+                $is_floored ? "$item is floored, so cannot be permissive" : "$item allows permissive");
+        }
+    }
+
+
+    public function testSanitizeCommentHealthLevels_Permissive_AcceptedForNonFlooredRejectedForFloored(): void {
+        $current = array_fill_keys(self::HEALTH_ITEMS, 'standard');
+
+        $outcome = \Respectify\respectify_sanitize_comment_health_levels([
+            'profanity' => 'permissive',
+            'quality' => 'permissive',
+            'sexual_content' => 'permissive',
+        ], $current);
+
+        $this->assertSame('permissive', $outcome['levels']['profanity']);
+        $this->assertSame('permissive', $outcome['levels']['quality']);
+        $this->assertSame('standard', $outcome['levels']['sexual_content'], 'A rejected permissive floor keeps the previous level');
+        $this->assertSame(['sexual_content'], $outcome['rejected']);
     }
 
 
@@ -113,7 +143,7 @@ final class CommentHealthTest extends TestCase {
 
 
     public function testBuildCommentHealthTolerances_SendsEveryItemLevel(): void {
-        WordPressStubState::$options[\Respectify\OPTION_TOLERANCES] = ['quality' => 'strict', 'logical_fallacy' => 'off'];
+        WordPressStubState::$options[\Respectify\OPTION_TOLERANCES] = ['quality' => 'strict', 'logical_fallacy' => 'off', 'profanity' => 'permissive'];
 
         $tolerances = \Respectify\respectify_build_comment_health_tolerances();
 
@@ -121,6 +151,7 @@ final class CommentHealthTest extends TestCase {
         $expected = array_fill_keys(self::HEALTH_ITEMS, 'standard');
         $expected['quality'] = 'strict';
         $expected['logical_fallacy'] = 'off';
+        $expected['profanity'] = 'permissive';
         $this->assertSame($expected, $tolerances->toArray(), 'Nothing is stored per API key, so all ten levels are sent');
     }
 
@@ -238,7 +269,7 @@ final class CommentHealthTest extends TestCase {
                 'category' => 'insult',
                 'severity' => 2,
             ]],
-            'health_items' => self::healthItems(['insult' => ['score' => 2, 'minimum' => 4, 'is_acceptable' => false]]),
+            'health_items' => self::healthItems(['insult' => ['score' => 3, 'minimum' => 4, 'is_acceptable' => false]]),
         ]));
 
         $termination = $this->submitComment($this->createPlugin($client));
@@ -246,6 +277,29 @@ final class CommentHealthTest extends TestCase {
         $this->assertSame('wp_send_json_error', $termination->terminating_function, 'A comment over tolerance is sent back');
         $this->assertStringContainsString('you fool', (string) $termination->response_payload['message'], 'The unaccepted finding is shown');
         $this->assertSame([], WordPressStubState::$inserted_comments, 'A comment sent back for revision is not stored');
+    }
+
+
+    public function testEvaluation_ExtremeFinding_AsksForRevisionWithFindings(): void {
+        // Severity 4 (extreme) is the very worst; no level accepts it, and it scores 1
+        WordPressStubState::$options[\Respectify\OPTION_TOLERANCES] = ['insult' => 'permissive'];
+        $client = new FakeRespectifyClient(self::megaCallResult([
+            'exceeds_tolerance' => true,
+            'objectionable_phrases' => [[
+                'quoted_objectionable_phrase' => 'you worthless fool',
+                'explanation' => 'An insult at full force.',
+                'suggested_rewrite' => '',
+                'category' => 'insult',
+                'severity' => 4,
+            ]],
+            'health_items' => self::healthItems(['insult' => ['score' => 1, 'minimum' => 2, 'is_acceptable' => false]]),
+        ]));
+
+        $termination = $this->submitComment($this->createPlugin($client));
+
+        $this->assertSame('wp_send_json_error', $termination->terminating_function, 'An extreme finding fails even a permissive item');
+        $this->assertStringContainsString('you worthless fool', (string) $termination->response_payload['message'], 'The extreme finding is shown');
+        $this->assertSame('permissive', $client->megacall_tolerances[0]->toArray()['insult'], 'Permissive is sent as saved');
     }
 
 

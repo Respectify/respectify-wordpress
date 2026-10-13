@@ -31,8 +31,8 @@ Respectify is available in the Wordpress plugins directory, so:
 == Changelog ==
 
 = 0.4.0 =
-* Comment health is now one setting per item: threats, identity attacks, sexual content, harassment, insults, profanity, dismissive tone, logical fallacies, low effort posts, and comment quality. Each is Off, Relaxed, Standard, Strict or Zero tolerance, and every item defaults to Standard
-* Threats, identity attacks, sexual content and harassment can be made stricter but never relaxed or turned off
+* Comment health is now one setting per item: threats, identity attacks, sexual content, harassment, insults, profanity, dismissive tone, logical fallacies, low effort posts, and comment quality. Each is Off, Permissive, Relaxed, Standard, Strict or Zero tolerance, and every item defaults to Standard. Permissive filters only the very worst: only extreme problems (eg a slur combined with a threat, or a credible threat against a named person) are sent back
+* Threats, identity attacks, sexual content and harassment can be made stricter but never permissive, relaxed or turned off
 * Replaces the minimum score slider (now the comment quality level), the per-check checkboxes (now Off for that item), the toxicity threshold, and the separate Moderation Tolerances panel. Existing settings are migrated automatically: a minimum score of 1-2 becomes Relaxed quality, 3 Standard, 4 Strict and 5 Zero tolerance; tolerance levels carry over; a switched-off check turns its items off (objectionable phrases: insults and profanity; negative tone: dismissive tone)
 * Every comment is evaluated under your site's levels, sent with each request. Tolerances are no longer saved for your API key in the Respectify dashboard
 * Respectify decides whether a comment falls short of your site's levels (including when it is severely toxic); the plugin follows that verdict and sends the comment back with feedback. Spam, topic relevance, undesired topics and dogwhistles are separate checks and work as before
