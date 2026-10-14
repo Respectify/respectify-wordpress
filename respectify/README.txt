@@ -38,6 +38,10 @@ Respectify is available in the Wordpress plugins directory, so:
 * Respectify decides whether a comment falls short of your site's levels (including when it is severely toxic); the plugin follows that verdict and sends the comment back with feedback. Spam, topic relevance, undesired topics and dogwhistles are separate checks and work as before
 * Each evaluated comment's per-item results (score, minimum and whether it was acceptable) are kept in the comment's `respectify_health` meta, without any comment text
 * Comments that might be spam, but are not certainly spam, are no longer deleted: they are sent back to the commenter with a suggestion (eg to remove a link), together with any comment health feedback. A real person can fix the comment; a spammer won't bother. Comments that are spam are handled as before, following the How to Handle Spam setting
+* Only the checks you have turned on are requested from Respectify, so you are never charged for a check that is off. With every check off, comments are published without calling Respectify at all
+* Fixed: with Undesired Topics set to "Any mention at all", a comment that only briefly mentioned an undesired topic was sent back with a generic message instead of the undesired-topics explanation
+* Fixed: the Undesired Topics mode ("Any mention at all" or a threshold) and the topic relevance settings are now validated when saved, and a saved threshold is kept when switching to "Any mention at all"; undesired topics are saved as plain text, one per line, up to 20 topics of up to 5000 characters each (what Respectify reads)
+* Fixed a typo on the settings page
 * Requires respectify-php 0.7.0
 
 = 0.3.0 =

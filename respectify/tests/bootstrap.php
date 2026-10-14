@@ -20,3 +20,4 @@ require_once __DIR__ . '/Support/scoped-library-autoloader.php';
 require_once __DIR__ . '/Support/FakeRespectifyClient.php';
 
 require_once __DIR__ . '/../includes/class-respectify-wordpress-plugin.php';
+require_once __DIR__ . '/../admin/settings-page.php';

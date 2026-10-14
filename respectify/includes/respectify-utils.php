@@ -16,6 +16,7 @@ if (!function_exists('wp_salt')) {
 }
 
 require_once __DIR__ . '/respectify-comment-health.php';
+require_once __DIR__ . '/respectify-topic-settings.php';
 
 /**
  * Determine whether a caught exception represents the server's "article context not found"

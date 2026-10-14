@@ -214,8 +214,16 @@ function respectify_register_settings() {
     // Register settings
     register_setting('respectify_options_group', \Respectify\OPTION_EMAIL);
     register_setting('respectify_options_group', \Respectify\OPTION_API_KEY_ENCRYPTED);
-    register_setting('respectify_options_group', \Respectify\OPTION_RELEVANCE_SETTINGS);
-    register_setting('respectify_options_group', \Respectify\OPTION_BANNED_TOPICS);
+    register_setting('respectify_options_group', \Respectify\OPTION_RELEVANCE_SETTINGS, array(
+        'type' => 'array',
+        'sanitize_callback' => 'respectify_sanitize_relevance_settings',
+        'default' => \Respectify\RELEVANCE_DEFAULT_SETTINGS,
+    ));
+    register_setting('respectify_options_group', \Respectify\OPTION_BANNED_TOPICS, array(
+        'type' => 'string',
+        'sanitize_callback' => 'respectify_sanitize_banned_topics',
+        'default' => '',
+    ));
     register_setting('respectify_options_group', \Respectify\OPTION_SPAM_HANDLING);
     register_setting('respectify_options_group', \Respectify\OPTION_ASSESSMENT_SETTINGS, array(
         'type' => 'array',
@@ -673,43 +681,60 @@ function respectify_test_credentials() {
     }
 }
 
-// Add the sanitization function for relevance settings
+/**
+ * Sanitise the submitted relevance settings: off-topic handling, undesired topics mode, threshold and handling.
+ * A field that is missing (the threshold slider is disabled, so not posted, in "any mention" mode) or invalid keeps
+ * its saved value, so a submission can never save a value the comment-handling code does not accept.
+ *
+ * @param mixed $input The submitted value (untrusted).
+ * @return array{off_topic_handling: string, banned_topics_handling: string, banned_topics_threshold: float, banned_topics_mode: string}
+ */
 function respectify_sanitize_relevance_settings($input) {
-    $sanitized_input = array();
-
-    // Sanitize off-topic handling
-    if (isset($input['off_topic_handling'])) {
-        $sanitized_input['off_topic_handling'] = sanitize_text_field($input['off_topic_handling']);
-    }
-
-    // Sanitize banned topics handling
-    if (isset($input['banned_topics_handling'])) {
-        $sanitized_input['banned_topics_handling'] = sanitize_text_field($input['banned_topics_handling']);
-    }
-
-    // Sanitize banned topics threshold (float between 0 and 1)
-    if (isset($input['banned_topics_threshold'])) {
-        $threshold = floatval($input['banned_topics_threshold']);
-        $sanitized_input['banned_topics_threshold'] = max(0, min(1, $threshold));
-    }
-
-    return $sanitized_input;
+    $saved_settings = get_option(\Respectify\OPTION_RELEVANCE_SETTINGS, \Respectify\RELEVANCE_DEFAULT_SETTINGS);
+    return \Respectify\respectify_normalize_relevance_settings(
+        is_array($input) ? $input : array(),
+        is_array($saved_settings) ? $saved_settings : \Respectify\RELEVANCE_DEFAULT_SETTINGS
+    );
 }
 
-// Add the sanitization function for banned topics
-function respectify_sanitize_banned_topics($input) {
-    // Split input into lines and sanitize each line
-    $topics = explode("\n", $input);
-    $sanitized_topics = array();
-    
-    foreach ($topics as $topic) {
-        $topic = trim($topic);
-        if (!empty($topic)) {
-            $sanitized_topics[] = sanitize_text_field($topic);
-        }
+/**
+ * Sanitise a submitted one-per-line list (undesired topics, sensitive topics or dogwhistle examples): plain text,
+ * one entry per line, within the limits the Respectify API reads. The admin is shown $limit_warning when entries
+ * were dropped or shortened to fit, so a list the API would cut short is never saved without them knowing.
+ *
+ * @param mixed $input The submitted value (untrusted).
+ * @param string $option_name The option the list is saved to; the warning is attached to it.
+ * @param string $limit_warning Translated warning with %1$d for the entry limit and %2$d for the length limit.
+ * @return string The entries, one per line.
+ */
+function respectify_sanitize_limited_list($input, string $option_name, string $limit_warning): string {
+    $outcome = \Respectify\respectify_sanitize_topic_list($input);
+
+    if ($outcome['dropped_entries'] > 0 || $outcome['shortened_entries'] > 0) {
+        add_settings_error(
+            $option_name,
+            "{$option_name}_limited",
+            esc_html(sprintf($limit_warning, \Respectify\TOPIC_LIST_MAX_ENTRIES, \Respectify\TOPIC_LIST_MAX_ENTRY_LENGTH)),
+            'warning'
+        );
     }
-    
-    return implode("\n", $sanitized_topics);
+
+    return $outcome['topics'];
+}
+
+/**
+ * Sanitise the submitted undesired topics within the limits the Respectify API reads.
+ *
+ * @param mixed $input The submitted value (untrusted).
+ * @return string The topics, one per line.
+ */
+function respectify_sanitize_banned_topics($input) {
+    return respectify_sanitize_limited_list(
+        $input,
+        \Respectify\OPTION_BANNED_TOPICS,
+        /* translators: 1: maximum number of topics, 2: maximum characters per topic */
+        __('Undesired topics are limited to %1$d topics of up to %2$d characters each. Topics over the limit were removed or shortened.', 'respectify')
+    );
 }
 
 // Add the callback for relevance settings
@@ -761,7 +786,7 @@ function respectify_banned_topics_settings_callback() {
                     <label>
                         <input type="radio" name="respectify_relevance_settings[banned_topics_mode]" 
                                value="threshold" <?php checked($relevance_settings['banned_topics_mode'], 'threshold'); ?> />
-                        <?php esc_html_e('The comment can mention something, but only only a little bit', 'respectify'); ?>
+                        <?php esc_html_e('The comment can mention something, but only a little bit', 'respectify'); ?>
                     </label>
                 </div>
                 
@@ -1091,34 +1116,34 @@ function respectify_sanitize_dogwhistle_settings($input) {
     return $sanitized_input;
 }
 
-// Sanitization function for sensitive topics
+/**
+ * Sanitise the submitted sensitive topics within the limits the Respectify API reads.
+ *
+ * @param mixed $input The submitted value (untrusted).
+ * @return string The topics, one per line.
+ */
 function respectify_sanitize_sensitive_topics($input) {
-    $topics = explode("\n", $input);
-    $sanitized_topics = array();
-
-    foreach ($topics as $topic) {
-        $topic = trim($topic);
-        if (!empty($topic)) {
-            $sanitized_topics[] = sanitize_text_field($topic);
-        }
-    }
-
-    return implode("\n", $sanitized_topics);
+    return respectify_sanitize_limited_list(
+        $input,
+        \Respectify\OPTION_SENSITIVE_TOPICS,
+        /* translators: 1: maximum number of topics, 2: maximum characters per topic */
+        __('Sensitive topics are limited to %1$d topics of up to %2$d characters each. Topics over the limit were removed or shortened.', 'respectify')
+    );
 }
 
-// Sanitization function for dogwhistle examples
+/**
+ * Sanitise the submitted dogwhistle examples within the limits the Respectify API reads.
+ *
+ * @param mixed $input The submitted value (untrusted).
+ * @return string The examples, one per line.
+ */
 function respectify_sanitize_dogwhistle_examples($input) {
-    $examples = explode("\n", $input);
-    $sanitized_examples = array();
-
-    foreach ($examples as $example) {
-        $example = trim($example);
-        if (!empty($example)) {
-            $sanitized_examples[] = sanitize_text_field($example);
-        }
-    }
-
-    return implode("\n", $sanitized_examples);
+    return respectify_sanitize_limited_list(
+        $input,
+        \Respectify\OPTION_DOGWHISTLE_EXAMPLES,
+        /* translators: 1: maximum number of examples, 2: maximum characters per example */
+        __('Dogwhistle examples are limited to %1$d examples of up to %2$d characters each. Examples over the limit were removed or shortened.', 'respectify')
+    );
 }
 
 // Add filter to modify the field titles

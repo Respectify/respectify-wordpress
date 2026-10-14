@@ -32,20 +32,12 @@
                 formData.user_id = form.find('input[name="user_id"]').val();
             }
 
-            // Remove previous messages and 'Post Anyway' button
-            $('.respectify-message, #respectify-post-anyway').remove();
+            // Remove previous messages
+            $('.respectify-message').remove();
 
             // Show a loading message
             var loadingMessage = $('<p class="respectify-message">' + respectify_comments_i18n.submitting + '</p>');
             form.before(loadingMessage);
-
-            // Check if 'Post Anyway' button was clicked
-            var postAnyway = form.data('post-anyway') || false;
-            if (postAnyway) {
-                formData.post_anyway = '1';
-                // Reset the data attribute
-                form.data('post-anyway', false);
-            }
 
             $.ajax({
                 type: 'POST',
@@ -90,15 +82,6 @@
                     isSubmitting = false;
                 }
             });
-        });
-
-        // Handle 'Post Anyway' button click
-        $(document).on('click', '#respectify-post-anyway', function() {
-            var form = $('#commentform');
-            form.data('post-anyway', true);
-            // Remove any existing error messages and the button itself
-            $('.respectify-message, #respectify-post-anyway').remove();
-            form.submit();
         });
     });
 })(jQuery);

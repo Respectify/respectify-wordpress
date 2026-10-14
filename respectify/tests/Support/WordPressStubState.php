@@ -34,6 +34,12 @@ final class WordPressStubState {
     /** Whether wp_doing_ajax() reports an AJAX request. */
     public static bool $is_doing_ajax = false;
 
+    /** @var array<string, array{option_group: string, args: mixed}> Settings passed to register_setting(), keyed by option name. */
+    public static array $registered_settings = [];
+
+    /** @var array<int, array{setting: string, code: string, message: string, type: string}> Errors passed to add_settings_error(), in order. */
+    public static array $settings_errors = [];
+
 
     public static function reset(): void {
         self::$options = [];
@@ -45,5 +51,7 @@ final class WordPressStubState {
         self::$comment_meta = [];
         self::$sent_mail = [];
         self::$is_doing_ajax = false;
+        self::$registered_settings = [];
+        self::$settings_errors = [];
     }
 }

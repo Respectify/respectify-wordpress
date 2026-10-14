@@ -288,3 +288,53 @@ function get_pages(array $args = []): array {
 function get_permalink(mixed $post = 0): string|false {
     return false;
 }
+
+
+function add_action(string $hook_name, callable|string $callback, int $priority = 10, int $accepted_args = 1): bool {
+    // Hooks are never fired in tests; tests call the hooked functions directly
+    return true;
+}
+
+
+function add_filter(string $hook_name, callable|string $callback, int $priority = 10, int $accepted_args = 1): bool {
+    // Filters are never applied in tests; tests call the filter functions directly
+    return true;
+}
+
+
+function register_setting(string $option_group, string $option_name, mixed $args = []): void {
+    WordPressStubState::$registered_settings[$option_name] = ['option_group' => $option_group, 'args' => $args];
+}
+
+
+/**
+ * @param array<string, mixed> $args
+ */
+function add_settings_section(string $id, string $title, mixed $callback, string $page, array $args = []): void {
+}
+
+
+/**
+ * @param array<string, mixed> $args
+ */
+function add_settings_field(string $id, string $title, mixed $callback, string $page, string $section = 'default', array $args = []): void {
+}
+
+
+function add_settings_error(string $setting, string $code, string $message, string $type = 'error'): void {
+    WordPressStubState::$settings_errors[] = ['setting' => $setting, 'code' => $code, 'message' => $message, 'type' => $type];
+}
+
+
+function checked(mixed $checked, mixed $current = true, bool $display = true): string {
+    $result = (string) $checked === (string) $current ? " checked='checked'" : '';
+    if ($display) {
+        echo $result;
+    }
+    return $result;
+}
+
+
+function esc_attr(string $text): string {
+    return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
+}

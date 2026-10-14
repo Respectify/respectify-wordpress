@@ -441,7 +441,8 @@ class RespectifyWordpressPlugin {
 
 	/**
 	 * Evaluate a comment made on a Wordpress post or page, given the Respectify article ID
-	 * for that post/page and the comment text.
+	 * for that post/page and the comment text. Only the checks the site has turned on are
+	 * requested; with none on, no API call is made and an evaluation with no findings is returned.
 	 *
 	 * @param string $respectify_article_id The Respectify article ID
 	 * @param string $comment_text The comment text to evaluate
@@ -491,12 +492,12 @@ class RespectifyWordpressPlugin {
             $services[] = 'dogwhistle';
         }
 
-        // If no services are explicitly enabled, fall back to a sensible default. Comment
-        // score and relevance require the article context, so only request them when we have
-        // one; otherwise fall back to spam, which works without context. (Under the
-        // credit-based billing model every service is available and charged per use.)
+        // Every service is charged per use, so a check the site turned off is never requested. With no
+        // check on there is nothing to ask the API: an evaluation with no findings publishes the comment
+        // exactly as one that passed every check.
         if (empty($services)) {
-            $services = $respectify_article_id ? ['spam', 'commentscore', 'relevance'] : ['spam'];
+            \Respectify\respectify_log('No checks are enabled - publishing without calling the API');
+            return new MegaCallResult(array());
         }
 
         // Get banned topics if relevance checking is enabled and we have an article ID
@@ -944,7 +945,7 @@ class RespectifyWordpressPlugin {
 
 		// 8. Check if comment is off-topic
 		if ($assessment_settings['check_relevance'] && isset($megaResult->relevanceCheck)) {
-			$relevance_settings = get_option(\Respectify\OPTION_RELEVANCE_SETTINGS, \Respectify\RELEVANCE_DEFAULT_SETTINGS);
+			$relevance_settings = $this->get_relevance_settings();
 			if ($megaResult->relevanceCheck->onTopic->onTopic === false) {
 				if ($relevance_settings['off_topic_handling'] !== \Respectify\ACTION_PUBLISH) {
 					$feedback = '<ul><li>';
@@ -956,20 +957,16 @@ class RespectifyWordpressPlugin {
 			}
 		}
 
-		// 9. Check for banned topics (last priority)
+		// 9. Check for banned topics (last priority), by the same rule the decision uses
 		if ($assessment_settings['check_relevance'] && isset($megaResult->relevanceCheck)) {
-			$relevance_settings = get_option(\Respectify\OPTION_RELEVANCE_SETTINGS, \Respectify\RELEVANCE_DEFAULT_SETTINGS);
-			$banned_topics = get_option(\Respectify\OPTION_BANNED_TOPICS, '');
-			if (!empty($banned_topics) && !empty($megaResult->relevanceCheck->bannedTopics->bannedTopics)) {
-				$banned_topics_percentage = $megaResult->relevanceCheck->bannedTopics->quantityOnBannedTopics ?? 0;
-				if ($banned_topics_percentage >= $relevance_settings['banned_topics_threshold'] &&
-					$relevance_settings['banned_topics_handling'] !== \Respectify\ACTION_PUBLISH) {
-					$feedback = '<ul><li>';
-					$feedback .= '<p>' . esc_html__('Your comment touches on topics that the site owner prefers not to have discussed here.', 'respectify') . '</p>';
-					$feedback .= $this->text_to_paragraphs($megaResult->relevanceCheck->bannedTopics->reasoning);
-					$feedback .= '</li></ul>';
-					return $feedback;
-				}
+			$relevance_settings = $this->get_relevance_settings();
+			if ($this->is_undesired_topics_triggered($megaResult, $relevance_settings) &&
+				$relevance_settings['banned_topics_handling'] !== \Respectify\ACTION_PUBLISH) {
+				$feedback = '<ul><li>';
+				$feedback .= '<p>' . esc_html__('Your comment touches on topics that the site owner prefers not to have discussed here.', 'respectify') . '</p>';
+				$feedback .= $this->text_to_paragraphs($megaResult->relevanceCheck->bannedTopics->reasoning);
+				$feedback .= '</li></ul>';
+				return $feedback;
 			}
 		}
 
@@ -1060,6 +1057,38 @@ class RespectifyWordpressPlugin {
 	}
 
 	/**
+	 * The site's relevance settings, with any missing or invalid field replaced by its default.
+	 *
+	 * @return array{off_topic_handling: string, banned_topics_handling: string, banned_topics_threshold: float, banned_topics_mode: string}
+	 */
+	private function get_relevance_settings() {
+		$saved_settings = get_option(\Respectify\OPTION_RELEVANCE_SETTINGS, \Respectify\RELEVANCE_DEFAULT_SETTINGS);
+		return \Respectify\respectify_normalize_relevance_settings(is_array($saved_settings) ? $saved_settings : array());
+	}
+
+	/**
+	 * Whether the comment is on undesired topics enough to act on. In "any mention" mode any mention counts;
+	 * only threshold mode compares the share of the comment on undesired topics with the threshold. The
+	 * decision and the feedback both use this, so a comment acted on always gets the matching explanation.
+	 *
+	 * @param MegaCallResult $megaResult The comment evaluation result.
+	 * @param array{banned_topics_threshold: float, banned_topics_mode: string} $relevance_settings See get_relevance_settings().
+	 * @return bool
+	 */
+	private function is_undesired_topics_triggered(MegaCallResult $megaResult, array $relevance_settings) {
+		// Nothing to act on unless the site has undesired topics and the API found the comment mentions one
+		$banned_topics = get_option(\Respectify\OPTION_BANNED_TOPICS, '');
+		if (empty($banned_topics) || !isset($megaResult->relevanceCheck) || empty($megaResult->relevanceCheck->bannedTopics->bannedTopics)) {
+			return false;
+		}
+
+		if ($relevance_settings['banned_topics_mode'] === \Respectify\RELEVANCE_BANNED_TOPICS_MODE_ANY) {
+			return true;
+		}
+		return $megaResult->relevanceCheck->bannedTopics->quantityOnBannedTopics >= $relevance_settings['banned_topics_threshold'];
+	}
+
+	/**
      * Determine the action to take on the comment based on score and settings.
      *
      * @param MegaCallResult $megaResult The comment evaluation result.
@@ -1095,31 +1124,8 @@ class RespectifyWordpressPlugin {
 
         // Only check relevance if it's enabled
         if ($assessment_settings['check_relevance'] && isset($megaResult->relevanceCheck)) {
-            $relevance_settings = get_option(\Respectify\OPTION_RELEVANCE_SETTINGS, \Respectify\RELEVANCE_DEFAULT_SETTINGS);
-            
-            // Validate relevance settings
-            if (!isset($relevance_settings['off_topic_handling']) || 
-                !in_array($relevance_settings['off_topic_handling'], [\Respectify\ACTION_PUBLISH, \Respectify\ACTION_DELETE, \Respectify\ACTION_REVISE])) {
-                $relevance_settings['off_topic_handling'] = \Respectify\RELEVANCE_DEFAULT_OFF_TOPIC_HANDLING;
-            }
-            
-            if (!isset($relevance_settings['banned_topics_mode']) || 
-                !in_array($relevance_settings['banned_topics_mode'], ['any', 'threshold'])) {
-                $relevance_settings['banned_topics_mode'] = \Respectify\RELEVANCE_DEFAULT_BANNED_TOPICS_MODE;
-            }
-            
-            if (!isset($relevance_settings['banned_topics_threshold']) || 
-                !is_numeric($relevance_settings['banned_topics_threshold']) ||
-                $relevance_settings['banned_topics_threshold'] < 0 || 
-                $relevance_settings['banned_topics_threshold'] > 1) {
-                $relevance_settings['banned_topics_threshold'] = \Respectify\RELEVANCE_DEFAULT_BANNED_TOPICS_THRESHOLD;
-            }
-            
-            if (!isset($relevance_settings['banned_topics_handling']) || 
-                !in_array($relevance_settings['banned_topics_handling'], [\Respectify\ACTION_DELETE, \Respectify\ACTION_REVISE, \Respectify\ACTION_PUBLISH])) {
-                $relevance_settings['banned_topics_handling'] = \Respectify\RELEVANCE_DEFAULT_BANNED_TOPICS_HANDLING;
-            }
-            
+            $relevance_settings = $this->get_relevance_settings();
+
             // Check if comment is off-topic
             if ($megaResult->relevanceCheck->onTopic->onTopic === false) {
                 // If off-topic comments are allowed (ACTION_PUBLISH), don't add it as an issue
@@ -1131,24 +1137,11 @@ class RespectifyWordpressPlugin {
                 }
             }
             
-            // Check for banned topics only if we have banned topics configured
-            $banned_topics = get_option(\Respectify\OPTION_BANNED_TOPICS, '');
-            if (!empty($banned_topics) && !empty($megaResult->relevanceCheck->bannedTopics->bannedTopics)) {
-                $banned_topics_percentage = $megaResult->relevanceCheck->bannedTopics->quantityOnBannedTopics ?? 0;
-                
-                $should_take_action = false;
-                if ($relevance_settings['banned_topics_mode'] === 'any') {
-                    $should_take_action = true;
-                } else {
-                    $should_take_action = ($banned_topics_percentage >= $relevance_settings['banned_topics_threshold']);
-                }
-                
-                if ($should_take_action) {
-                    $issues[] = array(
-                        'type' => 'banned_topics',
-                        'action' => $relevance_settings['banned_topics_handling']
-                    );
-                }
+            if ($this->is_undesired_topics_triggered($megaResult, $relevance_settings)) {
+                $issues[] = array(
+                    'type' => 'banned_topics',
+                    'action' => $relevance_settings['banned_topics_handling']
+                );
             }
         }
 

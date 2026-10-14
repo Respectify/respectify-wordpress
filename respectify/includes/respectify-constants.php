@@ -51,7 +51,16 @@ const RELEVANCE_DEFAULT_BANNED_TOPICS_THRESHOLD = 0.1; // Default 10% threshold 
 
 // Dogwhistle Settings
 const DOGWHISTLE_DEFAULT_HANDLING = ACTION_REVISE; // Default to revise for dogwhistles
-const RELEVANCE_DEFAULT_BANNED_TOPICS_MODE = 'any'; // Default to 'any' (any mention triggers action)
+// Undesired topics modes: any mention is acted on, or only a comment at or over the threshold
+const RELEVANCE_BANNED_TOPICS_MODE_ANY = 'any';
+const RELEVANCE_BANNED_TOPICS_MODE_THRESHOLD = 'threshold';
+const RELEVANCE_DEFAULT_BANNED_TOPICS_MODE = RELEVANCE_BANNED_TOPICS_MODE_ANY; // Default: any mention triggers action
+
+// One-per-line lists (undesired topics, sensitive topics, dogwhistle examples): the Respectify API reads at most this
+// many entries of each, each at most this many characters (input_limits.MAX_PROMPT_LIST_ENTRIES and
+// MAX_PROMPT_LIST_ENTRY_LENGTH), so the settings page saves no more than that
+const TOPIC_LIST_MAX_ENTRIES = 20;
+const TOPIC_LIST_MAX_ENTRY_LENGTH = 5000;
 
 const RELEVANCE_DEFAULT_SETTINGS = array(
     'off_topic_handling' => RELEVANCE_DEFAULT_OFF_TOPIC_HANDLING,

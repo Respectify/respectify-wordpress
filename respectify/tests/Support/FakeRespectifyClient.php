@@ -25,6 +25,9 @@ final class FakeRespectifyClient extends RespectifyClientAsync {
     /** @var array<int, mixed> The tolerances argument passed to megacall, in call order. */
     public array $megacall_tolerances = [];
 
+    /** @var array<int, string> Article text sent to initTopicFromText, in call order. */
+    public array $init_topic_texts = [];
+
 
     /**
      * The parent constructor is deliberately not called: it would build a real HTTP client.
@@ -40,6 +43,7 @@ final class FakeRespectifyClient extends RespectifyClientAsync {
 
 
     public function initTopicFromText($text, $topicDescription = null): PromiseInterface {
+        $this->init_topic_texts[] = $text;
         return self::settle($this->init_topic_outcome);
     }
 
