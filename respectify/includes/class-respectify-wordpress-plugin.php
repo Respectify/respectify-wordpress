@@ -857,7 +857,8 @@ class RespectifyWordpressPlugin {
 
 	/**
 	 * Get the feedback content for a comment (without intro/outro wrapper).
-	 * Checks are ordered by priority: most actionable/severe first, banned topics last.
+	 * Checks are ordered by priority: most actionable/severe first, banned topics last. Suspected spam is not
+	 * spam: its suggestion comes first and is combined with the feedback of whichever other check applies.
 	 *
 	 * @param MegaCallResult $megaResult The comment evaluation result.
 	 * @return string (HTML) feedback content, or empty string if no issues.
@@ -877,6 +878,45 @@ class RespectifyWordpressPlugin {
 			return $feedback;
 		}
 
+		$suspected_spam_feedback = '';
+		if ($this->is_suspected_spam($megaResult, $assessment_settings)) {
+			$suggestion = $megaResult->spamCheck->suggestion ?? '';
+			// The server always sends a suggestion with suspected spam; this fallback covers one that does not
+			$suspected_spam_feedback = '<ul><li>'
+				. ($suggestion !== ''
+					? $this->text_to_paragraphs($suggestion)
+					: '<p>' . esc_html__('This looks like spam.', 'respectify') . '</p>')
+				. '</li></ul>';
+		}
+
+		return $suspected_spam_feedback . $this->get_non_spam_feedback_content($megaResult, $assessment_settings);
+	}
+
+	/**
+	 * Whether spam checking is on and the API suspects, without being certain, that the comment is spam. A
+	 * suspected comment is sent back to its writer with the API's suggestion, never deleted for being suspected.
+	 *
+	 * @param MegaCallResult $megaResult The comment evaluation result.
+	 * @param array<string, mixed> $assessment_settings The site's assessment settings.
+	 * @return bool
+	 */
+	private function is_suspected_spam(MegaCallResult $megaResult, array $assessment_settings) {
+		// empty() also covers a library too old to have the property, which reads as not suspected
+		return !empty($assessment_settings['check_spam'])
+			&& isset($megaResult->spamCheck)
+			&& !$megaResult->spamCheck->isSpam
+			&& !empty($megaResult->spamCheck->suspectedSpam);
+	}
+
+	/**
+	 * Feedback content for every check except spam, by priority: comment health, dogwhistles, relevance, then
+	 * banned topics.
+	 *
+	 * @param MegaCallResult $megaResult The comment evaluation result.
+	 * @param array<string, mixed> $assessment_settings The site's assessment settings.
+	 * @return string (HTML) feedback content, or empty string if no issues.
+	 */
+	private function get_non_spam_feedback_content(MegaCallResult $megaResult, array $assessment_settings) {
 		// 2-6. Comment health, only when the API says the comment exceeds the site's tolerances. The finding lists
 		// arrive already filtered: findings an item accepts, and items turned off, have been removed.
 		if ($assessment_settings['assess_health'] && isset($megaResult->commentScore) && $megaResult->commentScore->exceedsTolerance) {
@@ -1042,6 +1082,15 @@ class RespectifyWordpressPlugin {
         if ($assessment_settings['check_spam'] && isset($megaResult->spamCheck) && $megaResult->spamCheck->isSpam) {
             $spam_handling = get_option(\Respectify\OPTION_SPAM_HANDLING, \Respectify\DEFAULT_SPAM_HANDLING);
             return $spam_handling; // Spam is always handled first as it's the most critical
+        }
+
+        // Suspected spam is not spam: send it back with the API's suggestion, like a comment-health revision. A
+        // real person will fix it; a spammer won't bother. The spam handling setting applies only to spam.
+        if ($this->is_suspected_spam($megaResult, $assessment_settings)) {
+            $issues[] = array(
+                'type' => 'suspected_spam',
+                'action' => \Respectify\ACTION_REVISE
+            );
         }
 
         // Only check relevance if it's enabled

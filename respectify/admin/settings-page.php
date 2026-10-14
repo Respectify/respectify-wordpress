@@ -400,7 +400,7 @@ function respectify_spam_handling_callback() {
         <option value="<?php echo \Respectify\ACTION_DELETE; ?>" <?php selected($options, \Respectify\ACTION_DELETE); ?>><?php esc_html_e('Delete', 'respectify'); ?></option>
         <option value="<?php echo \Respectify\ACTION_REVISE; ?>" <?php selected($options, \Respectify\ACTION_REVISE); ?>><?php esc_html_e('Give Opportunity to Revise', 'respectify'); ?></option>
     </select>
-    <p class="description"><?php esc_html_e('By default spam is deleted, but you can treat them as normal comments and send them back for revision.', 'respectify'); ?></p>
+    <p class="description"><?php esc_html_e('By default spam is deleted, but you can treat them as normal comments and send them back for revision. Comments that only might be spam are always sent back to the commenter with a suggestion, never deleted.', 'respectify'); ?></p>
     <?php
 }
 

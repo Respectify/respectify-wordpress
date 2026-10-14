@@ -37,6 +37,7 @@ Respectify is available in the Wordpress plugins directory, so:
 * Every comment is evaluated under your site's levels, sent with each request. Tolerances are no longer saved for your API key in the Respectify dashboard
 * Respectify decides whether a comment falls short of your site's levels (including when it is severely toxic); the plugin follows that verdict and sends the comment back with feedback. Spam, topic relevance, undesired topics and dogwhistles are separate checks and work as before
 * Each evaluated comment's per-item results (score, minimum and whether it was acceptable) are kept in the comment's `respectify_health` meta, without any comment text
+* Comments that might be spam, but are not certainly spam, are no longer deleted: they are sent back to the commenter with a suggestion (eg to remove a link), together with any comment health feedback. A real person can fix the comment; a spammer won't bother. Comments that are spam are handled as before, following the How to Handle Spam setting
 * Requires respectify-php 0.7.0
 
 = 0.3.0 =

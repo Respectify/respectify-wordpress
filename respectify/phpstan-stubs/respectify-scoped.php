@@ -61,6 +61,8 @@ class SpamDetectionResult {
     public string $reasoning;
     public bool $isSpam;
     public float $confidence;
+    public bool $suspectedSpam;
+    public string $suggestion;
     public function __construct(array $data) {}
 }
 
