@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "7260366b47111f7d2fbd82c9b805db0e",
+    "content-hash": "361ef7a4ec92b49d104f750b177e5a2b",
     "packages": [
         {
             "name": "evenement/evenement",
@@ -924,16 +924,16 @@
         },
         {
             "name": "respectify/respectify-php",
-            "version": "0.5.0",
+            "version": "0.7.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/Respectify/respectify-php.git",
-                "reference": "fbba500d138357b6be6c802848080d0c783f0a07"
+                "reference": "d5f08e69dfb42659fe146c5838ca14e7ab6af837"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Respectify/respectify-php/zipball/fbba500d138357b6be6c802848080d0c783f0a07",
-                "reference": "fbba500d138357b6be6c802848080d0c783f0a07",
+                "url": "https://api.github.com/repos/Respectify/respectify-php/zipball/d5f08e69dfb42659fe146c5838ca14e7ab6af837",
+                "reference": "d5f08e69dfb42659fe146c5838ca14e7ab6af837",
                 "shasum": ""
             },
             "require": {
@@ -970,9 +970,9 @@
             "description": "PHP library for the Respectify API",
             "support": {
                 "issues": "https://github.com/Respectify/respectify-php/issues",
-                "source": "https://github.com/Respectify/respectify-php/tree/0.5.0"
+                "source": "https://github.com/Respectify/respectify-php/tree/0.7.0"
             },
-            "time": "2026-05-27T09:39:23+00:00"
+            "time": "2026-10-14T11:24:26+00:00"
         },
         {
             "name": "symfony/deprecation-contracts",
