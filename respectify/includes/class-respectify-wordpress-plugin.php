@@ -4,6 +4,8 @@ use RespectifyScoper\Respectify\RespectifyClientAsync;
 use RespectifyScoper\Respectify\Schemas\CommentScore;
 use RespectifyScoper\Respectify\Schemas\MegaCallResult;
 use RespectifyScoper\Respectify\Schemas\DogwhistleResult;
+use RespectifyScoper\Respectify\Moderation\HealthItem;
+use RespectifyScoper\Respectify\Moderation\ModerationCategory;
 
 
 /**
@@ -95,6 +97,9 @@ class RespectifyWordpressPlugin {
 		$this->define_public_hooks();
 
 		$this->update_respectify_client();
+
+		// Settings saved by versions before 0.4.0 become comment health levels, once
+		\Respectify\respectify_migrate_comment_health_settings();
 
 	    // Hook the AJAX handler for logged-in users
 		add_action('wp_ajax_respectify_submit_comment', array($this, 'ajax_submit_comment'));
@@ -355,8 +360,6 @@ class RespectifyWordpressPlugin {
 		// Generate a custom ID for the post
 		$article_id = null;
 
-		//\Respectify\respectify_log('Creating article ID for content: ' . substr($post_content, 0, 50) . '...');
-
         $promise = $this->respectify_client->initTopicFromText($post_content);
         $caughtException = null;
 
@@ -366,7 +369,7 @@ class RespectifyWordpressPlugin {
 				$article_id = $id;
             },
             function ($e) use (&$caughtException) {
-				\Respectify\respectify_log('Exception in initTopicFromText: ' . $e->getMessage());
+				\Respectify\respectify_log('Exception in initTopicFromText: ' . \Respectify\respectify_describe_exception($e));
                 $caughtException = $e;
             }
         );
@@ -382,7 +385,7 @@ class RespectifyWordpressPlugin {
 		// failure so the caller holds the comment rather than caching a blank ID that
 		// would trip the "article context must be provided" guard on every later comment.
 		if (empty($article_id)) {
-			throw new \Exception('Respectify did not return a valid article context ID');
+			throw new \UnexpectedValueException('Respectify did not return a valid article context ID');
 		}
 
 		\Respectify\respectify_log('In generate_respectify_article_id: Returning Respectify article ID: ' . $article_id);
@@ -438,7 +441,8 @@ class RespectifyWordpressPlugin {
 
 	/**
 	 * Evaluate a comment made on a Wordpress post or page, given the Respectify article ID
-	 * for that post/page and the comment text.
+	 * for that post/page and the comment text. Only the checks the site has turned on are
+	 * requested; with none on, no API call is made and an evaluation with no findings is returned.
 	 *
 	 * @param string $respectify_article_id The Respectify article ID
 	 * @param string $comment_text The comment text to evaluate
@@ -448,7 +452,7 @@ class RespectifyWordpressPlugin {
 	 * @return MegaCallResult The evaluated information for the comment
 	 */
 	public function evaluate_comment($respectify_article_id, $comment_text, $reply_to_comment_text = null, $author_name = null, $author_email = null) {
-		\Respectify\respectify_log('Evaluating comment: article id: ' . $respectify_article_id . ', comment: ' . substr($comment_text, 0, 50) . '...');
+		\Respectify\respectify_log('Evaluating comment: article id: ' . $respectify_article_id . ', comment length: ' . strlen($comment_text) . ', has reply-to: ' . (empty($reply_to_comment_text) ? 'no' : 'yes'));
 
         // Prepend author information to the comment text - email addresses can be used for spam, for example
 		// Should look like this:
@@ -488,12 +492,12 @@ class RespectifyWordpressPlugin {
             $services[] = 'dogwhistle';
         }
 
-        // If no services are explicitly enabled, fall back to a sensible default. Comment
-        // score and relevance require the article context, so only request them when we have
-        // one; otherwise fall back to spam, which works without context. (Under the
-        // credit-based billing model every service is available and charged per use.)
+        // Every service is charged per use, so a check the site turned off is never requested. With no
+        // check on there is nothing to ask the API: an evaluation with no findings publishes the comment
+        // exactly as one that passed every check.
         if (empty($services)) {
-            $services = $respectify_article_id ? ['spam', 'commentscore', 'relevance'] : ['spam'];
+            \Respectify\respectify_log('No checks are enabled - publishing without calling the API');
+            return new MegaCallResult(array());
         }
 
         // Get banned topics if relevance checking is enabled and we have an article ID
@@ -537,7 +541,9 @@ class RespectifyWordpressPlugin {
             bannedTopics: $banned_topics,
             replyToComment: $reply_to_comment_text,
             sensitiveTopics: $sensitive_topics,
-            dogwhistleExamples: $dogwhistle_examples
+            dogwhistleExamples: $dogwhistle_examples,
+            // Every comment health level, on every call: nothing is stored per API key. Only used with commentscore.
+            tolerances: \Respectify\respectify_build_comment_health_tolerances()
         ); 
         $caughtException = null;
 
@@ -548,7 +554,7 @@ class RespectifyWordpressPlugin {
                 if ($megaResult instanceof MegaCallResult) {
                     $res = $megaResult;
                 } else {
-                    $caughtException = new \Exception('Mega call result is not an instance of MegaCallResult');
+                    $caughtException = new \UnexpectedValueException('Mega call result is not an instance of MegaCallResult');
                 }
             },
             function ($e) use (&$caughtException) {
@@ -635,9 +641,9 @@ class RespectifyWordpressPlugin {
 			try {
 				$article_id = $this->get_respectify_article_id($post_id);
 			} catch (\Exception $e) {
-				\Respectify\respectify_log('Exception getting article ID: ' . $e->getMessage());
+				\Respectify\respectify_log('Exception getting article ID: ' . \Respectify\respectify_describe_exception($e));
 				// Handle API error: notify admin, hold comment for moderation
-				$held_comment = \Respectify\respectify_handle_api_error($e->getMessage(), $commentdata);
+				$held_comment = \Respectify\respectify_handle_api_error($e, $commentdata);
 				wp_insert_comment($held_comment);
 				return new \WP_Error('api_error', \Respectify\respectify_get_commenter_error_message());
 			}
@@ -669,7 +675,7 @@ class RespectifyWordpressPlugin {
 					\Respectify\respectify_log('Parent comment belongs to different post - ignoring parent context');
 				} else {
 					$reply_to_comment_text = sanitize_textarea_field(wp_unslash($parent_comment->comment_content));
-					\Respectify\respectify_log('Found comment being replied to: ' . substr($reply_to_comment_text, 0, 50) . '...');
+					\Respectify\respectify_log('Found comment being replied to: parent ID ' . (int) $commentdata['comment_parent'] . ', length ' . strlen($reply_to_comment_text));
 				}
 			} else {
 				\Respectify\respectify_log('Parent comment not found - ignoring parent context');
@@ -700,26 +706,27 @@ class RespectifyWordpressPlugin {
 					$article_id = $this->get_respectify_article_id($post_id);
 					$evaluation = $this->evaluate_comment($article_id, $comment_text, $reply_to_comment_text, $author_name, $author_email);
 				} catch (\Exception $retry_e) {
-					\Respectify\respectify_log('Retry after regenerating article context failed: ' . $retry_e->getMessage());
-					$held_comment = \Respectify\respectify_handle_api_error($retry_e->getMessage(), $commentdata);
+					\Respectify\respectify_log('Retry after regenerating article context failed: ' . \Respectify\respectify_describe_exception($retry_e));
+					$held_comment = \Respectify\respectify_handle_api_error($retry_e, $commentdata);
 					wp_insert_comment($held_comment);
 					return new \WP_Error('api_error', \Respectify\respectify_get_commenter_error_message());
 				}
 			} else {
-				\Respectify\respectify_log('Exception evaluating comment: ' . $e->getMessage());
+				\Respectify\respectify_log('Exception evaluating comment: ' . \Respectify\respectify_describe_exception($e));
 				// Handle API error: notify admin, hold comment for moderation
-				$held_comment = \Respectify\respectify_handle_api_error($e->getMessage(), $commentdata);
+				$held_comment = \Respectify\respectify_handle_api_error($e, $commentdata);
 				wp_insert_comment($held_comment);
 				return new \WP_Error('api_error', \Respectify\respectify_get_commenter_error_message());
 			}
 		}
 
 		if (is_wp_error($evaluation)) {
-			\Respectify\respectify_log('Error evaluating comment: ' . $evaluation->get_error_message());
+			\Respectify\respectify_log('Error evaluating comment: ' . $evaluation->get_error_code());
 			$commentdata['comment_approved'] = 0; // Set to pending rather than spam
 			$commentdata['comment_type'] = 'respectify_error';
 			$commentdata['comment_meta'] = array(
-				'respectify_error' => $evaluation->get_error_message(),
+				// The code, not the message: a WP_Error message can carry text quoting the comment.
+				'respectify_error' => $evaluation->get_error_code(),
 				'respectify_evaluated_at' => current_time('mysql')
 			);
 			// Return error to prevent comment from being posted
@@ -727,7 +734,7 @@ class RespectifyWordpressPlugin {
 		} elseif ($evaluation === null) {
 			// Evaluation returned null (unexpected error) - hold for moderation
 			\Respectify\respectify_log('Evaluation returned null - holding comment for moderation');
-			$held_comment = \Respectify\respectify_handle_api_error('Evaluation returned null unexpectedly', $commentdata);
+			$held_comment = \Respectify\respectify_handle_api_error(new \UnexpectedValueException('Evaluation returned null unexpectedly'), $commentdata);
 			wp_insert_comment($held_comment);
 			return new \WP_Error('evaluation_error', 'Respectify encountered an error while processing your comment. Please try again later.');
 		} else {
@@ -737,7 +744,7 @@ class RespectifyWordpressPlugin {
 			
 			\Respectify\respectify_log('Comment evaluation result: ' . $action);
 			if ($feedback_html) {
-				\Respectify\respectify_log('Feedback: ' . substr($feedback_html, 0, 150) . '...');
+				\Respectify\respectify_log('Feedback length: ' . strlen($feedback_html));
 			}
 
 			// Log the final decision
@@ -757,9 +764,10 @@ class RespectifyWordpressPlugin {
 				$commentdata['comment_meta'] = array(
 					'respectify_evaluation' => $evaluation,
 					'respectify_action' => $action,
+					'respectify_health' => $this->get_health_summary($evaluation),
 					'respectify_evaluated_at' => current_time('mysql')
 				);
-				\Respectify\respectify_log('Comment result before insertion: ' . wp_json_encode($commentdata));
+				\Respectify\respectify_log('Comment result before insertion: ' . \Respectify\respectify_comment_log_summary($commentdata));
 				return $commentdata;
 			} elseif ($action === \Respectify\ACTION_REVISE) {
 				// Comment needs revision - we will NOT store it in the database
@@ -779,6 +787,7 @@ class RespectifyWordpressPlugin {
 					'respectify_evaluation' => $evaluation,
 					'respectify_action' => $action,
 					'respectify_feedback' => $feedback_html,
+					'respectify_health' => $this->get_health_summary($evaluation),
 					'respectify_evaluated_at' => current_time('mysql')
 				);
 				return new \WP_Error(\Respectify\ACTION_REVISE, '<div class="respectify-feedback">' . $feedback_html . \Respectify\respectify_get_branding_footer() . '</div>');
@@ -799,6 +808,7 @@ class RespectifyWordpressPlugin {
 					'respectify_evaluation' => $evaluation,
 					'respectify_action' => $action,
 					'respectify_feedback' => $feedback_html,
+					'respectify_health' => $this->get_health_summary($evaluation),
 					'respectify_evaluated_at' => current_time('mysql')
 				);
 				return new \WP_Error(\Respectify\ACTION_DELETE, '<div class="respectify-feedback">' . $feedback_html . \Respectify\respectify_get_branding_footer() . '</div>');
@@ -848,7 +858,8 @@ class RespectifyWordpressPlugin {
 
 	/**
 	 * Get the feedback content for a comment (without intro/outro wrapper).
-	 * Checks are ordered by priority: most actionable/severe first, banned topics last.
+	 * Checks are ordered by priority: most actionable/severe first, banned topics last. Suspected spam is not
+	 * spam: its suggestion comes first and is combined with the feedback of whichever other check applies.
 	 *
 	 * @param MegaCallResult $megaResult The comment evaluation result.
 	 * @return string (HTML) feedback content, or empty string if no issues.
@@ -868,88 +879,51 @@ class RespectifyWordpressPlugin {
 			return $feedback;
 		}
 
-		// Get health assessment settings for checks below
-		$revise_settings = get_option(\Respectify\OPTION_REVISE_SETTINGS, \Respectify\REVISE_DEFAULT_SETTINGS);
-
-		// 2. Check for toxicity (high priority - explains overall tone issues)
-		if ($assessment_settings['assess_health'] && isset($megaResult->commentScore)) {
-			$comment_score = $megaResult->commentScore;
-			if (($revise_settings['toxicity'] ?? true) && isset($comment_score->toxicityScore)) {
-				$toxicity_threshold = $revise_settings['toxicity_threshold'] ?? \Respectify\REVISE_DEFAULT_TOXICITY_THRESHOLD;
-				if (!is_numeric($toxicity_threshold) || $toxicity_threshold < 0.1 || $toxicity_threshold > 1) {
-					$toxicity_threshold = \Respectify\REVISE_DEFAULT_TOXICITY_THRESHOLD;
-				}
-				if ($comment_score->toxicityScore >= $toxicity_threshold) {
-					$feedback = '<ul><li>';
-					$feedback .= '<p>' . esc_html__('Your comment may come across as hostile to others.', 'respectify') . '</p>';
-					if (!empty($comment_score->toxicityExplanation)) {
-						$feedback .= $this->text_to_paragraphs($comment_score->toxicityExplanation);
-					}
-					$feedback .= '</li></ul>';
-					return $feedback;
-				}
-			}
+		$suspected_spam_feedback = '';
+		if ($this->is_suspected_spam($megaResult, $assessment_settings)) {
+			$suggestion = $megaResult->spamCheck->suggestion ?? '';
+			// The server always sends a suggestion with suspected spam; this fallback covers one that does not
+			$suspected_spam_feedback = '<ul><li>'
+				. ($suggestion !== ''
+					? $this->text_to_paragraphs($suggestion)
+					: '<p>' . esc_html__('This looks like spam.', 'respectify') . '</p>')
+				. '</li></ul>';
 		}
 
-		// 3. Check for objectionable phrases (has suggested rewrites)
-		if ($assessment_settings['assess_health'] && isset($megaResult->commentScore)) {
-			$comment_score = $megaResult->commentScore;
-			if ($revise_settings['objectionable_phrases'] && !empty($comment_score->objectionablePhrases)) {
-				$feedback = '<p>' . esc_html__('Your comment will be read by others as rude.', 'respectify') . '</p><ul>';
-				foreach ($comment_score->objectionablePhrases as $phrase) {
-					$feedback .= '<li><em>' . esc_html($phrase->quotedObjectionablePhrase) . '</em>';
-					$feedback .= $this->text_to_paragraphs($phrase->explanation);
-					if (!empty($phrase->suggestedRewrite)) {
-						$feedback .= '<div class="respectify-suggestion">' . esc_html($phrase->suggestedRewrite) . '</div>';
-					}
-					$feedback .= '</li>';
-				}
-				$feedback .= '</ul>';
-				return $feedback;
-			}
-		}
+		return $suspected_spam_feedback . $this->get_non_spam_feedback_content($megaResult, $assessment_settings);
+	}
 
-		// 4. Check for negative tone (has suggested rewrites)
-		if ($assessment_settings['assess_health'] && isset($megaResult->commentScore)) {
-			$comment_score = $megaResult->commentScore;
-			if ($revise_settings['negative_tone'] && !empty($comment_score->negativeTonePhrases)) {
-				$feedback = '<p>' . esc_html__('Your comment may discourage others from engaging.', 'respectify') . '</p><ul>';
-				foreach ($comment_score->negativeTonePhrases as $tone) {
-					$feedback .= '<li><em>' . esc_html($tone->quotedNegativeTonePhrase) . '</em>';
-					$feedback .= $this->text_to_paragraphs($tone->explanation);
-					if (!empty($tone->suggestedRewrite)) {
-						$feedback .= '<div class="respectify-suggestion">' . esc_html($tone->suggestedRewrite) . '</div>';
-					}
-					$feedback .= '</li>';
-				}
-				$feedback .= '</ul>';
-				return $feedback;
-			}
-		}
+	/**
+	 * Whether spam checking is on and the API suspects, without being certain, that the comment is spam. A
+	 * suspected comment is sent back to its writer with the API's suggestion, never deleted for being suspected.
+	 *
+	 * @param MegaCallResult $megaResult The comment evaluation result.
+	 * @param array<string, mixed> $assessment_settings The site's assessment settings.
+	 * @return bool
+	 */
+	private function is_suspected_spam(MegaCallResult $megaResult, array $assessment_settings) {
+		// empty() also covers a library too old to have the property, which reads as not suspected
+		return !empty($assessment_settings['check_spam'])
+			&& isset($megaResult->spamCheck)
+			&& !$megaResult->spamCheck->isSpam
+			&& !empty($megaResult->spamCheck->suspectedSpam);
+	}
 
-		// 5. Check for logical fallacies (has suggested rewrites)
-		if ($assessment_settings['assess_health'] && isset($megaResult->commentScore)) {
-			$comment_score = $megaResult->commentScore;
-			if ($revise_settings['logical_fallacies'] && !empty($comment_score->logicalFallacies)) {
-				$feedback = '<p>' . esc_html__('Your comment contains reasoning that may not hold up.', 'respectify') . '</p><ul>';
-				foreach ($comment_score->logicalFallacies as $fallacy) {
-					$feedback .= '<li><em>' . esc_html($fallacy->quotedLogicalFallacyExample) . '</em>';
-					$feedback .= $this->text_to_paragraphs($fallacy->explanation);
-					if (!empty($fallacy->suggestedRewrite)) {
-						$feedback .= '<div class="respectify-suggestion">' . esc_html($fallacy->suggestedRewrite) . '</div>';
-					}
-					$feedback .= '</li>';
-				}
-				$feedback .= '</ul>';
-				return $feedback;
-			}
-		}
-
-		// 6. Check for low effort
-		if ($assessment_settings['assess_health'] && isset($megaResult->commentScore)) {
-			$comment_score = $megaResult->commentScore;
-			if ($revise_settings['low_effort'] && isset($comment_score->appearsLowEffort) && $comment_score->appearsLowEffort) {
-				return '<ul><li><p>' . esc_html__('Your comment doesn\'t add much to the discussion.', 'respectify') . '</p></li></ul>';
+	/**
+	 * Feedback content for every check except spam, by priority: comment health, dogwhistles, relevance, then
+	 * banned topics.
+	 *
+	 * @param MegaCallResult $megaResult The comment evaluation result.
+	 * @param array<string, mixed> $assessment_settings The site's assessment settings.
+	 * @return string (HTML) feedback content, or empty string if no issues.
+	 */
+	private function get_non_spam_feedback_content(MegaCallResult $megaResult, array $assessment_settings) {
+		// 2-6. Comment health, only when the API says the comment exceeds the site's tolerances. The finding lists
+		// arrive already filtered: findings an item accepts, and items turned off, have been removed.
+		if ($assessment_settings['assess_health'] && isset($megaResult->commentScore) && $megaResult->commentScore->exceedsTolerance) {
+			$health_feedback = $this->get_health_feedback_content($megaResult->commentScore);
+			if ($health_feedback !== '') {
+				return $health_feedback;
 			}
 		}
 
@@ -971,7 +945,7 @@ class RespectifyWordpressPlugin {
 
 		// 8. Check if comment is off-topic
 		if ($assessment_settings['check_relevance'] && isset($megaResult->relevanceCheck)) {
-			$relevance_settings = get_option(\Respectify\OPTION_RELEVANCE_SETTINGS, \Respectify\RELEVANCE_DEFAULT_SETTINGS);
+			$relevance_settings = $this->get_relevance_settings();
 			if ($megaResult->relevanceCheck->onTopic->onTopic === false) {
 				if ($relevance_settings['off_topic_handling'] !== \Respectify\ACTION_PUBLISH) {
 					$feedback = '<ul><li>';
@@ -983,25 +957,135 @@ class RespectifyWordpressPlugin {
 			}
 		}
 
-		// 9. Check for banned topics (last priority)
+		// 9. Check for banned topics (last priority), by the same rule the decision uses
 		if ($assessment_settings['check_relevance'] && isset($megaResult->relevanceCheck)) {
-			$relevance_settings = get_option(\Respectify\OPTION_RELEVANCE_SETTINGS, \Respectify\RELEVANCE_DEFAULT_SETTINGS);
-			$banned_topics = get_option(\Respectify\OPTION_BANNED_TOPICS, '');
-			if (!empty($banned_topics) && !empty($megaResult->relevanceCheck->bannedTopics->bannedTopics)) {
-				$banned_topics_percentage = $megaResult->relevanceCheck->bannedTopics->quantityOnBannedTopics ?? 0;
-				if ($banned_topics_percentage >= $relevance_settings['banned_topics_threshold'] &&
-					$relevance_settings['banned_topics_handling'] !== \Respectify\ACTION_PUBLISH) {
-					$feedback = '<ul><li>';
-					$feedback .= '<p>' . esc_html__('Your comment touches on topics that the site owner prefers not to have discussed here.', 'respectify') . '</p>';
-					$feedback .= $this->text_to_paragraphs($megaResult->relevanceCheck->bannedTopics->reasoning);
-					$feedback .= '</li></ul>';
-					return $feedback;
-				}
+			$relevance_settings = $this->get_relevance_settings();
+			if ($this->is_undesired_topics_triggered($megaResult, $relevance_settings) &&
+				$relevance_settings['banned_topics_handling'] !== \Respectify\ACTION_PUBLISH) {
+				$feedback = '<ul><li>';
+				$feedback .= '<p>' . esc_html__('Your comment touches on topics that the site owner prefers not to have discussed here.', 'respectify') . '</p>';
+				$feedback .= $this->text_to_paragraphs($megaResult->relevanceCheck->bannedTopics->reasoning);
+				$feedback .= '</li></ul>';
+				return $feedback;
 			}
 		}
 
 		// No issues found
 		return '';
+	}
+
+	/**
+	 * Feedback for a comment that exceeds the site's comment health tolerances, most actionable first: quoted
+	 * findings with suggested rewrites, then low effort, then quality, then overall hostility.
+	 *
+	 * @param CommentScore $comment_score The comment score from the API, with exceedsTolerance true.
+	 * @return string (HTML) feedback content.
+	 */
+	private function get_health_feedback_content(CommentScore $comment_score) {
+		if (!empty($comment_score->objectionablePhrases)) {
+			$feedback = '<p>' . esc_html__('Your comment will be read by others as rude.', 'respectify') . '</p><ul>';
+			foreach ($comment_score->objectionablePhrases as $phrase) {
+				$feedback .= '<li><em>' . esc_html($phrase->quotedObjectionablePhrase) . '</em>';
+				$feedback .= $this->text_to_paragraphs($phrase->explanation);
+				if (!empty($phrase->suggestedRewrite)) {
+					$feedback .= '<div class="respectify-suggestion">' . esc_html($phrase->suggestedRewrite) . '</div>';
+				}
+				$feedback .= '</li>';
+			}
+			$feedback .= '</ul>';
+			return $feedback;
+		}
+
+		if (!empty($comment_score->negativeTonePhrases)) {
+			$feedback = '<p>' . esc_html__('Your comment may discourage others from engaging.', 'respectify') . '</p><ul>';
+			foreach ($comment_score->negativeTonePhrases as $tone) {
+				$feedback .= '<li><em>' . esc_html($tone->quotedNegativeTonePhrase) . '</em>';
+				$feedback .= $this->text_to_paragraphs($tone->explanation);
+				if (!empty($tone->suggestedRewrite)) {
+					$feedback .= '<div class="respectify-suggestion">' . esc_html($tone->suggestedRewrite) . '</div>';
+				}
+				$feedback .= '</li>';
+			}
+			$feedback .= '</ul>';
+			return $feedback;
+		}
+
+		if (!empty($comment_score->logicalFallacies)) {
+			$feedback = '<p>' . esc_html__('Your comment contains reasoning that may not hold up.', 'respectify') . '</p><ul>';
+			foreach ($comment_score->logicalFallacies as $fallacy) {
+				$feedback .= '<li><em>' . esc_html($fallacy->quotedLogicalFallacyExample) . '</em>';
+				$feedback .= $this->text_to_paragraphs($fallacy->explanation);
+				if (!empty($fallacy->suggestedRewrite)) {
+					$feedback .= '<div class="respectify-suggestion">' . esc_html($fallacy->suggestedRewrite) . '</div>';
+				}
+				$feedback .= '</li>';
+			}
+			$feedback .= '</ul>';
+			return $feedback;
+		}
+
+		// appears_low_effort is reported even when low effort is accepted or off, so the item's verdict decides
+		if (\Respectify\respectify_is_health_item_unacceptable($comment_score, ModerationCategory::LOW_EFFORT)) {
+			return '<ul><li><p>' . esc_html__('Your comment doesn\'t add much to the discussion.', 'respectify') . '</p></li></ul>';
+		}
+
+		if (\Respectify\respectify_is_health_item_unacceptable($comment_score, HealthItem::QUALITY)) {
+			return '<ul><li><p>' . esc_html__('Your comment could add more to the discussion. Explaining your reasoning, or engaging with the article or other comments, would help.', 'respectify') . '</p></li></ul>';
+		}
+
+		// Nothing item-specific to show, so the comment exceeds tolerance on overall hostility
+		$feedback = '<ul><li>';
+		$feedback .= '<p>' . esc_html__('Your comment may come across as hostile to others.', 'respectify') . '</p>';
+		if (!empty($comment_score->toxicityExplanation)) {
+			$feedback .= $this->text_to_paragraphs($comment_score->toxicityExplanation);
+		}
+		$feedback .= '</li></ul>';
+		return $feedback;
+	}
+
+	/**
+	 * The comment health summary to keep with a comment, or null if comment health was not assessed.
+	 *
+	 * @param MegaCallResult $megaResult The comment evaluation result.
+	 * @return array<string, mixed>|null See respectify_comment_health_summary(). Numbers, booleans and item names only.
+	 */
+	private function get_health_summary(MegaCallResult $megaResult) {
+		if (!isset($megaResult->commentScore)) {
+			return null;
+		}
+		return \Respectify\respectify_comment_health_summary($megaResult->commentScore);
+	}
+
+	/**
+	 * The site's relevance settings, with any missing or invalid field replaced by its default.
+	 *
+	 * @return array{off_topic_handling: string, banned_topics_handling: string, banned_topics_threshold: float, banned_topics_mode: string}
+	 */
+	private function get_relevance_settings() {
+		$saved_settings = get_option(\Respectify\OPTION_RELEVANCE_SETTINGS, \Respectify\RELEVANCE_DEFAULT_SETTINGS);
+		return \Respectify\respectify_normalize_relevance_settings(is_array($saved_settings) ? $saved_settings : array());
+	}
+
+	/**
+	 * Whether the comment is on undesired topics enough to act on. In "any mention" mode any mention counts;
+	 * only threshold mode compares the share of the comment on undesired topics with the threshold. The
+	 * decision and the feedback both use this, so a comment acted on always gets the matching explanation.
+	 *
+	 * @param MegaCallResult $megaResult The comment evaluation result.
+	 * @param array{banned_topics_threshold: float, banned_topics_mode: string} $relevance_settings See get_relevance_settings().
+	 * @return bool
+	 */
+	private function is_undesired_topics_triggered(MegaCallResult $megaResult, array $relevance_settings) {
+		// Nothing to act on unless the site has undesired topics and the API found the comment mentions one
+		$banned_topics = get_option(\Respectify\OPTION_BANNED_TOPICS, '');
+		if (empty($banned_topics) || !isset($megaResult->relevanceCheck) || empty($megaResult->relevanceCheck->bannedTopics->bannedTopics)) {
+			return false;
+		}
+
+		if ($relevance_settings['banned_topics_mode'] === \Respectify\RELEVANCE_BANNED_TOPICS_MODE_ANY) {
+			return true;
+		}
+		return $megaResult->relevanceCheck->bannedTopics->quantityOnBannedTopics >= $relevance_settings['banned_topics_threshold'];
 	}
 
 	/**
@@ -1029,33 +1113,19 @@ class RespectifyWordpressPlugin {
             return $spam_handling; // Spam is always handled first as it's the most critical
         }
 
+        // Suspected spam is not spam: send it back with the API's suggestion, like a comment-health revision. A
+        // real person will fix it; a spammer won't bother. The spam handling setting applies only to spam.
+        if ($this->is_suspected_spam($megaResult, $assessment_settings)) {
+            $issues[] = array(
+                'type' => 'suspected_spam',
+                'action' => \Respectify\ACTION_REVISE
+            );
+        }
+
         // Only check relevance if it's enabled
         if ($assessment_settings['check_relevance'] && isset($megaResult->relevanceCheck)) {
-            $relevance_settings = get_option(\Respectify\OPTION_RELEVANCE_SETTINGS, \Respectify\RELEVANCE_DEFAULT_SETTINGS);
-            
-            // Validate relevance settings
-            if (!isset($relevance_settings['off_topic_handling']) || 
-                !in_array($relevance_settings['off_topic_handling'], [\Respectify\ACTION_PUBLISH, \Respectify\ACTION_DELETE, \Respectify\ACTION_REVISE])) {
-                $relevance_settings['off_topic_handling'] = \Respectify\RELEVANCE_DEFAULT_OFF_TOPIC_HANDLING;
-            }
-            
-            if (!isset($relevance_settings['banned_topics_mode']) || 
-                !in_array($relevance_settings['banned_topics_mode'], ['any', 'threshold'])) {
-                $relevance_settings['banned_topics_mode'] = \Respectify\RELEVANCE_DEFAULT_BANNED_TOPICS_MODE;
-            }
-            
-            if (!isset($relevance_settings['banned_topics_threshold']) || 
-                !is_numeric($relevance_settings['banned_topics_threshold']) ||
-                $relevance_settings['banned_topics_threshold'] < 0 || 
-                $relevance_settings['banned_topics_threshold'] > 1) {
-                $relevance_settings['banned_topics_threshold'] = \Respectify\RELEVANCE_DEFAULT_BANNED_TOPICS_THRESHOLD;
-            }
-            
-            if (!isset($relevance_settings['banned_topics_handling']) || 
-                !in_array($relevance_settings['banned_topics_handling'], [\Respectify\ACTION_DELETE, \Respectify\ACTION_REVISE, \Respectify\ACTION_PUBLISH])) {
-                $relevance_settings['banned_topics_handling'] = \Respectify\RELEVANCE_DEFAULT_BANNED_TOPICS_HANDLING;
-            }
-            
+            $relevance_settings = $this->get_relevance_settings();
+
             // Check if comment is off-topic
             if ($megaResult->relevanceCheck->onTopic->onTopic === false) {
                 // If off-topic comments are allowed (ACTION_PUBLISH), don't add it as an issue
@@ -1067,24 +1137,11 @@ class RespectifyWordpressPlugin {
                 }
             }
             
-            // Check for banned topics only if we have banned topics configured
-            $banned_topics = get_option(\Respectify\OPTION_BANNED_TOPICS, '');
-            if (!empty($banned_topics) && !empty($megaResult->relevanceCheck->bannedTopics->bannedTopics)) {
-                $banned_topics_percentage = $megaResult->relevanceCheck->bannedTopics->quantityOnBannedTopics ?? 0;
-                
-                $should_take_action = false;
-                if ($relevance_settings['banned_topics_mode'] === 'any') {
-                    $should_take_action = true;
-                } else {
-                    $should_take_action = ($banned_topics_percentage >= $relevance_settings['banned_topics_threshold']);
-                }
-                
-                if ($should_take_action) {
-                    $issues[] = array(
-                        'type' => 'banned_topics',
-                        'action' => $relevance_settings['banned_topics_handling']
-                    );
-                }
+            if ($this->is_undesired_topics_triggered($megaResult, $relevance_settings)) {
+                $issues[] = array(
+                    'type' => 'banned_topics',
+                    'action' => $relevance_settings['banned_topics_handling']
+                );
             }
         }
 
@@ -1110,72 +1167,13 @@ class RespectifyWordpressPlugin {
             }
         }
 
-        // Only check health assessment if it's enabled
-        if ($assessment_settings['assess_health'] && isset($megaResult->commentScore)) {
-            $revise_settings = get_option(\Respectify\OPTION_REVISE_SETTINGS, \Respectify\REVISE_DEFAULT_SETTINGS);
-            
-            // Validate revise settings
-            if (!isset($revise_settings['min_score']) || 
-                !is_numeric($revise_settings['min_score']) ||
-                $revise_settings['min_score'] < 1 || 
-                $revise_settings['min_score'] > 5) {
-                $revise_settings['min_score'] = \Respectify\REVISE_DEFAULT_MIN_SCORE;
-            }
-            
-            // Check if the comment score is below the minimum
-            if ($megaResult->commentScore->overallScore < $revise_settings['min_score']) {
-                $issues[] = array(
-                    'type' => 'low_score',
-                    'action' => \Respectify\ACTION_REVISE
-                );
-            }
-
-            // Check for low effort
-            if ($revise_settings['low_effort'] && isset($megaResult->commentScore->appearsLowEffort) && $megaResult->commentScore->appearsLowEffort) {
-                $issues[] = array(
-                    'type' => 'low_effort',
-                    'action' => \Respectify\ACTION_REVISE
-                );
-            }
-
-            // Check for logical fallacies
-            if ($revise_settings['logical_fallacies'] && !empty($megaResult->commentScore->logicalFallacies)) {
-                $issues[] = array(
-                    'type' => 'logical_fallacies',
-                    'action' => \Respectify\ACTION_REVISE
-                );
-            }
-
-            // Check for objectionable phrases
-            if ($revise_settings['objectionable_phrases'] && !empty($megaResult->commentScore->objectionablePhrases)) {
-                $issues[] = array(
-                    'type' => 'objectionable_phrases',
-                    'action' => \Respectify\ACTION_REVISE
-                );
-            }
-
-            // Check for negative tone
-            if ($revise_settings['negative_tone'] && !empty($megaResult->commentScore->negativeTonePhrases)) {
-                $issues[] = array(
-                    'type' => 'negative_tone',
-                    'action' => \Respectify\ACTION_REVISE
-                );
-            }
-
-            // Check for toxicity
-            if (($revise_settings['toxicity'] ?? true) && isset($megaResult->commentScore->toxicityScore)) {
-                // Validate toxicity threshold
-                $toxicity_threshold = $revise_settings['toxicity_threshold'] ?? \Respectify\REVISE_DEFAULT_TOXICITY_THRESHOLD;
-                if (!is_numeric($toxicity_threshold) || $toxicity_threshold < 0.1 || $toxicity_threshold > 1) {
-                    $toxicity_threshold = \Respectify\REVISE_DEFAULT_TOXICITY_THRESHOLD;
-                }
-                if ($megaResult->commentScore->toxicityScore >= $toxicity_threshold) {
-                    $issues[] = array(
-                        'type' => 'toxicity',
-                        'action' => \Respectify\ACTION_REVISE
-                    );
-                }
-            }
+        // Comment health: the API judges every health item against the levels sent with the call, and reports
+        // the verdict as exceeds_tolerance. A comment over tolerance is sent back for revision.
+        if ($assessment_settings['assess_health'] && isset($megaResult->commentScore) && $megaResult->commentScore->exceedsTolerance) {
+            $issues[] = array(
+                'type' => 'comment_health',
+                'action' => \Respectify\ACTION_REVISE
+            );
         }
 
         // If no issues were found, publish the comment
@@ -1222,7 +1220,7 @@ class RespectifyWordpressPlugin {
 		);
 
 		// Log the comment data for debugging
-		\Respectify\respectify_log('Comment data prepared: ' . wp_json_encode($commentdata));
+		\Respectify\respectify_log('Comment data prepared: ' . \Respectify\respectify_comment_log_summary($commentdata));
 
 		// Intercept and process the comment
 		$result = $this->intercept_comment($commentdata);
@@ -1234,7 +1232,7 @@ class RespectifyWordpressPlugin {
 			]);
 		} else {
 			// Log the result before inserting
-			\Respectify\respectify_log('Comment result before insertion: ' . wp_json_encode($result));
+			\Respectify\respectify_log('Comment result before insertion: ' . \Respectify\respectify_comment_log_summary($result));
 			
 			// Insert the comment into the database directly
 			$comment_id = wp_insert_comment($result);
@@ -1254,17 +1252,17 @@ class RespectifyWordpressPlugin {
 	// For when Javascript is turned off
 	public function respectify_preprocess_comment_no_js($commentdata) {
 		// Intercept and evaluate the comment
-		\Respectify\respectify_log('Intercepting comment with JS turned off: ' . $commentdata['comment_content']);
+		\Respectify\respectify_log('Intercepting comment with JS turned off: ' . \Respectify\respectify_comment_log_summary($commentdata));
 
 		// Verify nonce
 		$this->verify_comment_nonce();
 
 		$result = $this->intercept_comment($commentdata);
 
-		\Respectify\respectify_log('Result of the comment interception: ' . wp_json_encode($result));
+		\Respectify\respectify_log('Result of the comment interception: ' . (is_wp_error($result) ? 'error ' . $result->get_error_code() : 'allowed'));
 
 		if (is_wp_error($result)) {
-			\Respectify\respectify_log('Comment rejected: ' . $result->get_error_message());
+			\Respectify\respectify_log('Comment rejected: ' . $result->get_error_code());
 			
 			// Create a properly formatted HTML error page
 			$html = '<!DOCTYPE html>
@@ -1289,7 +1287,7 @@ class RespectifyWordpressPlugin {
 			wp_die($html, esc_html__('Please revise your comment', 'respectify'), array('back_link' => false));
 		}
 	
-		\Respectify\respectify_log('Comment allowed: ' . $result['comment_content']);
+		\Respectify\respectify_log('Comment allowed: ' . \Respectify\respectify_comment_log_summary($result));
 		// Return processed comment data
 		return $result;
 	}

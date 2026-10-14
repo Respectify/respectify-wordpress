@@ -3,7 +3,8 @@
     "description": "Wordpress comment evaluation via the Respectify API",
     "type": "wordpress-plugin",
     "require": {
-        "respectify/respectify-php": "^0.5.0"
+        "php": ">=8.1",
+        "respectify/respectify-php": "^0.7.0"
     },
     "autoload": {
         "psr-4": {
@@ -15,6 +16,7 @@
         "humbug/php-scoper": "^0.18.15",
         "sniccowp/php-scoper-wordpress-excludes": "^6.6",
         "phpstan/phpstan": "^1.10",
-        "szepeviktor/phpstan-wordpress": "^1.3"
+        "szepeviktor/phpstan-wordpress": "^1.3",
+        "phpunit/phpunit": "^11"
     }
 }

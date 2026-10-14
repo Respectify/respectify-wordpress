@@ -2,8 +2,8 @@
 Contributors: vintagedave, respectify
 Tags: comments, moderation, community, user engagement, spam
 Tested up to: 6.9
-Requires PHP: 8.0
-Stable tag: 0.2.7
+Requires PHP: 8.1
+Stable tag: 0.4.0
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -29,6 +29,28 @@ Respectify is available in the Wordpress plugins directory, so:
 4. That's it!
 
 == Changelog ==
+
+= 0.4.0 =
+* Comment health is now one setting per item: threats, identity attacks, sexual content, harassment, insults, profanity, dismissive tone, logical fallacies, low effort posts, and comment quality. Each is Off, Permissive, Relaxed, Standard, Strict or Zero tolerance, and every item defaults to Standard. Permissive filters only the very worst: only extreme problems (eg a slur combined with a threat, or a credible threat against a named person) are sent back
+* Threats, identity attacks, sexual content and harassment can be made stricter but never permissive, relaxed or turned off
+* Replaces the minimum score slider (now the comment quality level), the per-check checkboxes (now Off for that item), the toxicity threshold, and the separate Moderation Tolerances panel. Existing settings are migrated automatically: a minimum score of 1-2 becomes Relaxed quality, 3 Standard, 4 Strict and 5 Zero tolerance; tolerance levels carry over; a switched-off check turns its items off (objectionable phrases: insults and profanity; negative tone: dismissive tone)
+* Every comment is evaluated under your site's levels, sent with each request. Tolerances are no longer saved for your API key in the Respectify dashboard
+* Respectify decides whether a comment falls short of your site's levels (including when it is severely toxic); the plugin follows that verdict and sends the comment back with feedback. Spam, topic relevance, undesired topics and dogwhistles are separate checks and work as before
+* Each evaluated comment's per-item results (score, minimum and whether it was acceptable) are kept in the comment's `respectify_health` meta, without any comment text
+* Comments that might be spam, but are not certainly spam, are no longer deleted: they are sent back to the commenter with a suggestion (eg to remove a link), together with any comment health feedback. A real person can fix the comment; a spammer won't bother. Comments that are spam are handled as before, following the How to Handle Spam setting
+* Only the checks you have turned on are requested from Respectify, so you are never charged for a check that is off. With every check off, comments are published without calling Respectify at all
+* Fixed: with Undesired Topics set to "Any mention at all", a comment that only briefly mentioned an undesired topic was sent back with a generic message instead of the undesired-topics explanation
+* Fixed: the Undesired Topics mode ("Any mention at all" or a threshold) and the topic relevance settings are now validated when saved, and a saved threshold is kept when switching to "Any mention at all"; undesired topics are saved as plain text, one per line, up to 20 topics of up to 5000 characters each (what Respectify reads)
+* Fixed a typo on the settings page
+* Requires respectify-php 0.7.0
+
+= 0.3.0 =
+* New Moderation Tolerances settings: choose Relaxed, Standard, Strict or Zero tolerance for each kind of problem (threats, identity attacks, sexual content, harassment, insults, profanity, dismissive tone, logical fallacies and low effort posts). Every category defaults to Standard, so existing sites behave as before
+* Threats, identity attacks, sexual content and harassment can be made stricter but never relaxed
+* Categories left at Standard follow the tolerances saved for your API key in the Respectify dashboard
+* When any category is relaxed, a comment's toxicity only triggers a revision request if Respectify also judges it beyond your site's tolerances, so relaxing a category (eg profanity) is not undone by the toxicity score. With no category relaxed, the toxicity threshold works exactly as before
+* Requires respectify-php 0.6.0
+* Now requires PHP 8.1 or later (PHP 8.0 is end-of-life), so bundled dependencies can take security fixes: guzzlehttp/psr7 updated to 2.13.1 (fixes CVE-2026-59882 and CVE-2026-55766)
 
 = 0.2.7 =
 * Fixed an API error that could block comments when comment scoring or dogwhistle checks were enabled without relevance checking; the article context is now fetched whenever any check needs it
