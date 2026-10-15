@@ -79,8 +79,6 @@ echo "Copying essential files and directories to temporary build directory..."
 
 # List of essential files
 ESSENTIAL_FILES=(
-  "readme.txt"
-  "license.txt"
   "index.php"
   "respectify.php"
   "uninstall.php"
@@ -96,6 +94,19 @@ for file in "${ESSENTIAL_FILES[@]}"; do
     echo "Copied $file"
   else
     echo "Warning: '$file' not found in '$PLUGIN_DIR/'. Skipping."
+  fi
+done
+
+# The repo keeps README.txt and LICENSE.txt in uppercase, but wordpress.org reads trunk/readme.txt
+# (lowercase) for the Stable tag, so copy them under lowercase names. A release without either is broken.
+for source_file in "README.txt" "LICENSE.txt"; do
+  destination_file="$(echo "$source_file" | tr '[:upper:]' '[:lower:]')"
+  if [ -f "$PLUGIN_DIR/$source_file" ]; then
+    cp "$PLUGIN_DIR/$source_file" "$TEMP_BUILD_DIR/$destination_file"
+    echo "Copied $source_file as $destination_file"
+  else
+    echo "Error: '$source_file' not found in '$PLUGIN_DIR/'."
+    exit 1
   fi
 done
 
@@ -250,6 +261,21 @@ fi
 if find "$FINAL_BUILD_DIR" -type f \( -name ".env" -o -name ".env.*" \) | grep .; then
     echo "Error: .env file found in final build — strip step is broken"
     exit 1
+fi
+
+# wordpress.org reads trunk/readme.txt (lowercase) for the Stable tag, so a build without it, or with a
+# Stable tag that doesn't match the plugin header, leaves the directory serving the previous release.
+for required_file in "readme.txt" "license.txt"; do
+  if [ ! -f "$FINAL_BUILD_DIR/$required_file" ]; then
+    echo "Error: '$required_file' is missing from the build directory."
+    exit 1
+  fi
+done
+PLUGIN_HEADER_VERSION="$(grep -m1 '^ \* Version:' "$PLUGIN_DIR/respectify.php" | awk '{print $3}')"
+README_STABLE_TAG="$(grep -m1 -i '^Stable tag:' "$FINAL_BUILD_DIR/readme.txt" | awk '{print $3}')"
+if [ "$PLUGIN_HEADER_VERSION" != "$README_STABLE_TAG" ]; then
+  echo "Error: readme.txt Stable tag '$README_STABLE_TAG' does not match plugin Version '$PLUGIN_HEADER_VERSION'."
+  exit 1
 fi
 
 echo "No unwanted files found. Build is clean."
