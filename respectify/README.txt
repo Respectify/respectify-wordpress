@@ -3,7 +3,7 @@ Contributors: vintagedave, respectify
 Tags: comments, moderation, community, user engagement, spam
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 0.4.0
+Stable tag: 0.4.1
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -30,7 +30,7 @@ Respectify is available in the Wordpress plugins directory, so:
 
 == Changelog ==
 
-= Unreleased =
+= 0.4.1 =
 * Security: the settings page no longer puts your saved API key into the page. The API Key field is left empty and says a key is saved; leave it blank to keep the current key, or enter a new key to replace it. Test checks the saved key when the field is blank, and then always against the saved server and API version, never a server typed into the form, so the saved key is only ever sent to the server already configured. Browsers are also told not to autofill a password into the field
 
 = 0.4.0 =

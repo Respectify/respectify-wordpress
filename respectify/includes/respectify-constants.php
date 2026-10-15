@@ -6,7 +6,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit; // Exit if accessed directly
 }
 
-const RESPECTIFY_VERSION = '0.4.0';
+const RESPECTIFY_VERSION = '0.4.1';
 
 const OPTION_EMAIL = 'respectify_email';
 const OPTION_API_KEY_ENCRYPTED = 'respectify_api_key_encrypted';
