@@ -1,7 +1,7 @@
 === Respectify ===
 Contributors: vintagedave, respectify
 Tags: comments, moderation, community, user engagement, spam
-Tested up to: 6.9
+Tested up to: 7.1
 Requires PHP: 8.1
 Stable tag: 0.4.0
 License: GPLv3
