@@ -71,12 +71,16 @@
     // Function to fetch subscription status (used on page load and test click)
     function fetchSubscriptionStatus(showTestResult) {
         var email = $('input[name="respectify_email"]').val();
-        var apiKey = $('input[name="respectify_api_key"]').val();
+        var $apiKeyField = $('input[name="respectify_api_key"]');
+        // The saved key is never in the page, so the field is blank unless a new key has been typed.
+        // With it blank, the server tests the saved key.
+        var apiKey = $apiKeyField.val();
+        var hasSavedApiKey = $apiKeyField.data('respectify-key-saved') === 1;
         var baseUrl = $('input[name="respectify_base_url"]').val();
         var apiVersion = $('input[name="respectify_api_version"]').val();
 
         // Don't fetch if no credentials
-        if (!email || !apiKey) {
+        if (!email || (!apiKey && !hasSavedApiKey)) {
             return;
         }
 

@@ -147,7 +147,8 @@ function wp_doing_ajax(): bool {
 
 
 function wp_verify_nonce(string $nonce, string $action): bool {
-    return $nonce === 'valid-test-nonce' && $action === 'respectify_submit_comment';
+    // The comment form's nonce and the settings page's nonce; any other action is unknown and fails
+    return $nonce === 'valid-test-nonce' && in_array($action, ['respectify_submit_comment', 'respectify_save_settings'], true);
 }
 
 
@@ -233,6 +234,11 @@ function __(string $text, string $domain = 'default'): string {
 
 function esc_html__(string $text, string $domain = 'default'): string {
     return esc_html($text);
+}
+
+
+function esc_html_e(string $text, string $domain = 'default'): void {
+    echo esc_html($text);
 }
 
 

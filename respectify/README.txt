@@ -30,6 +30,9 @@ Respectify is available in the Wordpress plugins directory, so:
 
 == Changelog ==
 
+= Unreleased =
+* Security: the settings page no longer puts your saved API key into the page. The API Key field is left empty and says a key is saved; leave it blank to keep the current key, or enter a new key to replace it. Test checks the saved key when the field is blank, and then always against the saved server and API version, never a server typed into the form, so the saved key is only ever sent to the server already configured. Browsers are also told not to autofill a password into the field
+
 = 0.4.0 =
 * Comment health is now one setting per item: threats, identity attacks, sexual content, harassment, insults, profanity, dismissive tone, logical fallacies, low effort posts, and comment quality. Each is Off, Permissive, Relaxed, Standard, Strict or Zero tolerance, and every item defaults to Standard. Permissive filters only the very worst: only extreme problems (eg a slur combined with a threat, or a credible threat against a named person) are sent back
 * Threats, identity attacks, sexual content and harassment can be made stricter but never permissive, relaxed or turned off

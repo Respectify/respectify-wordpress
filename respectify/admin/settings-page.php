@@ -420,13 +420,26 @@ function respectify_email_callback() {
 }
 
 // Callback to render API key input
+//
+// The saved key is never written into the page, not even into the password field's value, where it would be
+// readable in the page source, by browser extensions and in page caches. The field is always rendered empty;
+// a saved key is shown only as a note that one exists. Saving with the field blank keeps the saved key (see
+// respectify_encrypt_api_key()), so the field is required only until a key has been saved.
 function respectify_api_key_callback() {
-    $api_key = \Respectify\respectify_get_decrypted_api_key();
+    // Only whether a key is saved matters here; the key itself is not decrypted
+    $has_saved_api_key = !empty(get_option(\Respectify\OPTION_API_KEY_ENCRYPTED, ''));
+    $placeholder = $has_saved_api_key
+        ? __('Saved — leave blank to keep the current key', 'respectify')
+        : __('Enter your API key', 'respectify');
     ?>
     <div class="respectify-credentials-wrapper">
         <div class="respectify-credentials-left">
-            <input type="password" name="respectify_api_key" value="<?php echo esc_attr($api_key); ?>" class="regular-text" required />
-            <p class="description"><?php esc_html_e('Enter the Respectify API key you wish to use for this Wordpress site.', 'respectify'); ?></p>
+            <input type="password" name="respectify_api_key" value="" placeholder="<?php echo esc_attr($placeholder); ?>" class="regular-text" autocomplete="new-password" data-respectify-key-saved="<?php echo $has_saved_api_key ? '1' : '0'; ?>"<?php echo $has_saved_api_key ? '' : ' required'; ?> />
+            <?php if ($has_saved_api_key) : ?>
+                <p class="description"><?php esc_html_e('An API key is saved for this WordPress site. For security it is not shown; leave the field blank to keep it, or enter a new key to replace it.', 'respectify'); ?></p>
+            <?php else : ?>
+                <p class="description"><?php esc_html_e('Enter the Respectify API key you wish to use for this WordPress site.', 'respectify'); ?></p>
+            <?php endif; ?>
 
             <div class="respectify-test-container">
                 <button type="button" id="respectify-test-button" class="button"><?php esc_html_e('Test', 'respectify'); ?></button>
@@ -585,6 +598,54 @@ function respectify_enqueue_admin_scripts($hook_suffix) {
     ));
 }
 
+/**
+ * The API key, server and API version the credentials test should use.
+ *
+ * A key typed into the settings field is tested before it is saved, against the server and API version the
+ * request names (falling back to the saved ones), since the admin supplied that key. With the field blank -
+ * the normal case once a key is saved, as the settings page never contains the saved key - the saved key is
+ * tested, and then only against the saved server and API version: any posted server is ignored, so the
+ * stored key can never be sent anywhere other than the server already configured.
+ *
+ * The caller must have checked the AJAX nonce and the manage_options capability.
+ *
+ * @return array{api_key: string, base_url: string, api_version: string} Empty api_key when none is entered or saved.
+ */
+function respectify_test_credentials_connection(): array {
+    // The nonce is verified by the caller, respectify_test_credentials()
+    $entered_api_key = respectify_posted_text_field('api_key');
+    $saved_base_url = (string) get_option(\Respectify\OPTION_BASE_URL, '');
+    $saved_api_version = (string) get_option(\Respectify\OPTION_API_VERSION, '');
+
+    if ($entered_api_key !== null && $entered_api_key !== '') {
+        return array(
+            'api_key' => $entered_api_key,
+            'base_url' => respectify_posted_text_field('base_url') ?? $saved_base_url,
+            'api_version' => respectify_posted_text_field('api_version') ?? $saved_api_version,
+        );
+    }
+
+    $saved_api_key = \Respectify\respectify_get_decrypted_api_key();
+    return array(
+        'api_key' => is_string($saved_api_key) ? $saved_api_key : '',
+        'base_url' => $saved_base_url,
+        'api_version' => $saved_api_version,
+    );
+}
+
+
+/**
+ * A posted text field, sanitised, or null when it was not posted as a string.
+ *
+ * The caller must have verified the request's nonce.
+ */
+function respectify_posted_text_field(string $field_name): ?string {
+    if (!isset($_POST[$field_name]) || !is_string($_POST[$field_name])) {
+        return null;
+    }
+    return sanitize_text_field(wp_unslash($_POST[$field_name]));
+}
+
 // Handle AJAX request for testing credentials
 add_action('wp_ajax_respectify_test_credentials', 'respectify_test_credentials');
 function respectify_test_credentials() {
@@ -595,11 +656,10 @@ function respectify_test_credentials() {
     }
 
     $email = isset($_POST['email']) ? sanitize_email(wp_unslash($_POST['email'])) : get_option(\Respectify\OPTION_EMAIL, '');
-    $api_key = isset($_POST['api_key']) ? sanitize_text_field(wp_unslash($_POST['api_key'])) : \Respectify\respectify_get_decrypted_api_key();
-    
-    // advanced settings
-    $base_url = isset($_POST['base_url']) ? sanitize_text_field(wp_unslash($_POST['base_url'])) : get_option(\Respectify\OPTION_BASE_URL, '');
-    $api_version = isset($_POST['api_version']) ? sanitize_text_field(wp_unslash($_POST['api_version'])) : get_option(\Respectify\OPTION_API_VERSION, '');
+    $connection = respectify_test_credentials_connection();
+    $api_key = $connection['api_key'];
+    $base_url = $connection['base_url'];
+    $api_version = $connection['api_version'];
 
     if (!class_exists('RespectifyScoper\Respectify\RespectifyClientAsync')) {
         wp_send_json_error(array('message' => __('Class not found.', 'respectify')));
